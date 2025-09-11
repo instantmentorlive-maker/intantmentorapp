@@ -1,0 +1,222 @@
+# Instant Mentor – Production Readiness & Launch Plan
+
+_Last updated: 2025-09-10_
+
+## 0. Objective
+Define the mandatory hardening, feature gaps, operational practices, and launch checklist to move the app to a real-user production release (Google Play + Apple App Store) with reliability, security, and growth foundations.
+
+---
+## 1. Critical (P0) – Must Ship Before Public Launch
+| Area | Actions | Success Criteria |
+|------|---------|------------------|
+| Stability & Crashes | Integrate Firebase Crashlytics (Android/iOS), Sentry (optional web). Add global error boundary & Zone error catcher. | <1% sessions with unhandled crash (30d rolling). |
+| Authentication Hardening | Add rate limiting (edge/service), MFA (email OTP or TOTP), token refresh & forced revocation on password/email change, session invalidation on suspicious activity. | 100% sensitive endpoints protected; MFA opt-in available. |
+| WebSocket Reliability | Heartbeats/pings, exponential backoff w/ jitter, max retry cap, auth token rotation, disconnect reason codes, idle timeout, offline queue + replay hints. | 99% message delivery acknowledged in <3s (p95). |
+| Data Security / RLS | Audit all Supabase RLS policies (least privilege). Add audit_log table (user_id, action, target_type, target_id, metadata, ip, ts). | No table w/ unrestricted access; audit coverage >95% sensitive actions. |
+| Payments / Wallet (UPI & future) | Idempotency keys; transaction state machine (initiated→pending→success/failed/expired); reconciliation cron; double-spend prevention via balance snapshot + db constraints. | Zero inconsistent balances in reconciliation test suite. |
+| Video / Calls | Pre-call device test, adaptive bitrate / fallback, auto reconnect, active speaker indication, permission prompts localized. | Successful call setup rate >97%. |
+| Performance | Profile cold start, lazy-load heavy modules, image compression (WebP/AVIF), cache chat lists, limit rebuilds (const, selectors). | Cold start <2.5s; scroll jank <8ms frame time p95. |
+| Error UX | Unified failure banner/dialog component w/ retry, silent re-auth, structured error codes. | All thrown domain errors map to user-facing pattern library. |
+| Observability | Structured logs (user_id, session_id, feature_tag). Metrics: WS uptime, message latency, call success, payment success. | Real-time dashboard live; alerts for error rate > threshold. |
+| Privacy & Legal | GDPR/CCPA consent, ToS/Privacy versioning, account deletion (soft + purge job), data export endpoint. | Legal review passed; deletion SLA < 30 days. |
+| Store Compliance | Adaptive icon, correct bundle IDs, permission usage descriptions (Android/iOS), privacy nutrition labels, age rating. | AppStore/Play Console prechecks pass. |
+| CI/CD | Pipeline: format/analyze → tests → security scan → build (AAB/IPA) → upload internal track/TestFlight. | All merges gated; median pipeline time <15m. |
+| Testing Baseline | Unit: core services; integration: auth→chat→call→payment; golden: key screens; load test: chat + WS concurrency. | Coverage >60% critical paths; load test passes targets (see §11). |
+
+---
+## 2. High Impact (P1) – Improves Retention & Trust
+- Offline Mode: Cache recent chats; optimistic send queue; conflict resolution (server timestamp wins + diff note if overwritten).
+- Push Notifications: FCM & APNs w/ deep links (chat, call invite). Background & terminated handling tested.
+- Real-time Presence: Online state, typing indicators with throttled deltas (e.g., 3s TTL), last seen.
+- In-App Feedback: Post-session mentor rating; report/flag abusive user workflow.
+- Feature Flags: Remote config (e.g., Firestore Remote Config or custom table) gating new modules.
+- Advanced Analytics: Funnel (signup→first chat→first call→first payment), retention cohorts, mentor utilization heatmap.
+- Referral System: Code generation, redemption tracking, optional incentive wallet credit.
+- Accessibility: Dynamic font scaling, contrast validation, semantic labels, screen reader navigation test script.
+- Internationalization: Locale switching, currency/date formatting, timezone normalization.
+- Scalability Prep: WebSocket horizontal scaling blueprint (sticky vs token-based routing), Supabase connection pooling review.
+
+---
+## 3. Differentiators (P2)
+- AI Assist (disclosed) for suggested replies/resources.
+- Session Recording (consent + encrypted at rest + retention policy).
+- Calendar Sync (Google / Outlook) for mentor availability.
+- Full-text Chat Search (potential external index + encryption considerations).
+- Mentor Reputation Scoring (weighted rating, response time, completion rate).
+- In-App Economy (credit packs, subscription tiers, trials, usage caps).
+- Theming System (light/dark/high-contrast + dynamic brand accents).
+
+---
+## 4. Security & Compliance Deep Dive
+| Domain | Tasks |
+|--------|-------|
+| Secrets Management | Move all secrets to environment variables / secret manager; remove any committed keys. |
+| Token Lifecycle | Short-lived access tokens; refresh token rotation; revoke chain on anomaly. |
+| WebSocket Abuse Prevention | Per-connection rate limiting (messages/sec), payload size caps, JSON schema validation, origin checks. |
+| Input Sanitization | Uniform validation layer (length, type, allowed chars) before persistence. |
+| Payment Compliance | Avoid raw PAN; tokenize early; scope app out of PCI where possible. |
+| PII Minimization | Data classification (green/amber/red); retention cleanup jobs; encryption at rest for sensitive columns. |
+| Dependency Hygiene | Automated weekly SCA + on PR scans; renovate/dependabot. |
+| Audit & Forensics | Immutable append-only audit table; correlation ID per request/WS session. |
+
+Threat Model (STRIDE-lite) – catalogue spoofing (auth tokens), tampering (messages/payments), repudiation (audit absence), info disclosure (RLS gaps), DoS (WS floods), elevation (policy misconfig). Mitigations distributed above.
+
+---
+## 5. Operational Excellence
+- Runbooks: incident types (auth outage, payment delay, WS storm, media failure).
+- Synthetic Journey: Scheduled canary (login → open chat → send message) every 5 min.
+- Progressive Delivery: Canary environment + 5% staged rollout → metrics gate.
+- Cost Monitoring: Track Supabase row/storage growth, CDN egress, video minute costs.
+- On-call Rotation & Escalation Matrix.
+
+---
+## 6. Architecture & Codebase Improvements
+| Layer | Improvement |
+|-------|------------|
+| Modularity | Enforce domain-driven package separation (auth, chat, calling, payments, profile). |
+| Dependency Injection | Standardize (e.g., Riverpod/GetIt) with test-friendly overrides. |
+| State Management | Consolidate patterns; eliminate mixed ad-hoc setState vs streams if present. |
+| Caching Layer | Abstract memory+disk; TTL & explicit invalidation triggers. |
+| WebSocket Service | Add reconnect jitter, lifecycle awareness (app pause/resume), message ack/resend, back-pressure handling. |
+| Analytics Interceptor | Central wrapper capturing navigation + domain events with consistent schema. |
+| Error Handling Strategy | DomainError sealed hierarchy → UI mapper → telemetry tag. |
+
+---
+## 7. CI / Quality Gates Pipeline
+Order (fail-fast):
+1. Formatting & Static Analysis: dart format --set-exit-if-changed + analyzer (custom lint thresholds).
+2. Unit Tests: Fast core logic.
+3. Integration Tests: Key user flows (tagged subset on PR; full nightly). 
+4. Security Scans: SCA + secret scan.
+5. Build Artifacts: AAB + IPA + web bundle.
+6. Distribution: Internal track / TestFlight + release notes auto-generation.
+7. Post-Deploy Smoke: Synthetic test re-run; metrics watch (crash spike <30m).
+
+Quality Gates Metrics: Analyzer warnings < threshold; coverage >60% critical; zero high severity vulnerabilities; build reproducible.
+
+---
+## 8. Store Launch Checklist
+| Item | Status Target |
+|------|---------------|
+| App Name & Descriptions | Final copy & localized. |
+| Screenshots & Promo Media | Per form factor (phones/tablets), optional video. |
+| Adaptive Icons / App Icons | Provided in required densities. |
+| Privacy Policy & ToS URLs | Hosted & versioned. |
+| Content Rating & Age Gate | Completed questionnaires. |
+| Permission Justifications | Clear and minimal. |
+| Crash & Analytics Enabled | Verified in test flight/internal track. |
+| Legal Disclaimers | If mentoring minors excluded / disclaimers shown. |
+| Beta Testing Round | Completed & feedback triaged. |
+
+---
+## 9. Initial KPI Set
+- D1 / D7 Retention.
+- Time To First Meaningful Action (signup → first message).
+- Message Delivery Success & p95 Latency.
+- Call Setup Success %, Average Call Length, Drop Reason distribution.
+- Mentor Median Response Time.
+- Payment Success Rate vs Failures.
+- Crash-free Sessions %.
+- WS Reconnects per Active Hour.
+
+---
+## 10. Suggested 6-Sprint Implementation Sequence
+| Sprint | Focus |
+|--------|-------|
+| 1 | Crash/metrics, auth hardening, CI baseline. |
+| 2 | WebSocket resilience, RLS audit, unified error UX. |
+| 3 | Push notifications, offline cache (read-only), payment idempotency. |
+| 4 | Video reliability improvements, audit logging. |
+| 5 | Offline send queue, analytics funnels, presence/typing. |
+| 6 | Referrals, accessibility pass, pre-launch load & polish. |
+
+Post-Sprint 6: Launch candidate freeze → final QA → staged rollout.
+
+---
+## 11. Load & Scale Targets (Phase 1)
+| Metric | Target |
+|--------|--------|
+| Concurrent WebSocket Sessions | 1,000 baseline test. |
+| Chat Throughput | 50 msgs/sec sustained (15 min). |
+| Simultaneous Calls | 100 concurrent (decide infra: P2P vs SFU). |
+| DB Query p95 (Top 10) | <120 ms. |
+| Message Ack p95 | <3 s. |
+
+---
+## 12. Documentation & Governance
+- Architecture Overview Diagram (current vs target modules).
+- Data Flow Diagrams: auth, payment, realtime messaging.
+- Threat Model Document & Mitigation Matrix.
+- Developer Onboarding Guide (environment setup, common scripts).
+- Changelog + Semantic Versioning Discipline.
+
+---
+## 13. Risk Register (Top Items)
+| Risk | Impact | Mitigation |
+|------|--------|------------|
+| WS unreliability on mobile backgrounding | Medium/High | Lifecycle hooks + queued resend + heartbeat. |
+| RLS Misconfiguration | High | Peer-reviewed policy diff + automated policy test harness. |
+| Payment race / double-spend | High | Idempotency + balance constraint + serialized transactions. |
+| Video call network variability | Medium | Adaptive bitrate + reconnect attempts with jitter. |
+| Rapid feature creep pre-launch | Medium | Feature freeze after Sprint 6; backlog triage. |
+
+---
+## 14. Tracking & Execution
+Create a project board columns:
+1. Backlog (scoped)
+2. Sprint Planned
+3. In Progress
+4. In Review (PR + tests green)
+5. Ready for QA
+6. Done
+7. Deferred / Blocked
+
+Each item must have: Definition of Done (tests + telemetry hooks + docs updated).
+
+---
+## 15. Immediate Next Actions (If Not Started)
+1. Inventory current RLS policies → produce gap report.
+2. Add Crashlytics + baseline uncaught exception handler.
+3. Implement WebSocket reconnect strategy + heartbeats.
+4. Establish CI pipeline skeleton (format/analyze/test/build).
+5. Draft audit_log schema & triggers.
+
+---
+## 16. Appendix – Sample Audit Log Schema (Conceptual)
+```sql
+create table audit_log (
+  id bigint generated always as identity primary key,
+  ts timestamptz not null default now(),
+  actor_uuid uuid references auth.users(id),
+  action text not null,
+  target_type text not null,
+  target_id text,
+  metadata jsonb default '{}'::jsonb,
+  ip inet,
+  user_agent text
+);
+```
+Add RLS (read: security team/service role; insert via trusted RPC or policy bound to authenticated users with controlled columns).
+
+---
+## 17. Definition of Done (Per Feature)
+- Code + tests (unit + integration if user path).
+- Lints & analyzer clean (no new warnings above threshold).
+- Telemetry events added & documented.
+- Error states handled & user-safe messaging verified.
+- Docs/changelog updated.
+- Security review (if touching auth/payment/personal data).
+
+---
+## 18. Future (Post GA) Ideas
+- Multi-language mentor matching.
+- AI triage / routing for initial queries.
+- Quality scoring feedback loop (ML ranking for mentor suggestions).
+- Multi-platform desktop packaging.
+
+---
+## 19. Summary
+This plan sequences mandatory security, reliability, and user experience improvements ahead of growth levers. Executing the first six sprints establishes a stable, observable, and compliant foundation suitable for public launch while leaving room for iterative differentiation.
+
+---
+_Repository: instantmentorapp – Branch: master_
