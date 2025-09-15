@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import '../../../core/providers/user_provider.dart';
+
 import '../../../core/providers/mentor_provider.dart';
+import '../../../core/providers/user_provider.dart';
 import '../../../core/routing/app_routes.dart';
 
 class StudentHomeScreen extends ConsumerWidget {
@@ -100,6 +101,7 @@ class StudentHomeScreen extends ConsumerWidget {
               children: [
                 _UpcomingSessionTile(
                   mentorName: 'Dr. Sarah Smith',
+                  mentorId: 'mentor_2', // Demo mentor ID for Dr. Sarah Smith
                   subject: 'Mathematics',
                   time: 'Today, 3:00 PM',
                   duration: '60 min',
@@ -108,6 +110,7 @@ class StudentHomeScreen extends ConsumerWidget {
                 const Divider(height: 1),
                 _UpcomingSessionTile(
                   mentorName: 'Prof. Raj Kumar',
+                  mentorId: 'mentor_1', // Demo mentor ID for Prof. Raj Kumar
                   subject: 'Physics',
                   time: 'Tomorrow, 10:00 AM',
                   duration: '45 min',
@@ -186,6 +189,7 @@ class _QuickActionCard extends StatelessWidget {
 
 class _UpcomingSessionTile extends StatelessWidget {
   final String mentorName;
+  final String mentorId;
   final String subject;
   final String time;
   final String duration;
@@ -193,6 +197,7 @@ class _UpcomingSessionTile extends StatelessWidget {
 
   const _UpcomingSessionTile({
     required this.mentorName,
+    required this.mentorId,
     required this.subject,
     required this.time,
     required this.duration,
@@ -202,9 +207,18 @@ class _UpcomingSessionTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListTile(
-      leading: CircleAvatar(
-        backgroundColor: Theme.of(context).colorScheme.primaryContainer,
-        child: Text(mentorName.split(' ').map((n) => n[0]).join()),
+      leading: GestureDetector(
+        onTap: () => context.go(AppRoutes.mentorProfile(mentorId)),
+        child: CircleAvatar(
+          backgroundColor: Theme.of(context).colorScheme.primaryContainer,
+          child: Text(
+            mentorName.split(' ').map((n) => n[0]).join(),
+            style: TextStyle(
+              color: Theme.of(context).colorScheme.onPrimaryContainer,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ),
       ),
       title: Text('$subject with $mentorName'),
       subtitle: Text('$time • $duration'),

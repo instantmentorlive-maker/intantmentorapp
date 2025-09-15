@@ -10,21 +10,61 @@ class SupabaseService {
 
   SupabaseClient get client => Supabase.instance.client;
 
+  static bool _initialized = false;
+  bool get isInitialized => _initialized;
+  Future<void> init() => SupabaseService.initialize();
+
   /// Initialize Supabase
   static Future<void> initialize() async {
-    final supabaseUrl = dotenv.env['SUPABASE_URL'];
+    var supabaseUrl = dotenv.env['SUPABASE_URL'];
     final supabaseAnonKey = dotenv.env['SUPABASE_ANON_KEY'];
 
     if (supabaseUrl == null || supabaseAnonKey == null) {
-      throw Exception(
-          'Supabase URL and Anon Key must be provided in .env file');
+      throw Exception('Missing SUPABASE_URL or SUPABASE_ANON_KEY in .env');
     }
 
-    await Supabase.initialize(
-      url: supabaseUrl,
-      anonKey: supabaseAnonKey,
-      debug: kDebugMode,
-    );
+    if (supabaseUrl.trim().isEmpty || supabaseAnonKey.trim().isEmpty) {
+      throw Exception('SUPABASE_URL or SUPABASE_ANON_KEY is empty in .env');
+    }
+
+    // Normalize common misconfigurations that lead to 404/empty responses
+    supabaseUrl = supabaseUrl.trim();
+    if (supabaseUrl.endsWith('/')) {
+      supabaseUrl = supabaseUrl.substring(0, supabaseUrl.length - 1);
+    }
+
+    try {
+      await Supabase.initialize(
+        url: supabaseUrl,
+        anonKey: supabaseAnonKey,
+        debug: kDebugMode,
+        // Set explicit flow to avoid platform default inconsistencies
+        authOptions: const FlutterAuthClientOptions(
+          authFlowType: AuthFlowType.implicit,
+        ),
+        // A tiny header helps trace traffic in logs/dashboards
+        headers: const {'X-Client-Info': 'instant-mentor-demo/1.0.0'},
+      );
+      _initialized = true;
+    } on AuthException catch (e) {
+      debugPrint('❌ Supabase initialize AuthException: ${e.message}');
+      rethrow;
+    } catch (e) {
+      debugPrint('❌ Supabase initialize error: $e');
+      rethrow;
+    }
+  }
+
+  /// Lightweight health check (configuration + basic client available)
+  Future<bool> healthCheck() async {
+    try {
+      // Touch a lightweight property; if not initialized this will throw
+      // or return null user but that's fine
+      Supabase.instance.client.auth.currentUser;
+      return _initialized;
+    } catch (_) {
+      return false;
+    }
   }
 
   /// Authentication Methods
@@ -106,8 +146,15 @@ class SupabaseService {
             throw AuthException('Signup failed: ${e.message}');
           }
       }
+    } on AuthUnknownException catch (e) {
+      // Common when the Supabase URL is wrong or blocked, surfaces as 404 empty
+      debugPrint(
+          '🔴 SupabaseService: Unknown auth error (likely misconfig): ${e.message}');
+      throw const AuthException(
+        'Auth service not reachable (404). Please check your Supabase URL and network connection.',
+      );
     } on AuthException {
-      // Re-throw AuthExceptions as-is
+      // Re-throw other AuthExceptions as-is
       rethrow;
     } catch (e) {
       debugPrint('🔴 SupabaseService: Unexpected signup error: $e');
@@ -189,8 +236,15 @@ class SupabaseService {
             throw AuthException('Login failed: ${e.message}');
           }
       }
+    } on AuthUnknownException catch (e) {
+      // Common when the Supabase URL is wrong or blocked, surfaces as 404 empty
+      debugPrint(
+          '🔴 SupabaseService: Unknown auth error (likely misconfig): ${e.message}');
+      throw const AuthException(
+        'Auth service not reachable (404). Please check your Supabase URL and network connection.',
+      );
     } on AuthException {
-      // Re-throw AuthExceptions as-is
+      // Re-throw other AuthExceptions as-is
       rethrow;
     } catch (e) {
       debugPrint('🔴 SupabaseService: Unexpected login error: $e');
@@ -255,7 +309,7 @@ class SupabaseService {
       rethrow;
     } catch (e) {
       debugPrint('🔴 SupabaseService: Failed to verify email OTP: $e');
-      throw AuthException('Invalid verification code. Please try again.');
+      throw const AuthException('Invalid verification code. Please try again.');
     }
   }
 
@@ -310,7 +364,7 @@ class SupabaseService {
       rethrow;
     } catch (e) {
       debugPrint('🔴 SupabaseService: Failed to verify phone OTP: $e');
-      throw AuthException('Invalid verification code. Please try again.');
+      throw const AuthException('Invalid verification code. Please try again.');
     }
   }
 

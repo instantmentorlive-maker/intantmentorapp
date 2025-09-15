@@ -34,7 +34,7 @@ class CacheEntry {
 
   bool get isStale {
     // Consider data stale after 5 minutes without explicit expiry
-    final maxAge = expiresAt ?? createdAt.add(Duration(minutes: 5));
+    final maxAge = expiresAt ?? createdAt.add(const Duration(minutes: 5));
     return DateTime.now().isAfter(maxAge);
   }
 
@@ -310,7 +310,7 @@ class HttpCache {
       final sortedKeys = entries.keys.toList()
         ..sort((a, b) => entries[a]!.compareTo(entries[b]!));
       
-      final maxEntries = (_maxDiskSizeMB * 1024 * 1024) ~/ (1024); // Rough estimate
+      const maxEntries = (_maxDiskSizeMB * 1024 * 1024) ~/ (1024); // Rough estimate
       if (sortedKeys.length > maxEntries) {
         final keysToRemove = sortedKeys.take(sortedKeys.length - maxEntries);
         for (final key in keysToRemove) {

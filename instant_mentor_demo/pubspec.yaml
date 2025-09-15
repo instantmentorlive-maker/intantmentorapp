@@ -63,7 +63,13 @@ dependencies:
   
   # HTTP and Storage
   http: ^1.2.2
+  http_parser: ^4.0.2
   shared_preferences: ^2.3.2
+  
+  # Local Database - Phase 2 Day 14
+  sqflite: ^2.3.3
+  hive: ^2.2.3
+  hive_flutter: ^1.1.0
   
   # Backend Integration & Networking
   dio: ^5.4.0
@@ -87,6 +93,7 @@ dependencies:
   agora_rtc_engine: ^6.3.0
   jitsi_meet_flutter_sdk: ^0.3.0
   url_launcher: ^6.2.5
+  flutter_webrtc: ^1.1.0
   
   # Video Player
   video_player: ^2.8.6
@@ -115,9 +122,12 @@ dependencies:
   # Utils
   intl: ^0.19.0
   uuid: ^4.5.0
+  equatable: ^2.0.5
   
   # Advanced Session Management
   local_auth: ^2.3.0
+  local_auth_android: ^1.0.46
+  local_auth_darwin: ^1.2.5
   crypto: ^3.0.5
   # device_info_plus: ^10.1.2  # Temporarily disabled due to Gradle issues
   package_info_plus: ^8.0.2

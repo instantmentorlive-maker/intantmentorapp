@@ -1,3 +1,6 @@
+// DEPRECATED: This legacy prototype screen is superseded by the controller-driven
+// CallScreen + WebRTCMediaService architecture. Retained temporarily for
+// comparison/testing and will be removed after stabilization.
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
@@ -38,12 +41,16 @@ class _WebRTCCallScreenState extends ConsumerState<WebRTCCallScreen> {
     // If caller, create offer. If callee, prepare local stream and wait for offer.
     if (widget.isCaller) {
       await _svc.startCall(
-          callId: widget.callId, peerUserId: widget.peerUserId, video: widget.video);
+          callId: widget.callId,
+          peerUserId: widget.peerUserId,
+          video: widget.video);
     } else {
       await _svc.acceptCall(
-          callId: widget.callId, peerUserId: widget.peerUserId, video: widget.video);
+          callId: widget.callId,
+          peerUserId: widget.peerUserId,
+          video: widget.video);
     }
-  // Connected state is reflected by active renderers
+    // Connected state is reflected by active renderers
   }
 
   @override
@@ -70,7 +77,7 @@ class _WebRTCCallScreenState extends ConsumerState<WebRTCCallScreen> {
                   Positioned.fill(
                     child: Container(
                       color: Colors.black,
-                      child: RTCVideoView(_svc.remoteRenderer, objectFit: RTCVideoViewObjectFit.RTCVideoViewObjectFitContain),
+                      child: RTCVideoView(_svc.remoteRenderer),
                     ),
                   ),
                   // Local preview
@@ -83,7 +90,10 @@ class _WebRTCCallScreenState extends ConsumerState<WebRTCCallScreen> {
                       borderRadius: BorderRadius.circular(12),
                       child: Container(
                         color: Colors.black54,
-                        child: RTCVideoView(_svc.localRenderer, mirror: true, objectFit: RTCVideoViewObjectFit.RTCVideoViewObjectFitCover),
+                        child: RTCVideoView(_svc.localRenderer,
+                            mirror: true,
+                            objectFit: RTCVideoViewObjectFit
+                                .RTCVideoViewObjectFitCover),
                       ),
                     ),
                   ),
@@ -119,7 +129,8 @@ class _WebRTCCallScreenState extends ConsumerState<WebRTCCallScreen> {
             await _svc.toggleCamera();
             setState(() => _cameraOn = !_cameraOn);
           },
-          child: Icon(_cameraOn ? Icons.videocam : Icons.videocam_off, color: Colors.white),
+          child: Icon(_cameraOn ? Icons.videocam : Icons.videocam_off,
+              color: Colors.white),
         ),
         FloatingActionButton(
           heroTag: 'end',

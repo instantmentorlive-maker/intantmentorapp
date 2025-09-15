@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/models/chat.dart';
 import '../../core/providers/chat_providers.dart';
 import '../../core/providers/auth_provider.dart';
+import '../../core/providers/chat_state_provider.dart';
 import '../../core/routing/routing.dart';
 import 'package:go_router/go_router.dart';
 
@@ -17,13 +18,14 @@ class ChatDetailScreen extends ConsumerStatefulWidget {
 class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
   final TextEditingController _messageController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
-  bool _sending = false;
 
   @override
   Widget build(BuildContext context) {
     final auth = ref.watch(authProvider);
     final me = auth.user;
     final messagesAsync = ref.watch(chatMessagesFamily(widget.thread.id));
+    final chatSendingState =
+        ref.watch(chatSendingFamilyProvider(widget.thread.id));
 
     return Scaffold(
       appBar: AppBar(
@@ -80,7 +82,7 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
           ),
           _MessageInput(
             controller: _messageController,
-            sending: _sending,
+            sending: chatSendingState.isSending,
             onSend: () => _send(me?.id, me?.userMetadata?['name'] ?? 'Me'),
           ),
         ],
@@ -91,7 +93,12 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
   Future<void> _send(String? userId, String senderName) async {
     final text = _messageController.text.trim();
     if (text.isEmpty || userId == null) return;
-    setState(() => _sending = true);
+
+    // Use provider instead of setState
+    ref
+        .read(chatSendingFamilyProvider(widget.thread.id).notifier)
+        .setSending(true);
+
     try {
       final chatService = ref.read(chatServiceProvider);
       await chatService.sendTextMessage(
@@ -115,7 +122,12 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
         SnackBar(content: Text('Send failed: $e')),
       );
     } finally {
-      if (mounted) setState(() => _sending = false);
+      // Use provider instead of setState
+      if (mounted) {
+        ref
+            .read(chatSendingFamilyProvider(widget.thread.id).notifier)
+            .setSending(false);
+      }
     }
   }
 
@@ -181,7 +193,7 @@ class _ChatBubble extends StatelessWidget {
   Widget build(BuildContext context) {
     final bg = isMe
         ? Theme.of(context).colorScheme.primary
-        : Theme.of(context).colorScheme.surfaceVariant;
+        : Theme.of(context).colorScheme.surfaceContainerHighest;
     final fg = isMe
         ? Theme.of(context).colorScheme.onPrimary
         : Theme.of(context).colorScheme.onSurfaceVariant;

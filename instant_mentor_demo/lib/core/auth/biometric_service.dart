@@ -58,7 +58,7 @@ class BiometricService {
       final availabilityResult = await isAvailable();
       if (availabilityResult.isFailure || !availabilityResult.data!) {
         Logger.warning('BiometricService: Biometric authentication not available');
-        return Failure(
+        return const Failure(
           AuthError(
             message: 'Biometric authentication is not available on this device.',
             code: 'BIOMETRIC_NOT_AVAILABLE',
@@ -79,10 +79,10 @@ class BiometricService {
 
       if (authenticated) {
         Logger.info('BiometricService: Authentication successful');
-        return Success(true);
+        return const Success(true);
       } else {
         Logger.warning('BiometricService: Authentication failed or cancelled');
-        return Failure(
+        return const Failure(
           AuthError(
             message: 'Biometric authentication failed. Please try again.',
             code: 'BIOMETRIC_AUTH_FAILED',
@@ -94,35 +94,35 @@ class BiometricService {
       
       switch (e.code) {
         case 'NotEnrolled':
-          return Failure(
+          return const Failure(
             AuthError(
               message: 'No biometrics are enrolled on this device. Please set up fingerprint or face recognition in your device settings.',
               code: 'BIOMETRIC_NOT_ENROLLED',
             ),
           );
         case 'NotAvailable':
-          return Failure(
+          return const Failure(
             AuthError(
               message: 'Biometric authentication is not available on this device.',
               code: 'BIOMETRIC_NOT_AVAILABLE',
             ),
           );
         case 'PasscodeNotSet':
-          return Failure(
+          return const Failure(
             AuthError(
               message: 'Device passcode is not set. Please set up a screen lock in your device settings.',
               code: 'BIOMETRIC_PASSCODE_NOT_SET',
             ),
           );
         case 'LockedOut':
-          return Failure(
+          return const Failure(
             AuthError(
               message: 'Biometric authentication is temporarily locked. Please try again later or use your passcode.',
               code: 'BIOMETRIC_LOCKED_OUT',
             ),
           );
         case 'PermanentlyLockedOut':
-          return Failure(
+          return const Failure(
             AuthError(
               message: 'Biometric authentication is permanently locked. Please use your passcode.',
               code: 'BIOMETRIC_PERMANENTLY_LOCKED_OUT',

@@ -175,7 +175,9 @@ class _FloatingHelpButtonState extends ConsumerState<_FloatingHelpButton>
         // Expanded help widget
         if (_isExpanded)
           Container(
-            width: 320,
+            width: 300, // Made slightly smaller
+            constraints:
+                const BoxConstraints(maxHeight: 400), // Added height constraint
             margin: const EdgeInsets.only(bottom: 16),
             child: const StudentHelpRequestWidget(),
           ),

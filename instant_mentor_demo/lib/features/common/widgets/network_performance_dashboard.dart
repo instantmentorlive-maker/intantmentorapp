@@ -11,13 +11,13 @@ class NetworkPerformanceDashboard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Network Performance'),
+        title: const Text('Network Performance'),
         backgroundColor: Colors.blue[700],
         foregroundColor: Colors.white,
         elevation: 2,
         actions: [
           IconButton(
-            icon: Icon(Icons.refresh),
+            icon: const Icon(Icons.refresh),
             onPressed: () {
               ref.read(networkPerformanceProvider.notifier).updateStats();
               ref.read(networkConnectivityProvider.notifier).checkConnectivity();
@@ -27,18 +27,18 @@ class NetworkPerformanceDashboard extends ConsumerWidget {
         ],
       ),
       body: SingleChildScrollView(
-        padding: EdgeInsets.all(16),
+        padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _buildConnectivitySection(context, ref),
-            SizedBox(height: 24),
+            const SizedBox(height: 24),
             _buildPerformanceSection(context, ref),
-            SizedBox(height: 24),
+            const SizedBox(height: 24),
             _buildCacheSection(context, ref),
-            SizedBox(height: 24),
+            const SizedBox(height: 24),
             _buildOfflineSection(context, ref),
-            SizedBox(height: 24),
+            const SizedBox(height: 24),
             _buildActionsSection(context, ref),
           ],
         ),
@@ -51,7 +51,7 @@ class NetworkPerformanceDashboard extends ConsumerWidget {
     
     return Card(
       child: Padding(
-        padding: EdgeInsets.all(16),
+        padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -61,7 +61,7 @@ class NetworkPerformanceDashboard extends ConsumerWidget {
                   connectivityState.isOnline ? Icons.wifi : Icons.wifi_off,
                   color: connectivityState.isOnline ? Colors.green : Colors.red,
                 ),
-                SizedBox(width: 8),
+                const SizedBox(width: 8),
                 Text(
                   'Connectivity Status',
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
@@ -70,7 +70,7 @@ class NetworkPerformanceDashboard extends ConsumerWidget {
                 ),
               ],
             ),
-            SizedBox(height: 12),
+            const SizedBox(height: 12),
             _buildStatusTile(
               'Status',
               connectivityState.isOnline ? 'Online' : 'Offline',
@@ -98,21 +98,21 @@ class NetworkPerformanceDashboard extends ConsumerWidget {
     
     return Card(
       child: Padding(
-        padding: EdgeInsets.all(16),
+        padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
               children: [
-                Icon(Icons.analytics, color: Colors.blue),
-                SizedBox(width: 8),
+                const Icon(Icons.analytics, color: Colors.blue),
+                const SizedBox(width: 8),
                 Text(
                   'Performance Metrics',
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.bold,
                   ),
                 ),
-                Spacer(),
+                const Spacer(),
                 Switch(
                   value: performanceState.isMonitoring,
                   onChanged: (value) {
@@ -125,7 +125,7 @@ class NetworkPerformanceDashboard extends ConsumerWidget {
                 ),
               ],
             ),
-            SizedBox(height: 12),
+            const SizedBox(height: 12),
             Row(
               children: [
                 Expanded(
@@ -136,7 +136,7 @@ class NetworkPerformanceDashboard extends ConsumerWidget {
                     Colors.blue,
                   ),
                 ),
-                SizedBox(width: 8),
+                const SizedBox(width: 8),
                 Expanded(
                   child: _buildMetricCard(
                     'Success Rate',
@@ -147,7 +147,7 @@ class NetworkPerformanceDashboard extends ConsumerWidget {
                 ),
               ],
             ),
-            SizedBox(height: 8),
+            const SizedBox(height: 8),
             Row(
               children: [
                 Expanded(
@@ -158,7 +158,7 @@ class NetworkPerformanceDashboard extends ConsumerWidget {
                     Colors.orange,
                   ),
                 ),
-                SizedBox(width: 8),
+                const SizedBox(width: 8),
                 Expanded(
                   child: _buildMetricCard(
                     'Cache Hit Rate',
@@ -170,13 +170,13 @@ class NetworkPerformanceDashboard extends ConsumerWidget {
               ],
             ),
             if (stats.totalRequests > 0) ...[
-              SizedBox(height: 12),
+              const SizedBox(height: 12),
               Text('Response Time Percentiles', 
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                   fontWeight: FontWeight.w600,
                 ),
               ),
-              SizedBox(height: 4),
+              const SizedBox(height: 4),
               Row(
                 children: [
                   Expanded(child: _buildPercentileTile('P50', stats.p50ResponseTime)),
@@ -197,34 +197,34 @@ class NetworkPerformanceDashboard extends ConsumerWidget {
     
     return Card(
       child: Padding(
-        padding: EdgeInsets.all(16),
+        padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
               children: [
-                Icon(Icons.storage, color: Colors.green),
-                SizedBox(width: 8),
+                const Icon(Icons.storage, color: Colors.green),
+                const SizedBox(width: 8),
                 Text(
                   'HTTP Cache',
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.bold,
                   ),
                 ),
-                Spacer(),
+                const Spacer(),
                 TextButton.icon(
                   onPressed: () async {
                     await ref.read(httpCacheProvider.notifier).clearCache();
                     ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Cache cleared')),
+                      const SnackBar(content: Text('Cache cleared')),
                     );
                   },
-                  icon: Icon(Icons.clear_all),
-                  label: Text('Clear'),
+                  icon: const Icon(Icons.clear_all),
+                  label: const Text('Clear'),
                 ),
               ],
             ),
-            SizedBox(height: 12),
+            const SizedBox(height: 12),
             if (stats.isNotEmpty) ...[
               Row(
                 children: [
@@ -236,7 +236,7 @@ class NetworkPerformanceDashboard extends ConsumerWidget {
                       Colors.blue,
                     ),
                   ),
-                  SizedBox(width: 8),
+                  const SizedBox(width: 8),
                   Expanded(
                     child: _buildMetricCard(
                       'Disk Entries',
@@ -248,17 +248,17 @@ class NetworkPerformanceDashboard extends ConsumerWidget {
                 ],
               ),
               if ((stats['expiredEntries'] as int? ?? 0) > 0) ...[
-                SizedBox(height: 8),
+                const SizedBox(height: 8),
                 Container(
-                  padding: EdgeInsets.all(8),
+                  padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
                     color: Colors.orange.withOpacity(0.1),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Row(
                     children: [
-                      Icon(Icons.warning, color: Colors.orange, size: 16),
-                      SizedBox(width: 4),
+                      const Icon(Icons.warning, color: Colors.orange, size: 16),
+                      const SizedBox(width: 4),
                       Text(
                         '${stats['expiredEntries']} expired entries need cleanup',
                         style: TextStyle(color: Colors.orange[700]),
@@ -268,7 +268,7 @@ class NetworkPerformanceDashboard extends ConsumerWidget {
                 ),
               ],
             ] else
-              Text('No cache statistics available'),
+              const Text('No cache statistics available'),
           ],
         ),
       ),
@@ -280,14 +280,14 @@ class NetworkPerformanceDashboard extends ConsumerWidget {
     
     return Card(
       child: Padding(
-        padding: EdgeInsets.all(16),
+        padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
               children: [
-                Icon(Icons.cloud_off, color: Colors.red),
-                SizedBox(width: 8),
+                const Icon(Icons.cloud_off, color: Colors.red),
+                const SizedBox(width: 8),
                 Text(
                   'Offline Support',
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
@@ -296,7 +296,7 @@ class NetworkPerformanceDashboard extends ConsumerWidget {
                 ),
               ],
             ),
-            SizedBox(height: 12),
+            const SizedBox(height: 12),
             Row(
               children: [
                 Expanded(
@@ -307,7 +307,7 @@ class NetworkPerformanceDashboard extends ConsumerWidget {
                     Colors.orange,
                   ),
                 ),
-                SizedBox(width: 8),
+                const SizedBox(width: 8),
                 Expanded(
                   child: _buildMetricCard(
                     'Processing',
@@ -319,7 +319,7 @@ class NetworkPerformanceDashboard extends ConsumerWidget {
               ],
             ),
             if ((offlineStats['queueSize'] as int? ?? 0) > 0) ...[
-              SizedBox(height: 12),
+              const SizedBox(height: 12),
               Row(
                 children: [
                   Expanded(
@@ -327,24 +327,24 @@ class NetworkPerformanceDashboard extends ConsumerWidget {
                       onPressed: () async {
                         await ref.read(networkConnectivityProvider.notifier).processOfflineQueue();
                         ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('Processing offline queue...')),
+                          const SnackBar(content: Text('Processing offline queue...')),
                         );
                       },
-                      icon: Icon(Icons.play_arrow),
-                      label: Text('Process Queue'),
+                      icon: const Icon(Icons.play_arrow),
+                      label: const Text('Process Queue'),
                     ),
                   ),
-                  SizedBox(width: 8),
+                  const SizedBox(width: 8),
                   Expanded(
                     child: OutlinedButton.icon(
                       onPressed: () async {
                         await ref.read(networkConnectivityProvider.notifier).clearOfflineQueue();
                         ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('Queue cleared')),
+                          const SnackBar(content: Text('Queue cleared')),
                         );
                       },
-                      icon: Icon(Icons.clear),
-                      label: Text('Clear Queue'),
+                      icon: const Icon(Icons.clear),
+                      label: const Text('Clear Queue'),
                     ),
                   ),
                 ],
@@ -359,7 +359,7 @@ class NetworkPerformanceDashboard extends ConsumerWidget {
   Widget _buildActionsSection(BuildContext context, WidgetRef ref) {
     return Card(
       child: Padding(
-        padding: EdgeInsets.all(16),
+        padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -369,7 +369,7 @@ class NetworkPerformanceDashboard extends ConsumerWidget {
                 fontWeight: FontWeight.bold,
               ),
             ),
-            SizedBox(height: 12),
+            const SizedBox(height: 12),
             Wrap(
               spacing: 8,
               runSpacing: 8,
@@ -379,28 +379,28 @@ class NetworkPerformanceDashboard extends ConsumerWidget {
                     await EnhancedNetworkClient.clearCaches();
                     ref.read(networkPerformanceProvider.notifier).resetMetrics();
                     ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('All caches and metrics cleared')),
+                      const SnackBar(content: Text('All caches and metrics cleared')),
                     );
                   },
-                  icon: Icon(Icons.cleaning_services),
-                  label: Text('Clear All'),
+                  icon: const Icon(Icons.cleaning_services),
+                  label: const Text('Clear All'),
                 ),
                 OutlinedButton.icon(
                   onPressed: () {
                     ref.read(networkPerformanceProvider.notifier).resetMetrics();
                     ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Performance metrics reset')),
+                      const SnackBar(content: Text('Performance metrics reset')),
                     );
                   },
-                  icon: Icon(Icons.restart_alt),
-                  label: Text('Reset Metrics'),
+                  icon: const Icon(Icons.restart_alt),
+                  label: const Text('Reset Metrics'),
                 ),
                 OutlinedButton.icon(
                   onPressed: () {
                     _showDetailedStats(context, ref);
                   },
-                  icon: Icon(Icons.info_outline),
-                  label: Text('Details'),
+                  icon: const Icon(Icons.info_outline),
+                  label: const Text('Details'),
                 ),
               ],
             ),
@@ -412,7 +412,7 @@ class NetworkPerformanceDashboard extends ConsumerWidget {
 
   Widget _buildStatusTile(String label, String value, Color? color) {
     return Padding(
-      padding: EdgeInsets.symmetric(vertical: 4),
+      padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
@@ -431,7 +431,7 @@ class NetworkPerformanceDashboard extends ConsumerWidget {
 
   Widget _buildMetricCard(String title, String value, IconData icon, Color color) {
     return Container(
-      padding: EdgeInsets.all(12),
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: color.withOpacity(0.1),
         borderRadius: BorderRadius.circular(8),
@@ -439,7 +439,7 @@ class NetworkPerformanceDashboard extends ConsumerWidget {
       child: Column(
         children: [
           Icon(icon, color: color, size: 20),
-          SizedBox(height: 4),
+          const SizedBox(height: 4),
           Text(
             value,
             style: TextStyle(
@@ -448,7 +448,7 @@ class NetworkPerformanceDashboard extends ConsumerWidget {
               color: color,
             ),
           ),
-          SizedBox(height: 2),
+          const SizedBox(height: 2),
           Text(
             title,
             style: TextStyle(
@@ -464,7 +464,7 @@ class NetworkPerformanceDashboard extends ConsumerWidget {
 
   Widget _buildPercentileTile(String label, Duration duration) {
     return Container(
-      padding: EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
       child: Column(
         children: [
           Text(
@@ -474,10 +474,10 @@ class NetworkPerformanceDashboard extends ConsumerWidget {
               color: Colors.grey[600],
             ),
           ),
-          SizedBox(height: 2),
+          const SizedBox(height: 2),
           Text(
             '${duration.inMilliseconds}ms',
-            style: TextStyle(
+            style: const TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.w600,
             ),
@@ -508,9 +508,9 @@ class NetworkPerformanceDashboard extends ConsumerWidget {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text('Detailed Network Statistics'),
+        title: const Text('Detailed Network Statistics'),
         content: SingleChildScrollView(
-          child: Container(
+          child: SizedBox(
             width: double.maxFinite,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -536,7 +536,7 @@ class NetworkPerformanceDashboard extends ConsumerWidget {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: Text('Close'),
+            child: const Text('Close'),
           ),
         ],
       ),

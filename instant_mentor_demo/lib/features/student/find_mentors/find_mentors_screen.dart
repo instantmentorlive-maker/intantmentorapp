@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../common/widgets/mentor_presence_widgets.dart';
-import '../../../core/providers/mentor_presence_provider.dart';
-import '../../../core/models/user.dart';
 
 class FindMentorsScreen extends ConsumerStatefulWidget {
   const FindMentorsScreen({super.key});
@@ -142,9 +140,29 @@ class _FindMentorsScreenState extends ConsumerState<FindMentorsScreen>
       final matchesSubject = _selectedSubject == 'All' ||
           mentor['subjects'].toString().contains(_selectedSubject);
 
+      final matchesExam = _selectedExam == 'All' ||
+          mentor['expertise']
+              .toString()
+              .toLowerCase()
+              .contains(_selectedExam.toLowerCase()) ||
+          mentor['subjects']
+              .toString()
+              .toLowerCase()
+              .contains(_selectedExam.toLowerCase());
+
+      final matchesLanguage = _selectedLanguage == 'All' ||
+          mentor['languages'].toString().contains(_selectedLanguage);
+
+      final matchesPrice = mentor['price'] <= _maxPrice;
+
       final matchesAvailability = !_onlineOnly || mentor['isOnline'] == true;
 
-      return matchesSearch && matchesSubject && matchesAvailability;
+      return matchesSearch &&
+          matchesSubject &&
+          matchesExam &&
+          matchesLanguage &&
+          matchesPrice &&
+          matchesAvailability;
     }).toList();
 
     if (filteredMentors.isEmpty) {
@@ -188,70 +206,19 @@ class _FindMentorsScreenState extends ConsumerState<FindMentorsScreen>
   void _showFilterDialog() {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Advanced Filters'),
-        content: SizedBox(
-          width: double.maxFinite,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              DropdownButtonFormField<String>(
-                initialValue: _selectedExam,
-                decoration:
-                    const InputDecoration(labelText: 'Exam Preparation'),
-                items: ['All', 'JEE', 'NEET', 'IELTS', 'SAT', 'GMAT']
-                    .map((e) => DropdownMenuItem(value: e, child: Text(e)))
-                    .toList(),
-                onChanged: (value) => setState(() => _selectedExam = value!),
-              ),
-              const SizedBox(height: 16),
-              DropdownButtonFormField<String>(
-                initialValue: _selectedLanguage,
-                decoration:
-                    const InputDecoration(labelText: 'Teaching Language'),
-                items: ['All', 'English', 'Hindi', 'Tamil', 'Telugu', 'Bengali']
-                    .map((l) => DropdownMenuItem(value: l, child: Text(l)))
-                    .toList(),
-                onChanged: (value) =>
-                    setState(() => _selectedLanguage = value!),
-              ),
-              const SizedBox(height: 16),
-              Text('Maximum Price: \$${_maxPrice.toInt()}/hour'),
-              Slider(
-                value: _maxPrice,
-                min: 10,
-                max: 200,
-                divisions: 19,
-                onChanged: (value) => setState(() => _maxPrice = value),
-              ),
-              CheckboxListTile(
-                title: const Text('Show only available mentors'),
-                value: _onlineOnly,
-                onChanged: (value) => setState(() => _onlineOnly = value!),
-                controlAffinity: ListTileControlAffinity.leading,
-              ),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              setState(() {
-                _selectedSubject = 'All';
-                _selectedExam = 'All';
-                _selectedLanguage = 'All';
-                _maxPrice = 100;
-                _onlineOnly = false;
-              });
-              Navigator.pop(context);
-            },
-            child: const Text('Reset'),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Apply'),
-          ),
-        ],
+      builder: (context) => FilterDialog(
+        selectedExam: _selectedExam,
+        selectedLanguage: _selectedLanguage,
+        maxPrice: _maxPrice,
+        onlineOnly: _onlineOnly,
+        onApply: (exam, language, price, online) {
+          setState(() {
+            _selectedExam = exam;
+            _selectedLanguage = language;
+            _maxPrice = price;
+            _onlineOnly = online;
+          });
+        },
       ),
     );
   }
@@ -386,6 +353,7 @@ class _MentorCard extends StatelessWidget {
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
           children: [
             Row(
               children: [
@@ -496,11 +464,17 @@ class _MentorCard extends StatelessWidget {
               style: TextStyle(color: Colors.grey[600]),
             ),
             const SizedBox(height: 8),
-            Text(
-              mentor['bio'].toString(),
-              style: TextStyle(color: Colors.grey[700]),
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
+            // Replace Flexible (which can conflict with a shrink-wrapped Column)
+            // with a constrained text block to avoid layout overflows on small
+            // screens while still clamping to two lines.
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxHeight: 40),
+              child: Text(
+                mentor['bio'].toString(),
+                style: TextStyle(color: Colors.grey[700]),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
             ),
 
             const SizedBox(height: 12),
@@ -655,8 +629,14 @@ class MentorProfileScreen extends StatelessWidget {
       appBar: AppBar(
         title: Text(mentor['name'].toString()),
         actions: [
-          IconButton(onPressed: () {}, icon: const Icon(Icons.share)),
-          IconButton(onPressed: () {}, icon: const Icon(Icons.favorite_border)),
+          IconButton(
+            onPressed: () => _shareProfile(context, mentor),
+            icon: const Icon(Icons.share),
+          ),
+          IconButton(
+            onPressed: () => _toggleFavorite(context, mentor),
+            icon: const Icon(Icons.favorite_border),
+          ),
         ],
       ),
       body: SingleChildScrollView(
@@ -751,10 +731,20 @@ class MentorProfileScreen extends StatelessWidget {
                   padding:
                       const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                   decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.secondaryContainer,
+                    color: Colors.blue
+                        .withOpacity(0.1), // Light blue instead of dark
                     borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                        color: Colors.blue.withOpacity(
+                            0.3)), // Add border for better visibility
                   ),
-                  child: Text(achievement),
+                  child: Text(
+                    achievement,
+                    style: const TextStyle(
+                      color: Colors.black87, // Dark text for better contrast
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
                 );
               }).toList(),
             ),
@@ -765,7 +755,9 @@ class MentorProfileScreen extends StatelessWidget {
             SizedBox(
               width: double.infinity,
               child: ElevatedButton.icon(
-                onPressed: mentor['isOnline'] == true ? () {} : null,
+                onPressed: mentor['isOnline'] == true
+                    ? () => _bookSessionFromProfile(context, mentor)
+                    : () => _scheduleSession(context, mentor),
                 icon: const Icon(Icons.book_online),
                 label: Text(mentor['isOnline'] == true
                     ? 'Book Session Now'
@@ -779,7 +771,7 @@ class MentorProfileScreen extends StatelessWidget {
             SizedBox(
               width: double.infinity,
               child: OutlinedButton.icon(
-                onPressed: () {},
+                onPressed: () => _sendMessage(context, mentor),
                 icon: const Icon(Icons.chat),
                 label: const Text('Send Message'),
                 style: OutlinedButton.styleFrom(
@@ -789,6 +781,214 @@ class MentorProfileScreen extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  void _shareProfile(BuildContext context, Map<String, dynamic> mentor) {
+    // Show share options dialog
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Share Mentor Profile'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.link),
+              title: const Text('Copy Link'),
+              onTap: () {
+                Navigator.of(context).pop();
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                        'Profile link for ${mentor['name']} copied to clipboard'),
+                    backgroundColor: Colors.green,
+                  ),
+                );
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.share),
+              title: const Text('Share via Apps'),
+              onTap: () {
+                Navigator.of(context).pop();
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Sharing ${mentor['name']}\'s profile...'),
+                    backgroundColor: Colors.blue,
+                  ),
+                );
+              },
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cancel'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _toggleFavorite(BuildContext context, Map<String, dynamic> mentor) {
+    // Toggle favorite status
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('${mentor['name']} added to favorites!'),
+        backgroundColor: Colors.red,
+        action: SnackBarAction(
+          label: 'View Favorites',
+          onPressed: () {
+            // Navigate to favorites screen
+          },
+        ),
+      ),
+    );
+  }
+
+  void _bookSessionFromProfile(
+      BuildContext context, Map<String, dynamic> mentor) {
+    // Show booking dialog
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Book Session with ${mentor['name']}'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Rate: \$${mentor['price']}/hour'),
+            const SizedBox(height: 16),
+            const Text('Select Duration:'),
+            const SizedBox(height: 8),
+            Column(
+              children: [
+                ListTile(
+                  title:
+                      Text('30 minutes - \$${(mentor['price'] / 2).toInt()}'),
+                  leading: Radio<int>(
+                    value: 30,
+                    groupValue: 60,
+                    onChanged: (value) {},
+                  ),
+                ),
+                ListTile(
+                  title: Text('1 hour - \$${mentor['price']}'),
+                  leading: Radio<int>(
+                    value: 60,
+                    groupValue: 60,
+                    onChanged: (value) {},
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('Session booked with ${mentor['name']}!'),
+                  backgroundColor: Colors.green,
+                ),
+              );
+            },
+            child: const Text('Book Now'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _scheduleSession(BuildContext context, Map<String, dynamic> mentor) {
+    // Show scheduling dialog
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Schedule Session with ${mentor['name']}'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('This mentor is currently offline.'),
+            const SizedBox(height: 16),
+            const Text(
+                'You can schedule a session for when they become available.'),
+            const SizedBox(height: 16),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Schedule feature coming soon!'),
+                    backgroundColor: Colors.orange,
+                  ),
+                );
+              },
+              child: const Text('Schedule for Later'),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cancel'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _sendMessage(BuildContext context, Map<String, dynamic> mentor) {
+    // Show message dialog
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Send Message to ${mentor['name']}'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const TextField(
+              decoration: InputDecoration(
+                labelText: 'Your Message',
+                hintText: 'Type your message here...',
+                border: OutlineInputBorder(),
+              ),
+              maxLines: 3,
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'This will start a new chat conversation with the mentor.',
+              style: TextStyle(fontSize: 12, color: Colors.grey),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('Message sent to ${mentor['name']}!'),
+                  backgroundColor: Colors.green,
+                ),
+              );
+            },
+            child: const Text('Send'),
+          ),
+        ],
       ),
     );
   }
@@ -817,6 +1017,122 @@ class _DetailRow extends StatelessWidget {
           Expanded(child: Text(value)),
         ],
       ),
+    );
+  }
+}
+
+class FilterDialog extends StatefulWidget {
+  final String selectedExam;
+  final String selectedLanguage;
+  final double maxPrice;
+  final bool onlineOnly;
+  final Function(String, String, double, bool) onApply;
+
+  const FilterDialog({
+    super.key,
+    required this.selectedExam,
+    required this.selectedLanguage,
+    required this.maxPrice,
+    required this.onlineOnly,
+    required this.onApply,
+  });
+
+  @override
+  State<FilterDialog> createState() => _FilterDialogState();
+}
+
+class _FilterDialogState extends State<FilterDialog> {
+  late String _selectedExam;
+  late String _selectedLanguage;
+  late double _maxPrice;
+  late bool _onlineOnly;
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedExam = widget.selectedExam;
+    _selectedLanguage = widget.selectedLanguage;
+    _maxPrice = widget.maxPrice;
+    _onlineOnly = widget.onlineOnly;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Advanced Filters'),
+      content: SizedBox(
+        width: double.maxFinite,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            DropdownButtonFormField<String>(
+              value: _selectedExam,
+              decoration: const InputDecoration(labelText: 'Exam Preparation'),
+              items: ['All', 'JEE', 'NEET', 'IELTS', 'SAT', 'GMAT']
+                  .map((e) => DropdownMenuItem(value: e, child: Text(e)))
+                  .toList(),
+              onChanged: (value) {
+                if (value != null) {
+                  setState(() => _selectedExam = value);
+                }
+              },
+            ),
+            const SizedBox(height: 16),
+            DropdownButtonFormField<String>(
+              value: _selectedLanguage,
+              decoration: const InputDecoration(labelText: 'Teaching Language'),
+              items: ['All', 'English', 'Hindi', 'Tamil', 'Telugu', 'Bengali']
+                  .map((l) => DropdownMenuItem(value: l, child: Text(l)))
+                  .toList(),
+              onChanged: (value) {
+                if (value != null) {
+                  setState(() => _selectedLanguage = value);
+                }
+              },
+            ),
+            const SizedBox(height: 16),
+            Text('Maximum Price: \$${_maxPrice.toInt()}/hour'),
+            Slider(
+              value: _maxPrice,
+              min: 10,
+              max: 200,
+              divisions: 19,
+              onChanged: (value) => setState(() => _maxPrice = value),
+            ),
+            CheckboxListTile(
+              title: const Text('Show only available mentors'),
+              value: _onlineOnly,
+              onChanged: (value) {
+                if (value != null) {
+                  setState(() => _onlineOnly = value);
+                }
+              },
+              controlAffinity: ListTileControlAffinity.leading,
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () {
+            setState(() {
+              _selectedExam = 'All';
+              _selectedLanguage = 'All';
+              _maxPrice = 100;
+              _onlineOnly = false;
+            });
+          },
+          child: const Text('Reset'),
+        ),
+        ElevatedButton(
+          onPressed: () {
+            widget.onApply(
+                _selectedExam, _selectedLanguage, _maxPrice, _onlineOnly);
+            Navigator.pop(context);
+          },
+          child: const Text('Apply'),
+        ),
+      ],
     );
   }
 }

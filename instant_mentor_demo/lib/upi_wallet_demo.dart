@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../features/student/wallet/enhanced_wallet_screen.dart';
-import 'core/providers/enhanced_wallet_provider.dart';
 import 'core/providers/upi_providers.dart';
 
 void main() {
@@ -195,7 +194,7 @@ class UpiWalletDemo extends ConsumerWidget {
                                   radius: 16,
                                   backgroundColor: _getAppColor(app.name),
                                   child: Text(
-                                    app.name[0],
+                                    (app.name.isNotEmpty ? app.name[0] : '?'),
                                     style: const TextStyle(
                                       color: Colors.white,
                                       fontWeight: FontWeight.bold,

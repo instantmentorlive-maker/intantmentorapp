@@ -3,12 +3,12 @@ import 'package:flutter/material.dart';
 class AppTheme {
   // Primary Colors
   static const Color deepNavy = Color(0xFF0B1C49);
-  static const Color brightBlue = Color(0xFF2563EB);
+  static const Color brightBlue = Color(0xFF2563EB); // Original blue color
   static const Color lightGray = Color(0xFFF8FAFC);
   static const Color mediumGray = Color(0xFFE2E8F0);
   static const Color darkGray = Color(0xFF64748B);
   static const Color white = Color(0xFFFFFFFF);
-  
+
   // Gradient Colors
   static const Color gradientStart = Color(0xFF0B1C49);
   static const Color gradientEnd = Color(0xFF1E293B);
@@ -19,25 +19,21 @@ class AppTheme {
   static const Color success = Color(0xFF10B981);
   static const Color warning = Color(0xFFF59E0B);
   static const Color error = Color(0xFFEF4444);
-  
+
   static ThemeData get lightTheme {
     return ThemeData(
       useMaterial3: true,
       brightness: Brightness.light,
-      
+
       // Color Scheme
       colorScheme: const ColorScheme.light(
         primary: brightBlue,
         secondary: deepNavy,
-        surface: white,
-        background: lightGray,
-        onPrimary: white,
         onSecondary: white,
         onSurface: deepNavy,
-        onBackground: deepNavy,
         outline: mediumGray,
       ),
-      
+
       // App Bar Theme
       appBarTheme: const AppBarTheme(
         backgroundColor: deepNavy,
@@ -52,7 +48,7 @@ class AppTheme {
         ),
         iconTheme: IconThemeData(color: white),
       ),
-      
+
       // Text Theme
       textTheme: const TextTheme(
         displayLarge: TextStyle(
@@ -146,18 +142,18 @@ class AppTheme {
           fontFamily: 'SF Pro Text',
         ),
       ),
-      
+
       // Card Theme
-      cardTheme: CardTheme(
+      cardTheme: CardThemeData(
         elevation: 2,
         shadowColor: deepNavy.withOpacity(0.1),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
         ),
         color: white,
-        margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 0),
+        margin: const EdgeInsets.symmetric(vertical: 4),
       ),
-      
+
       // Elevated Button Theme
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
@@ -176,7 +172,7 @@ class AppTheme {
           ),
         ),
       ),
-      
+
       // Text Button Theme
       textButtonTheme: TextButtonThemeData(
         style: TextButton.styleFrom(
@@ -192,18 +188,18 @@ class AppTheme {
           ),
         ),
       ),
-      
+
       // Input Decoration Theme
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: Colors.white,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: mediumGray, width: 1),
+          borderSide: const BorderSide(color: mediumGray),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: mediumGray, width: 1),
+          borderSide: const BorderSide(color: mediumGray),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
@@ -211,9 +207,10 @@ class AppTheme {
         ),
         errorBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: error, width: 1),
+          borderSide: const BorderSide(color: error),
         ),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         hintStyle: const TextStyle(
           color: darkGray,
           fontSize: 14,
@@ -225,7 +222,7 @@ class AppTheme {
           fontFamily: 'SF Pro Text',
         ),
       ),
-      
+
       // Chip Theme
       chipTheme: ChipThemeData(
         backgroundColor: lightGray,
@@ -241,7 +238,7 @@ class AppTheme {
         ),
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       ),
-      
+
       // Bottom Navigation Bar Theme
       bottomNavigationBarTheme: const BottomNavigationBarThemeData(
         selectedItemColor: brightBlue,
@@ -259,12 +256,12 @@ class AppTheme {
           fontFamily: 'SF Pro Text',
         ),
       ),
-      
+
       // Scaffold Background
       scaffoldBackgroundColor: lightGray,
     );
   }
-  
+
   // Gradient Decorations
   static BoxDecoration get gradientBackground {
     return const BoxDecoration(
@@ -275,7 +272,7 @@ class AppTheme {
       ),
     );
   }
-  
+
   static BoxDecoration get cardGradient {
     return BoxDecoration(
       gradient: const LinearGradient(
@@ -293,7 +290,7 @@ class AppTheme {
       ],
     );
   }
-  
+
   static BoxDecoration get primaryButtonGradient {
     return BoxDecoration(
       gradient: const LinearGradient(
@@ -311,7 +308,7 @@ class AppTheme {
       ],
     );
   }
-  
+
   // Text Styles
   static const TextStyle cardTitle = TextStyle(
     fontSize: 18,
@@ -319,21 +316,21 @@ class AppTheme {
     color: deepNavy,
     fontFamily: 'SF Pro Display',
   );
-  
+
   static const TextStyle cardSubtitle = TextStyle(
     fontSize: 14,
     fontWeight: FontWeight.w400,
     color: darkGray,
     fontFamily: 'SF Pro Text',
   );
-  
+
   static const TextStyle buttonText = TextStyle(
     fontSize: 16,
     fontWeight: FontWeight.w600,
     color: white,
     fontFamily: 'SF Pro Text',
   );
-  
+
   static const TextStyle captionText = TextStyle(
     fontSize: 12,
     fontWeight: FontWeight.w400,

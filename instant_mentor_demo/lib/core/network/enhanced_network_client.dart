@@ -345,10 +345,10 @@ class PerformanceConfig {
   // Connection settings
   int maxConnections = 6;
   int maxConnectionsPerHost = 4;
-  Duration connectionTimeout = Duration(seconds: 10);
-  Duration receiveTimeout = Duration(seconds: 30);
-  Duration sendTimeout = Duration(seconds: 30);
-  Duration idleTimeout = Duration(seconds: 60);
+  Duration connectionTimeout = const Duration(seconds: 10);
+  Duration receiveTimeout = const Duration(seconds: 30);
+  Duration sendTimeout = const Duration(seconds: 30);
+  Duration idleTimeout = const Duration(seconds: 60);
   bool enableKeepAlive = true;
 
   // Feature flags
@@ -359,11 +359,11 @@ class PerformanceConfig {
   bool enablePerformanceMonitoring = true;
 
   // Cache configuration
-  Duration defaultCacheDuration = Duration(minutes: 5);
+  Duration defaultCacheDuration = const Duration(minutes: 5);
   List<String> cacheableMethods = ['GET', 'HEAD'];
 
   // Retry configuration
-  RetryConfig retryConfig = RetryConfig();
+  RetryConfig retryConfig = const RetryConfig();
 
   // Offline configuration
   int defaultOfflinePriority = 0;

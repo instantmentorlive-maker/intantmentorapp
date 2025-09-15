@@ -160,7 +160,7 @@ class ProfileManagementScreen extends ConsumerWidget {
                   const SizedBox(height: 8),
                   Row(
                     children: [
-                      Icon(Icons.star, color: Colors.amber, size: 16),
+                      const Icon(Icons.star, color: Colors.amber, size: 16),
                       const SizedBox(width: 4),
                       Text('${profile['rating']} (${profile['totalSessions']} sessions)'),
                     ],

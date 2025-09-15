@@ -166,7 +166,7 @@ class ProgressScreen extends ConsumerWidget {
           ),
           const SizedBox(height: 12),
           
-          ...progressList.map((progress) => _SubjectProgressCard(progress: progress)).toList(),
+          ...progressList.map((progress) => _SubjectProgressCard(progress: progress)),
           
           const SizedBox(height: 24),
           
@@ -508,7 +508,7 @@ class _DetailedProgressDialog extends StatelessWidget {
                             ],
                           ),
                         );
-                      }).toList(),
+                      }),
                       if (progress.weakAreas.isNotEmpty) ...[
                         const SizedBox(height: 12),
                         const Text(

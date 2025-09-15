@@ -337,7 +337,7 @@ class SessionNotesScreen extends ConsumerWidget {
               children: [
                 DropdownButtonFormField<String>(
                   decoration: const InputDecoration(labelText: 'Select Mentor'),
-                  value: selectedMentor,
+                  initialValue: selectedMentor,
                   items: [
                     'Dr. Sarah Smith',
                     'Prof. Raj Kumar',
@@ -353,7 +353,7 @@ class SessionNotesScreen extends ConsumerWidget {
                 DropdownButtonFormField<String>(
                   decoration:
                       const InputDecoration(labelText: 'Select Subject'),
-                  value: selectedSubject,
+                  initialValue: selectedSubject,
                   items: ['Mathematics', 'Physics', 'Chemistry', 'English']
                       .map((subject) => DropdownMenuItem(
                           value: subject, child: Text(subject)))
@@ -402,8 +402,6 @@ class SessionNotesScreen extends ConsumerWidget {
                         ? selectedTopic
                         : titleController.text,
                     date: DateTime.now(),
-                    hasRecording: false,
-                    isBookmarked: false,
                   );
 
                   ref.read(notesProvider.notifier).addNote(newNote);
@@ -522,24 +520,169 @@ class SessionNotesScreen extends ConsumerWidget {
   void _showFilterDialog(BuildContext context) {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Filter Notes'),
-        content: const Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text('Filter options will be implemented here'),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Close'),
-          ),
-        ],
-      ),
+      builder: (context) {
+        return Consumer(builder: (context, ref, _) {
+          final notes = ref.watch(notesProvider);
+          final filter = ref.watch(filterStateProvider);
+          final subjects = notes.map((n) => n.subject).toSet().toList()..sort();
+          final mentors = notes.map((n) => n.mentor).toSet().toList()..sort();
+          FilterState temp = filter;
+          return StatefulBuilder(
+            builder: (context, setState) => AlertDialog(
+              title: const Text('Filter Notes'),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('Subject',
+                        style: TextStyle(fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 8),
+                    DropdownButtonFormField<String?>(
+                      value: temp.selectedSubject,
+                      isDense: true,
+                      decoration: const InputDecoration(
+                          border: OutlineInputBorder(),
+                          hintText: 'All Subjects'),
+                      items: [
+                        const DropdownMenuItem<String?>(
+                            value: null, child: Text('All Subjects')),
+                        ...subjects.map((s) => DropdownMenuItem<String?>(
+                            value: s, child: Text(s))),
+                      ],
+                      onChanged: (v) {
+                        setState(
+                            () => temp = temp.copyWith(selectedSubject: v));
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    const Text('Mentor',
+                        style: TextStyle(fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 8),
+                    DropdownButtonFormField<String?>(
+                      value: temp.selectedMentor,
+                      isDense: true,
+                      decoration: const InputDecoration(
+                          border: OutlineInputBorder(),
+                          hintText: 'All Mentors'),
+                      items: [
+                        const DropdownMenuItem<String?>(
+                            value: null, child: Text('All Mentors')),
+                        ...mentors.map((m) => DropdownMenuItem<String?>(
+                            value: m, child: Text(m))),
+                      ],
+                      onChanged: (v) {
+                        setState(() => temp = temp.copyWith(selectedMentor: v));
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    const Text('Date Range',
+                        style: TextStyle(fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 8),
+                    OutlinedButton(
+                      onPressed: () async {
+                        final picked = await showDateRangePicker(
+                          context: context,
+                          firstDate: DateTime(2023),
+                          lastDate: DateTime.now(),
+                          initialDateRange: temp.dateRange,
+                        );
+                        if (picked != null)
+                          setState(
+                              () => temp = temp.copyWith(dateRange: picked));
+                      },
+                      child: Text(temp.dateRange == null
+                          ? 'Select Date Range'
+                          : '${temp.dateRange!.start.toString().split(' ').first} - ${temp.dateRange!.end.toString().split(' ').first}'),
+                    ),
+                    if (temp.dateRange != null)
+                      TextButton(
+                        onPressed: () => setState(
+                            () => temp = temp.copyWith(dateRange: null)),
+                        child: const Text('Clear Date Range'),
+                      ),
+                    const Divider(height: 24),
+                    CheckboxListTile(
+                      dense: true,
+                      contentPadding: EdgeInsets.zero,
+                      title: const Text('Show only bookmarked'),
+                      value: temp.showBookmarkedOnly,
+                      onChanged: (v) => setState(() =>
+                          temp = temp.copyWith(showBookmarkedOnly: v ?? false)),
+                    ),
+                    CheckboxListTile(
+                      dense: true,
+                      contentPadding: EdgeInsets.zero,
+                      title: const Text('Show only with recordings'),
+                      value: temp.showWithRecordingOnly,
+                      onChanged: (v) => setState(() => temp =
+                          temp.copyWith(showWithRecordingOnly: v ?? false)),
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () {
+                    setState(() => temp = const FilterState());
+                  },
+                  child: const Text('Clear All'),
+                ),
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Cancel'),
+                ),
+                ElevatedButton(
+                  onPressed: () {
+                    ref.read(filterStateProvider.notifier).state = temp;
+                    Navigator.pop(context);
+                  },
+                  child: const Text('Apply'),
+                ),
+              ],
+            ),
+          );
+        });
+      },
     );
   }
 }
+
+// --- Filter Support (duplicated from main implementation to keep this file functional) ---
+class FilterState {
+  final String? selectedSubject;
+  final String? selectedMentor;
+  final DateTimeRange? dateRange;
+  final bool showBookmarkedOnly;
+  final bool showWithRecordingOnly;
+
+  const FilterState({
+    this.selectedSubject,
+    this.selectedMentor,
+    this.dateRange,
+    this.showBookmarkedOnly = false,
+    this.showWithRecordingOnly = false,
+  });
+
+  FilterState copyWith({
+    String? selectedSubject,
+    String? selectedMentor,
+    DateTimeRange? dateRange,
+    bool? showBookmarkedOnly,
+    bool? showWithRecordingOnly,
+  }) =>
+      FilterState(
+        selectedSubject: selectedSubject ?? this.selectedSubject,
+        selectedMentor: selectedMentor ?? this.selectedMentor,
+        dateRange: dateRange ?? this.dateRange,
+        showBookmarkedOnly: showBookmarkedOnly ?? this.showBookmarkedOnly,
+        showWithRecordingOnly:
+            showWithRecordingOnly ?? this.showWithRecordingOnly,
+      );
+}
+
+final filterStateProvider =
+    StateProvider<FilterState>((_) => const FilterState());
 
 class _StatCard extends StatelessWidget {
   final IconData icon;

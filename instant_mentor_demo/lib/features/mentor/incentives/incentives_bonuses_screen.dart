@@ -143,11 +143,11 @@ class IncentivesBonusesScreen extends ConsumerWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
+            const Row(
               children: [
                 Icon(Icons.monetization_on, color: Colors.green, size: 28),
-                const SizedBox(width: 12),
-                const Text(
+                SizedBox(width: 12),
+                Text(
                   'Bonus Earnings',
                   style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                 ),
@@ -219,11 +219,11 @@ class IncentivesBonusesScreen extends ConsumerWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
+            const Row(
               children: [
                 Icon(Icons.grade, color: Colors.amber, size: 28),
-                const SizedBox(width: 12),
-                const Text(
+                SizedBox(width: 12),
+                Text(
                   'Mentor Tier Progress',
                   style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                 ),
@@ -291,7 +291,7 @@ class IncentivesBonusesScreen extends ConsumerWidget {
           style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 12),
-        ...challenges.map((challenge) => _buildChallengeCard(challenge)).toList(),
+        ...challenges.map((challenge) => _buildChallengeCard(challenge)),
       ],
     );
   }
@@ -440,11 +440,11 @@ class IncentivesBonusesScreen extends ConsumerWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
+            const Row(
               children: [
                 Icon(Icons.people_alt, color: Colors.purple, size: 28),
-                const SizedBox(width: 12),
-                const Text(
+                SizedBox(width: 12),
+                Text(
                   'Referral Program',
                   style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                 ),
@@ -593,11 +593,11 @@ class IncentivesBonusesScreen extends ConsumerWidget {
                           Expanded(child: Text(benefit)),
                         ],
                       ),
-                    )).toList(),
+                    )),
                   ],
                 ),
               );
-            }).toList(),
+            }),
           ],
         ),
       ),

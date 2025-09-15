@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../core/error/app_error.dart';
 import '../../../core/models/user.dart';
-import '../../../data/repositories/auth_repository.dart';
+import '../../../data/repositories/base_repository.dart';
 import '../../../core/providers/repository_providers.dart';
 import '../../../core/utils/result.dart';
 import '../../../core/providers/user_provider.dart';
@@ -73,14 +72,14 @@ class AuthNotifier extends StateNotifier<AuthState> {
     state = AuthState(status: AuthStatus.loading);
 
     try {
-      final credentials = SignupCredentials(
+      final data = RegisterData(
+        name: fullName,
         email: email,
         password: password,
-        fullName: fullName,
         role: role,
       );
 
-      final result = await _authRepository.signUp(credentials);
+      final result = await _authRepository.signUp(data);
 
       if (result.isSuccess && result.data != null) {
         final session = result.data!;

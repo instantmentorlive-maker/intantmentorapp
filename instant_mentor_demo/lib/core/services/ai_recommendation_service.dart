@@ -222,9 +222,9 @@ class AIRecommendationService {
 
     // Rating score (4.5+ = excellent, 4.0+ = good, 3.5+ = average)
     double score = 0.0;
-    if (rating >= 4.5)
+    if (rating >= 4.5) {
       score = 1.0;
-    else if (rating >= 4.0)
+    } else if (rating >= 4.0)
       score = 0.8;
     else if (rating >= 3.5)
       score = 0.6;
@@ -234,7 +234,7 @@ class AIRecommendationService {
       score = 0.2;
 
     // Confidence boost based on number of reviews
-    final confidenceMultiplier = math.min(1.0, totalSessions / 20.0);
+    final confidenceMultiplier = math.min<double>(1.0, totalSessions / 20.0);
     return score * confidenceMultiplier + (1 - confidenceMultiplier) * 0.5;
   }
 
@@ -255,7 +255,8 @@ class AIRecommendationService {
       final availableSlots = availability.length;
 
       // More availability = better score
-      double score = math.min(1.0, availableSlots / 7.0); // 7 days optimal
+      double score =
+          math.min<double>(1.0, availableSlots / 7.0); // 7 days optimal
 
       // Timezone compatibility bonus
       final mentorTimezone = availability.first['timezone'] ?? 'UTC';
@@ -263,7 +264,7 @@ class AIRecommendationService {
         score += 0.1;
       }
 
-      return math.min(score, 1.0);
+      return math.min<double>(score, 1.0);
     } catch (e) {
       return 0.5; // Neutral score on error
     }
@@ -324,7 +325,7 @@ class AIRecommendationService {
 
       final successRate =
           similarSessions.length / similarStudentSessions.length;
-      return math.min(1.0, successRate + 0.2); // Boost for having data
+      return math.min<double>(1.0, successRate + 0.2); // Boost for having data
     } catch (e) {
       return 0.5; // Neutral score on error
     }
@@ -344,7 +345,7 @@ class AIRecommendationService {
     // Reduce for poor availability
     if (factors['Availability']! < 0.3) probability -= 0.1;
 
-    return math.min(1.0, math.max(0.1, probability));
+    return math.min<double>(1.0, math.max<double>(0.1, probability));
   }
 
   /// Generate personalized recommendations

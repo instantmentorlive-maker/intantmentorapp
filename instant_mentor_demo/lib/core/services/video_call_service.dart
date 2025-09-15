@@ -18,8 +18,8 @@ class VideoCallService {
   bool _isVideoEnabled = true;
 
   String? _currentChannelId;
-  String? _currentToken;
   int? _currentUid;
+  RtcStats? _lastRtcStats;
 
   // Callbacks
   Function(int uid, bool muted)? onUserMutedAudio;
@@ -34,7 +34,7 @@ class VideoCallService {
 
     try {
       _engine = createAgoraRtcEngine();
-      await _engine!.initialize(RtcEngineContext(
+      await _engine!.initialize(const RtcEngineContext(
         appId: AppConfig.agoraAppId,
         channelProfile: ChannelProfileType.channelProfileCommunication,
       ));
@@ -82,6 +82,9 @@ class VideoCallService {
             state == RemoteVideoState.remoteVideoStateDecoding;
         onUserEnabledVideo?.call(remoteUid, isEnabled);
       },
+      onRtcStats: (RtcConnection connection, RtcStats stats) {
+        _lastRtcStats = stats;
+      },
       onTokenPrivilegeWillExpire: (RtcConnection connection, String token) {
         debugPrint('Token will expire, refreshing...');
         _refreshToken();
@@ -125,6 +128,11 @@ class VideoCallService {
     }
   }
 
+  /// Test helper: generate token (exposed for diagnostics/tests)
+  Future<String?> generateTokenForTest(String channelId, int uid) async {
+    return _generateToken(channelId, uid);
+  }
+
   /// Join video call
   Future<bool> joinCall({
     required String sessionId,
@@ -159,7 +167,6 @@ class VideoCallService {
       );
 
       _currentChannelId = channelId;
-      _currentToken = token;
       _currentUid = uid;
 
       // Update session status
@@ -182,7 +189,6 @@ class VideoCallService {
       await _engine!.leaveChannel();
 
       _currentChannelId = null;
-      _currentToken = null;
       _currentUid = null;
       _isInCall = false;
 
@@ -255,7 +261,6 @@ class VideoCallService {
     final newToken = await _generateToken(_currentChannelId!, _currentUid!);
     if (newToken != null) {
       await _engine!.renewToken(newToken);
-      _currentToken = newToken;
       debugPrint('Token refreshed');
     }
   }
@@ -279,22 +284,17 @@ class VideoCallService {
 
   /// Get video call statistics
   Future<Map<String, dynamic>?> getCallStats() async {
-    if (_engine == null || !_isInCall) return null;
+    if (_lastRtcStats == null || !_isInCall) return null;
 
-    try {
-      final stats = await _engine!.getRtcStats();
-      return {
-        'duration': stats.duration,
-        'txBytes': stats.txBytes,
-        'rxBytes': stats.rxBytes,
-        'txKBitRate': stats.txKBitRate,
-        'rxKBitRate': stats.rxKBitRate,
-        'users': stats.userCount,
-      };
-    } catch (e) {
-      debugPrint('Failed to get call stats: $e');
-      return null;
-    }
+    final stats = _lastRtcStats!;
+    return {
+      'duration': stats.duration,
+      'txBytes': stats.txBytes,
+      'rxBytes': stats.rxBytes,
+      'txKBitRate': stats.txKBitRate,
+      'rxKBitRate': stats.rxKBitRate,
+      'users': stats.userCount,
+    };
   }
 
   /// Destroy engine

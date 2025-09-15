@@ -49,7 +49,8 @@ class _QuickDoubtScreenState extends ConsumerState<QuickDoubtScreen> {
                       ],
                     ),
                     const SizedBox(height: 8),
-                    const Text('Get instant help for urgent doubts! Sessions last 5-15 minutes and connect you with available mentors immediately.'),
+                    const Text(
+                        'Get instant help for urgent doubts! Sessions last 5-15 minutes and connect you with available mentors immediately.'),
                     const SizedBox(height: 8),
                     Text(
                       '💡 Perfect for last-minute exam prep or homework help!',
@@ -62,18 +63,18 @@ class _QuickDoubtScreenState extends ConsumerState<QuickDoubtScreen> {
                 ),
               ),
             ),
-            
+
             const SizedBox(height: 24),
-            
+
             // Available Mentors
             Text(
               'Available Now (${_getAvailableMentors().length} mentors online)',
               style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
+                    fontWeight: FontWeight.bold,
+                  ),
             ),
             const SizedBox(height: 12),
-            
+
             SizedBox(
               height: 120,
               child: ListView.builder(
@@ -85,18 +86,18 @@ class _QuickDoubtScreenState extends ConsumerState<QuickDoubtScreen> {
                 },
               ),
             ),
-            
+
             const SizedBox(height: 24),
-            
+
             // Question Form
             Text(
               'Describe Your Doubt',
               style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
+                    fontWeight: FontWeight.bold,
+                  ),
             ),
             const SizedBox(height: 12),
-            
+
             Card(
               child: Padding(
                 padding: const EdgeInsets.all(16),
@@ -106,29 +107,39 @@ class _QuickDoubtScreenState extends ConsumerState<QuickDoubtScreen> {
                       children: [
                         Expanded(
                           child: DropdownButtonFormField<String>(
-                            value: _selectedSubject,
+                            initialValue: _selectedSubject,
                             decoration: const InputDecoration(
                               labelText: 'Subject',
                               prefixIcon: Icon(Icons.subject),
                             ),
-                            items: ['Mathematics', 'Physics', 'Chemistry', 'Biology', 'English']
-                                .map((s) => DropdownMenuItem(value: s, child: Text(s)))
+                            items: [
+                              'Mathematics',
+                              'Physics',
+                              'Chemistry',
+                              'Biology',
+                              'English'
+                            ]
+                                .map((s) =>
+                                    DropdownMenuItem(value: s, child: Text(s)))
                                 .toList(),
-                            onChanged: (value) => setState(() => _selectedSubject = value!),
+                            onChanged: (value) =>
+                                setState(() => _selectedSubject = value!),
                           ),
                         ),
                         const SizedBox(width: 12),
                         Expanded(
                           child: DropdownButtonFormField<String>(
-                            value: _urgencyLevel,
+                            initialValue: _urgencyLevel,
                             decoration: const InputDecoration(
                               labelText: 'Urgency',
                               prefixIcon: Icon(Icons.priority_high),
                             ),
                             items: ['Low', 'Medium', 'High', 'Urgent']
-                                .map((s) => DropdownMenuItem(value: s, child: Text(s)))
+                                .map((s) =>
+                                    DropdownMenuItem(value: s, child: Text(s)))
                                 .toList(),
-                            onChanged: (value) => setState(() => _urgencyLevel = value!),
+                            onChanged: (value) =>
+                                setState(() => _urgencyLevel = value!),
                           ),
                         ),
                       ],
@@ -173,12 +184,15 @@ class _QuickDoubtScreenState extends ConsumerState<QuickDoubtScreen> {
                 ),
               ),
             ),
-            
+
             const SizedBox(height: 24),
-            
+
             // Pricing Info
             Card(
-              color: Theme.of(context).colorScheme.primaryContainer.withOpacity(0.3),
+              color: Theme.of(context)
+                  .colorScheme
+                  .primaryContainer
+                  .withOpacity(0.3),
               child: Padding(
                 padding: const EdgeInsets.all(16),
                 child: Row(
@@ -207,9 +221,9 @@ class _QuickDoubtScreenState extends ConsumerState<QuickDoubtScreen> {
                 ),
               ),
             ),
-            
+
             const SizedBox(height: 24),
-            
+
             // Action Buttons
             SizedBox(
               width: double.infinity,
@@ -226,9 +240,9 @@ class _QuickDoubtScreenState extends ConsumerState<QuickDoubtScreen> {
                 label: const Text('Find Available Mentor'),
               ),
             ),
-            
+
             const SizedBox(height: 12),
-            
+
             SizedBox(
               width: double.infinity,
               child: OutlinedButton.icon(
@@ -240,18 +254,18 @@ class _QuickDoubtScreenState extends ConsumerState<QuickDoubtScreen> {
                 label: const Text('Schedule for Later'),
               ),
             ),
-            
+
             const SizedBox(height: 24),
-            
+
             // Recent Quick Sessions
             Text(
               'Your Recent Quick Sessions',
               style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
+                    fontWeight: FontWeight.bold,
+                  ),
             ),
             const SizedBox(height: 12),
-            
+
             ...List.generate(3, (index) => _buildRecentSessionCard(index)),
           ],
         ),
@@ -312,22 +326,24 @@ class _QuickDoubtScreenState extends ConsumerState<QuickDoubtScreen> {
         'rating': 5,
       },
     ];
-    
+
     final session = sessions[index];
-    
+
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
       child: ListTile(
         leading: CircleAvatar(
           backgroundColor: Theme.of(context).colorScheme.primaryContainer,
-          child: Text(session['mentor'].toString().split(' ').map((n) => n[0]).join()),
+          child: Text(
+              session['mentor'].toString().split(' ').map((n) => n[0]).join()),
         ),
         title: Text(
           session['question'].toString(),
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
         ),
-        subtitle: Text('${session['mentor']} • ${session['duration']} • ${session['date']}'),
+        subtitle: Text(
+            '${session['mentor']} • ${session['duration']} • ${session['date']}'),
         trailing: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
@@ -388,7 +404,7 @@ class _QuickDoubtScreenState extends ConsumerState<QuickDoubtScreen> {
         ),
       ),
     );
-    
+
     // Simulate mentor finding
     Future.delayed(const Duration(seconds: 2), () {
       Navigator.pop(context);
@@ -413,7 +429,7 @@ class _QuickDoubtScreenState extends ConsumerState<QuickDoubtScreen> {
               'Dr. Sarah Smith',
               style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
             ),
-            Text('Mathematics Expert • ⭐ 4.9'),
+            const Text('Mathematics Expert • ⭐ 4.9'),
             const SizedBox(height: 16),
             Container(
               padding: const EdgeInsets.all(12),
@@ -461,7 +477,7 @@ class _QuickDoubtScreenState extends ConsumerState<QuickDoubtScreen> {
         backgroundColor: Colors.green,
       ),
     );
-    
+
     // Navigate to session screen (would be implemented)
     Navigator.pop(context);
   }
@@ -566,55 +582,71 @@ class _MentorCard extends StatelessWidget {
       child: Card(
         child: Padding(
           padding: const EdgeInsets.all(12),
-          child: Column(
-            children: [
-              Stack(
-                children: [
-                  CircleAvatar(
-                    radius: 20,
-                    child: Text(mentor['name'].toString().split(' ').map((n) => n[0]).join()),
-                  ),
-                  Positioned(
-                    right: 0,
-                    bottom: 0,
-                    child: Container(
-                      width: 12,
-                      height: 12,
-                      decoration: BoxDecoration(
-                        color: mentor['isOnline'] ? Colors.green : Colors.grey,
-                        shape: BoxShape.circle,
-                        border: Border.all(color: Colors.white, width: 2),
+          child: IntrinsicHeight(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Stack(
+                  children: [
+                    CircleAvatar(
+                      radius: 20,
+                      child: Text(mentor['name']
+                          .toString()
+                          .split(' ')
+                          .map((n) => n[0])
+                          .join()),
+                    ),
+                    Positioned(
+                      right: 0,
+                      bottom: 0,
+                      child: Container(
+                        width: 12,
+                        height: 12,
+                        decoration: BoxDecoration(
+                          color:
+                              mentor['isOnline'] ? Colors.green : Colors.grey,
+                          shape: BoxShape.circle,
+                          border: Border.all(color: Colors.white, width: 2),
+                        ),
                       ),
                     ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              Text(
-                mentor['name'],
-                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                textAlign: TextAlign.center,
-              ),
-              Text(
-                mentor['subject'],
-                style: const TextStyle(fontSize: 10, color: Colors.grey),
-              ),
-              const SizedBox(height: 4),
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.star, size: 10, color: Colors.amber[600]),
-                  const SizedBox(width: 2),
-                  Text('${mentor['rating']}', style: const TextStyle(fontSize: 10)),
-                ],
-              ),
-              Text(
-                mentor['responseTime'],
-                style: const TextStyle(fontSize: 9, color: Colors.green),
-              ),
-            ],
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  mentor['name'],
+                  style: const TextStyle(
+                      fontWeight: FontWeight.bold, fontSize: 12),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.center,
+                ),
+                Text(
+                  mentor['subject'],
+                  style: const TextStyle(fontSize: 10, color: Colors.grey),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 4),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.star, size: 10, color: Colors.amber[600]),
+                    const SizedBox(width: 2),
+                    Text('${mentor['rating']}',
+                        style: const TextStyle(fontSize: 10)),
+                  ],
+                ),
+                Text(
+                  mentor['responseTime'],
+                  style: const TextStyle(fontSize: 9, color: Colors.green),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.center,
+                ),
+              ],
+            ),
           ),
         ),
       ),

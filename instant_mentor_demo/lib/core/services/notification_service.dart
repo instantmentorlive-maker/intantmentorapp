@@ -2,7 +2,6 @@ import 'package:flutter/foundation.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:permission_handler/permission_handler.dart';
-import '../config/app_config.dart';
 import 'supabase_service.dart';
 
 class NotificationService {
@@ -125,7 +124,6 @@ class NotificationService {
     debugPrint('Background message: ${message.messageId}');
 
     // Handle navigation based on notification data
-    final type = message.data['type'];
     final actionUrl = message.data['actionUrl'];
 
     if (actionUrl != null) {
@@ -167,7 +165,7 @@ class NotificationService {
       title,
       body,
       notificationDetails,
-      payload: data != null ? data.toString() : null,
+      payload: data?.toString(),
     );
   }
 

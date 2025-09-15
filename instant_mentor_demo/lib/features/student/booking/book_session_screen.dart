@@ -53,7 +53,7 @@ class BookSessionScreen extends ConsumerWidget {
                     children: [
                       Expanded(
                         child: DropdownButtonFormField<String>(
-                          value: selectedExam,
+                          initialValue: selectedExam,
                           decoration: const InputDecoration(
                             labelText: 'Exam',
                             prefixIcon: Icon(Icons.school),
@@ -73,7 +73,7 @@ class BookSessionScreen extends ConsumerWidget {
                       const SizedBox(width: 12),
                       Expanded(
                         child: DropdownButtonFormField<String>(
-                          value: selectedSubject,
+                          initialValue: selectedSubject,
                           decoration: const InputDecoration(
                             labelText: 'Subject',
                             prefixIcon: Icon(Icons.book),
@@ -152,7 +152,7 @@ class BookSessionScreen extends ConsumerWidget {
                   subtitle: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('${mentor.specializations.join(', ')}'),
+                      Text(mentor.specializations.join(', ')),
                       const SizedBox(height: 4),
                       Row(
                         children: [
@@ -218,7 +218,7 @@ class BookSessionScreen extends ConsumerWidget {
                   isThreeLine: true,
                 ),
               );
-            }).toList(),
+            }),
         ],
       ),
     );
@@ -268,7 +268,7 @@ class _BookingDialogState extends State<BookingDialog> {
                 labelText: 'Duration',
                 border: OutlineInputBorder(),
               ),
-              value: selectedDuration,
+              initialValue: selectedDuration,
               items: [
                 DropdownMenuItem(
                   value: '30',

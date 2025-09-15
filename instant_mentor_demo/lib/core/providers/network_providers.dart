@@ -86,7 +86,7 @@ class NetworkConnectivityNotifier extends StateNotifier<NetworkConnectivityState
   /// Start periodic connectivity checking
   void _startPeriodicCheck() {
     // Check connectivity every 30 seconds
-    Timer.periodic(Duration(seconds: 30), (timer) async {
+    Timer.periodic(const Duration(seconds: 30), (timer) async {
       if (mounted) {
         await checkConnectivity();
       } else {
@@ -179,7 +179,7 @@ class NetworkPerformanceNotifier extends StateNotifier<NetworkPerformanceState> 
   /// Start periodic performance stats update
   void _startPeriodicUpdate() {
     // Update stats every 10 seconds
-    Timer.periodic(Duration(seconds: 10), (timer) {
+    Timer.periodic(const Duration(seconds: 10), (timer) {
       if (mounted) {
         updateStats();
       } else {

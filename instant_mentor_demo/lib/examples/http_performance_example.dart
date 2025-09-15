@@ -14,17 +14,17 @@ class HttpPerformanceExample extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('HTTP Performance Example'),
+        title: const Text('HTTP Performance Example'),
         backgroundColor: Colors.blue[700],
         foregroundColor: Colors.white,
         actions: [
           IconButton(
-            icon: Icon(Icons.analytics),
+            icon: const Icon(Icons.analytics),
             onPressed: () {
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (context) => NetworkPerformanceDashboard(),
+                  builder: (context) => const NetworkPerformanceDashboard(),
                 ),
               );
             },
@@ -32,13 +32,13 @@ class HttpPerformanceExample extends ConsumerWidget {
         ],
       ),
       body: Padding(
-        padding: EdgeInsets.all(16),
+        padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Card(
               child: Padding(
-                padding: EdgeInsets.all(16),
+                padding: const EdgeInsets.all(16),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -48,20 +48,20 @@ class HttpPerformanceExample extends ConsumerWidget {
                         fontWeight: FontWeight.bold,
                       ),
                     ),
-                    SizedBox(height: 12),
+                    const SizedBox(height: 12),
                     _buildFeatureList(),
                   ],
                 ),
               ),
             ),
-            SizedBox(height: 16),
+            const SizedBox(height: 16),
             Text(
               'Test Operations',
               style: Theme.of(context).textTheme.titleMedium?.copyWith(
                 fontWeight: FontWeight.bold,
               ),
             ),
-            SizedBox(height: 12),
+            const SizedBox(height: 12),
             Expanded(
               child: SingleChildScrollView(
                 child: Column(
@@ -125,11 +125,11 @@ class HttpPerformanceExample extends ConsumerWidget {
     return Column(
       children: features
           .map((feature) => Padding(
-                padding: EdgeInsets.symmetric(vertical: 2),
+                padding: const EdgeInsets.symmetric(vertical: 2),
                 child: Row(
                   children: [
-                    Icon(Icons.check, color: Colors.green, size: 16),
-                    SizedBox(width: 8),
+                    const Icon(Icons.check, color: Colors.green, size: 16),
+                    const SizedBox(width: 8),
                     Expanded(child: Text(feature)),
                   ],
                 ),
@@ -146,7 +146,7 @@ class HttpPerformanceExample extends ConsumerWidget {
     VoidCallback onTap,
   ) {
     return Card(
-      margin: EdgeInsets.only(bottom: 12),
+      margin: const EdgeInsets.only(bottom: 12),
       child: ListTile(
         leading: CircleAvatar(
           backgroundColor: color.withOpacity(0.2),
@@ -154,10 +154,10 @@ class HttpPerformanceExample extends ConsumerWidget {
         ),
         title: Text(
           title,
-          style: TextStyle(fontWeight: FontWeight.w600),
+          style: const TextStyle(fontWeight: FontWeight.w600),
         ),
         subtitle: Text(description),
-        trailing: Icon(Icons.arrow_forward_ios, size: 16),
+        trailing: const Icon(Icons.arrow_forward_ios, size: 16),
         onTap: onTap,
       ),
     );
@@ -294,7 +294,7 @@ class HttpPerformanceExample extends ConsumerWidget {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => NetworkPerformanceDashboard(),
+        builder: (context) => const NetworkPerformanceDashboard(),
       ),
     );
   }
@@ -306,8 +306,8 @@ class HttpPerformanceExample extends ConsumerWidget {
       builder: (context) => AlertDialog(
         content: Row(
           children: [
-            CircularProgressIndicator(),
-            SizedBox(width: 16),
+            const CircularProgressIndicator(),
+            const SizedBox(width: 16),
             Text(message),
           ],
         ),
@@ -324,7 +324,7 @@ class HttpPerformanceExample extends ConsumerWidget {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: Text('OK'),
+            child: const Text('OK'),
           ),
         ],
       ),
@@ -335,12 +335,12 @@ class HttpPerformanceExample extends ConsumerWidget {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text('Error'),
+        title: const Text('Error'),
         content: Text(message),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: Text('OK'),
+            child: const Text('OK'),
           ),
         ],
       ),

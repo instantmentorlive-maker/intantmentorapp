@@ -94,9 +94,9 @@ class MentorHomeScreen extends ConsumerWidget {
                     onTap: () => context.go(AppRoutes.studentBooking),
                     child: Container(
                       padding: const EdgeInsets.all(20),
-                      child: Column(
+                      child: const Column(
                         mainAxisSize: MainAxisSize.min,
-                        children: const [
+                        children: [
                           Icon(Icons.calendar_today,
                               size: 28, color: Colors.blue),
                           SizedBox(height: 8),
@@ -114,9 +114,9 @@ class MentorHomeScreen extends ConsumerWidget {
                     onTap: () => context.go(AppRoutes.mentorChat),
                     child: Container(
                       padding: const EdgeInsets.all(20),
-                      child: Column(
+                      child: const Column(
                         mainAxisSize: MainAxisSize.min,
-                        children: const [
+                        children: [
                           Icon(Icons.chat, size: 28, color: Colors.orange),
                           SizedBox(height: 8),
                           Text('Ask Mentor'),

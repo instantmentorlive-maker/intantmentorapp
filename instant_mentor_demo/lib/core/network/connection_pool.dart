@@ -147,9 +147,9 @@ class ConnectionPoolManager {
 class ConnectionPoolConfig {
   int maxConnections = 6;
   int maxConnectionsPerHost = 4;
-  Duration connectionTimeout = Duration(seconds: 10);
-  Duration idleTimeout = Duration(seconds: 60);
-  Duration keepAliveTimeout = Duration(seconds: 30);
+  Duration connectionTimeout = const Duration(seconds: 10);
+  Duration idleTimeout = const Duration(seconds: 60);
+  Duration keepAliveTimeout = const Duration(seconds: 30);
   bool enableKeepAlive = true;
 
   @override

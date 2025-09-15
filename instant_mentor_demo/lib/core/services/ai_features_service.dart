@@ -334,14 +334,14 @@ class AIFeaturesService {
         : 3.0;
 
     String currentDifficulty = 'intermediate';
-    if (avgRating >= 4.5)
+    if (avgRating >= 4.5) {
       currentDifficulty = 'easy';
-    else if (avgRating <= 3.0) currentDifficulty = 'hard';
+    } else if (avgRating <= 3.0) currentDifficulty = 'hard';
 
     String suggestedDifficulty = currentDifficulty;
-    if (avgRating >= 4.5)
+    if (avgRating >= 4.5) {
       suggestedDifficulty = 'intermediate';
-    else if (avgRating <= 2.5) suggestedDifficulty = 'beginner';
+    } else if (avgRating <= 2.5) suggestedDifficulty = 'beginner';
 
     return {
       'current_difficulty': currentDifficulty,

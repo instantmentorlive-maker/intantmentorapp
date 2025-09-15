@@ -2,11 +2,11 @@
 // to complete the Instant Mentor app implementation
 
 import 'package:flutter/material.dart';
+import '../core/providers/ui_state_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/providers/user_provider.dart';
-import '../../core/models/session.dart';
-import '../../core/models/chat.dart';
+import '../../core/providers/auth_provider.dart';
 
 // ============================================================================
 // MENTOR SCREENS
@@ -25,8 +25,8 @@ class SessionRequestsScreen extends StatelessWidget {
           Text(
             'Incoming Requests',
             style: Theme.of(context).textTheme.titleLarge?.copyWith(
-              fontWeight: FontWeight.bold,
-            ),
+                  fontWeight: FontWeight.bold,
+                ),
           ),
           const SizedBox(height: 12),
           ...List.generate(3, (index) {
@@ -37,21 +37,26 @@ class SessionRequestsScreen extends StatelessWidget {
               margin: const EdgeInsets.only(bottom: 12),
               child: ListTile(
                 leading: CircleAvatar(
-                  backgroundColor: Theme.of(context).colorScheme.primaryContainer,
-                  child: Text(students[index].split(' ').map((n) => n[0]).join()),
+                  backgroundColor:
+                      Theme.of(context).colorScheme.primaryContainer,
+                  child:
+                      Text(students[index].split(' ').map((n) => n[0]).join()),
                 ),
                 title: Text('${subjects[index]} Session'),
-                subtitle: Text('${students[index]} • Requested ${times[index]}'),
+                subtitle:
+                    Text('${students[index]} • Requested ${times[index]}'),
                 trailing: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     IconButton(
                       icon: const Icon(Icons.close, color: Colors.red),
-                      onPressed: () => _showRequestResponse(context, students[index], false),
+                      onPressed: () =>
+                          _showRequestResponse(context, students[index], false),
                     ),
                     IconButton(
                       icon: const Icon(Icons.check, color: Colors.green),
-                      onPressed: () => _showRequestResponse(context, students[index], true),
+                      onPressed: () =>
+                          _showRequestResponse(context, students[index], true),
                     ),
                   ],
                 ),
@@ -63,10 +68,12 @@ class SessionRequestsScreen extends StatelessWidget {
     );
   }
 
-  void _showRequestResponse(BuildContext context, String studentName, bool accepted) {
+  void _showRequestResponse(
+      BuildContext context, String studentName, bool accepted) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('${accepted ? 'Accepted' : 'Declined'} request from $studentName'),
+        content: Text(
+            '${accepted ? 'Accepted' : 'Declined'} request from $studentName'),
         backgroundColor: accepted ? Colors.green : Colors.red,
       ),
     );
@@ -91,13 +98,15 @@ class MentorChatScreen extends StatelessWidget {
                 children: [
                   Row(
                     children: [
-                      Icon(Icons.add_box, color: Theme.of(context).colorScheme.primary),
+                      Icon(Icons.add_box,
+                          color: Theme.of(context).colorScheme.primary),
                       const SizedBox(width: 8),
                       Text(
                         'Resource Templates',
-                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
+                        style:
+                            Theme.of(context).textTheme.titleMedium?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                ),
                       ),
                     ],
                   ),
@@ -117,7 +126,7 @@ class MentorChatScreen extends StatelessWidget {
             ),
           ),
         ),
-        
+
         // Chat Threads
         Expanded(
           child: ListView.builder(
@@ -127,15 +136,17 @@ class MentorChatScreen extends StatelessWidget {
               final subjects = ['Mathematics', 'Physics', 'Chemistry'];
               final times = ['5 min ago', '2 hours ago', '1 day ago'];
               final unread = [2, 0, 1];
-              
+
               return Card(
                 margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
                 child: ListTile(
                   leading: Stack(
                     children: [
                       CircleAvatar(
-                        backgroundColor: Theme.of(context).colorScheme.primaryContainer,
-                        child: Text(students[index].split(' ').map((n) => n[0]).join()),
+                        backgroundColor:
+                            Theme.of(context).colorScheme.primaryContainer,
+                        child: Text(
+                            students[index].split(' ').map((n) => n[0]).join()),
                       ),
                       if (unread[index] > 0)
                         Positioned(
@@ -147,10 +158,12 @@ class MentorChatScreen extends StatelessWidget {
                               color: Colors.red,
                               shape: BoxShape.circle,
                             ),
-                            constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
+                            constraints: const BoxConstraints(
+                                minWidth: 16, minHeight: 16),
                             child: Text(
                               '${unread[index]}',
-                              style: const TextStyle(color: Colors.white, fontSize: 10),
+                              style: const TextStyle(
+                                  color: Colors.white, fontSize: 10),
                               textAlign: TextAlign.center,
                             ),
                           ),
@@ -161,11 +174,15 @@ class MentorChatScreen extends StatelessWidget {
                   subtitle: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(subjects[index], style: TextStyle(color: Theme.of(context).colorScheme.primary, fontSize: 12)),
+                      Text(subjects[index],
+                          style: TextStyle(
+                              color: Theme.of(context).colorScheme.primary,
+                              fontSize: 12)),
                       const Text('Can you help me with this problem?'),
                     ],
                   ),
-                  trailing: Text(times[index], style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                  trailing: Text(times[index],
+                      style: const TextStyle(fontSize: 12, color: Colors.grey)),
                   onTap: () => _openChat(context, students[index]),
                 ),
               );
@@ -186,9 +203,10 @@ class MentorChatScreen extends StatelessWidget {
           height: 300,
           child: ListView(
             children: [
-              _TemplateItem('Quadratic Equations Formula', 'Mathematics', 15),
-              _TemplateItem('Newton\'s Laws Summary', 'Physics', 8),
-              _TemplateItem('Organic Chemistry Basics', 'Chemistry', 12),
+              const _TemplateItem(
+                  'Quadratic Equations Formula', 'Mathematics', 15),
+              const _TemplateItem('Newton\'s Laws Summary', 'Physics', 8),
+              const _TemplateItem('Organic Chemistry Basics', 'Chemistry', 12),
               ListTile(
                 leading: const Icon(Icons.add),
                 title: const Text('Create New Template'),
@@ -252,35 +270,43 @@ class EarningsScreen extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Earnings Overview
-          Row(
+          const Row(
             children: [
               Expanded(child: _EarningsCard('Today', '\$250', Colors.green)),
-              const SizedBox(width: 12),
-              Expanded(child: _EarningsCard('This Week', '\$1,250', Colors.blue)),
-              const SizedBox(width: 12),
-              Expanded(child: _EarningsCard('This Month', '\$4,800', Colors.purple)),
+              SizedBox(width: 12),
+              Expanded(
+                  child: _EarningsCard('This Week', '\$1,250', Colors.blue)),
+              SizedBox(width: 12),
+              Expanded(
+                  child: _EarningsCard('This Month', '\$4,800', Colors.purple)),
             ],
           ),
-          
+
           const SizedBox(height: 24),
           Text(
             'Recent Earnings',
-            style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+            style: Theme.of(context)
+                .textTheme
+                .titleLarge
+                ?.copyWith(fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 12),
-          
-          Card(
+
+          const Card(
             child: Column(
               children: [
-                _EarningsTile('Alex Johnson', 'Mathematics', 50.0, 'Today, 2:00 PM'),
-                const Divider(height: 1),
-                _EarningsTile('Maria Garcia', 'Mathematics', 37.5, 'Today, 10:00 AM'),
-                const Divider(height: 1),
-                _EarningsTile('James Wilson', 'Physics', 50.0, 'Yesterday, 4:00 PM'),
+                _EarningsTile(
+                    'Alex Johnson', 'Mathematics', 50.0, 'Today, 2:00 PM'),
+                Divider(height: 1),
+                _EarningsTile(
+                    'Maria Garcia', 'Mathematics', 37.5, 'Today, 10:00 AM'),
+                Divider(height: 1),
+                _EarningsTile(
+                    'James Wilson', 'Physics', 50.0, 'Yesterday, 4:00 PM'),
               ],
             ),
           ),
-          
+
           const SizedBox(height: 24),
           SizedBox(
             width: double.infinity,
@@ -316,7 +342,9 @@ class _EarningsCard extends StatelessWidget {
         padding: const EdgeInsets.all(16),
         child: Column(
           children: [
-            Text(amount, style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: color)),
+            Text(amount,
+                style: TextStyle(
+                    fontSize: 18, fontWeight: FontWeight.bold, color: color)),
             Text(title, style: const TextStyle(fontSize: 12)),
           ],
         ),
@@ -350,33 +378,31 @@ class _EarningsTile extends StatelessWidget {
       ),
       trailing: Text(
         '+\$${amount.toStringAsFixed(2)}',
-        style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.green, fontSize: 16),
+        style: const TextStyle(
+            fontWeight: FontWeight.bold, color: Colors.green, fontSize: 16),
       ),
     );
   }
 }
 
-class AvailabilityScreen extends StatefulWidget {
+class AvailabilityScreen extends ConsumerWidget {
   const AvailabilityScreen({super.key});
 
   @override
-  State<AvailabilityScreen> createState() => _AvailabilityScreenState();
-}
+  Widget build(BuildContext context, WidgetRef ref) {
+    final isAvailable = ref.watch(mentorAvailabilityProvider);
 
-class _AvailabilityScreenState extends State<AvailabilityScreen> {
-  bool isAvailable = true;
-  final Map<String, bool> weeklySchedule = {
-    'Monday': true,
-    'Tuesday': true,
-    'Wednesday': true,
-    'Thursday': true,
-    'Friday': true,
-    'Saturday': true,
-    'Sunday': false,
-  };
+    // Create a provider for weekly schedule (simplified for this example)
+    final weeklySchedule = {
+      'Monday': true,
+      'Tuesday': true,
+      'Wednesday': true,
+      'Thursday': true,
+      'Friday': true,
+      'Saturday': true,
+      'Sunday': false,
+    };
 
-  @override
-  Widget build(BuildContext context) {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -391,33 +417,45 @@ class _AvailabilityScreenState extends State<AvailabilityScreen> {
                 children: [
                   Text(
                     'Current Status',
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+                    style: Theme.of(context)
+                        .textTheme
+                        .titleLarge
+                        ?.copyWith(fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 16),
                   Row(
                     children: [
                       Expanded(
                         child: GestureDetector(
-                          onTap: () => setState(() => isAvailable = true),
+                          onTap: () => ref
+                              .read(mentorAvailabilityProvider.notifier)
+                              .state = true,
                           child: Container(
                             padding: const EdgeInsets.all(16),
                             decoration: BoxDecoration(
-                              color: isAvailable ? Colors.green.withOpacity(0.1) : Colors.grey.withOpacity(0.1),
+                              color: isAvailable
+                                  ? Colors.green.withOpacity(0.1)
+                                  : Colors.grey.withOpacity(0.1),
                               borderRadius: BorderRadius.circular(8),
-                              border: Border.all(color: isAvailable ? Colors.green : Colors.grey),
+                              border: Border.all(
+                                  color:
+                                      isAvailable ? Colors.green : Colors.grey),
                             ),
                             child: Column(
                               children: [
                                 Icon(
                                   Icons.check_circle,
-                                  color: isAvailable ? Colors.green : Colors.grey,
+                                  color:
+                                      isAvailable ? Colors.green : Colors.grey,
                                   size: 32,
                                 ),
                                 const SizedBox(height: 8),
                                 Text(
                                   'Available',
                                   style: TextStyle(
-                                    color: isAvailable ? Colors.green : Colors.grey,
+                                    color: isAvailable
+                                        ? Colors.green
+                                        : Colors.grey,
                                     fontWeight: FontWeight.bold,
                                   ),
                                 ),
@@ -429,26 +467,34 @@ class _AvailabilityScreenState extends State<AvailabilityScreen> {
                       const SizedBox(width: 12),
                       Expanded(
                         child: GestureDetector(
-                          onTap: () => setState(() => isAvailable = false),
+                          onTap: () => ref
+                              .read(mentorAvailabilityProvider.notifier)
+                              .state = false,
                           child: Container(
                             padding: const EdgeInsets.all(16),
                             decoration: BoxDecoration(
-                              color: !isAvailable ? Colors.red.withOpacity(0.1) : Colors.grey.withOpacity(0.1),
+                              color: !isAvailable
+                                  ? Colors.red.withOpacity(0.1)
+                                  : Colors.grey.withOpacity(0.1),
                               borderRadius: BorderRadius.circular(8),
-                              border: Border.all(color: !isAvailable ? Colors.red : Colors.grey),
+                              border: Border.all(
+                                  color:
+                                      !isAvailable ? Colors.red : Colors.grey),
                             ),
                             child: Column(
                               children: [
                                 Icon(
                                   Icons.do_not_disturb,
-                                  color: !isAvailable ? Colors.red : Colors.grey,
+                                  color:
+                                      !isAvailable ? Colors.red : Colors.grey,
                                   size: 32,
                                 ),
                                 const SizedBox(height: 8),
                                 Text(
                                   'Busy',
                                   style: TextStyle(
-                                    color: !isAvailable ? Colors.red : Colors.grey,
+                                    color:
+                                        !isAvailable ? Colors.red : Colors.grey,
                                     fontWeight: FontWeight.bold,
                                   ),
                                 ),
@@ -463,14 +509,17 @@ class _AvailabilityScreenState extends State<AvailabilityScreen> {
               ),
             ),
           ),
-          
+
           const SizedBox(height: 24),
           Text(
             'Weekly Schedule',
-            style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+            style: Theme.of(context)
+                .textTheme
+                .titleLarge
+                ?.copyWith(fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 12),
-          
+
           ...weeklySchedule.entries.map((entry) {
             return Card(
               margin: const EdgeInsets.only(bottom: 8),
@@ -479,11 +528,21 @@ class _AvailabilityScreenState extends State<AvailabilityScreen> {
                 subtitle: const Text('9:00 AM - 6:00 PM'),
                 trailing: Switch(
                   value: entry.value,
-                  onChanged: (value) => setState(() => weeklySchedule[entry.key] = value),
+                  onChanged: (value) {
+                    // For now, just show a snackbar - in full implementation,
+                    // this would use a StateNotifier for the schedule
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(
+                            'Schedule update for ${entry.key} will be saved'),
+                        duration: const Duration(seconds: 1),
+                      ),
+                    );
+                  },
                 ),
               ),
             );
-          }).toList(),
+          }),
         ],
       ),
     );
@@ -546,7 +605,7 @@ class LiveSessionScreen extends StatelessWidget {
               ),
             ),
           ),
-          
+
           // Whiteboard Area
           Expanded(
             flex: 2,
@@ -605,10 +664,10 @@ class LiveSessionScreen extends StatelessWidget {
                       ],
                     ),
                   ),
-                  
+
                   // Whiteboard Canvas
                   Expanded(
-                    child: Container(
+                    child: SizedBox(
                       width: double.infinity,
                       child: const Center(
                         child: Text(
@@ -623,7 +682,7 @@ class LiveSessionScreen extends StatelessWidget {
               ),
             ),
           ),
-          
+
           // Chat Panel
           Container(
             height: 150,
@@ -672,7 +731,8 @@ class LiveSessionScreen extends StatelessWidget {
                           decoration: InputDecoration(
                             hintText: 'Type a message...',
                             border: OutlineInputBorder(),
-                            contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            contentPadding: EdgeInsets.symmetric(
+                                horizontal: 12, vertical: 8),
                           ),
                         ),
                       ),
@@ -708,7 +768,7 @@ class MoreMenuScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final isStudent = ref.watch(isStudentProvider);
-    
+
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -717,17 +777,20 @@ class MoreMenuScreen extends ConsumerWidget {
           Text(
             '${isStudent ? 'Student' : 'Mentor'} Menu',
             style: Theme.of(context).textTheme.titleLarge?.copyWith(
-              fontWeight: FontWeight.bold,
-            ),
+                  fontWeight: FontWeight.bold,
+                ),
           ),
           const SizedBox(height: 16),
-          
-          if (isStudent) ..._buildStudentMenuItems(context) else ..._buildMentorMenuItems(context),
-          
+
+          if (isStudent)
+            ..._buildStudentMenuItems(context)
+          else
+            ..._buildMentorMenuItems(context),
+
           const SizedBox(height: 24),
           const Divider(),
           const SizedBox(height: 16),
-          
+
           // Common items
           _MenuTile(
             icon: Icons.person,
@@ -842,10 +905,13 @@ class MoreMenuScreen extends ConsumerWidget {
           width: double.maxFinite,
           height: 300,
           child: ListView(
-            children: [
-              _LeaderboardTile('🥇', 'Sarah Chen', '2,450 pts', 'Top Performer'),
-              _LeaderboardTile('🥈', 'Alex Kumar', '2,180 pts', 'Mathematics Expert'),
-              _LeaderboardTile('🥉', 'Maria Garcia', '1,920 pts', 'Physics Specialist'),
+            children: const [
+              _LeaderboardTile(
+                  '🥇', 'Sarah Chen', '2,450 pts', 'Top Performer'),
+              _LeaderboardTile(
+                  '🥈', 'Alex Kumar', '2,180 pts', 'Mathematics Expert'),
+              _LeaderboardTile(
+                  '🥉', 'Maria Garcia', '1,920 pts', 'Physics Specialist'),
               _LeaderboardTile('4', 'James Wilson', '1,750 pts', 'Rising Star'),
               _LeaderboardTile('5', 'You', '1,680 pts', 'Keep going!'),
             ],
@@ -873,10 +939,33 @@ class MoreMenuScreen extends ConsumerWidget {
             child: const Text('Cancel'),
           ),
           ElevatedButton(
-            onPressed: () {
-              ref.read(userProvider.notifier).logout();
+            onPressed: () async {
               Navigator.pop(context);
-              context.go('/student/home'); // Reset to default
+              // Show loading indicator
+              showDialog(
+                context: context,
+                barrierDismissible: false,
+                builder: (context) => const Center(
+                  child: CircularProgressIndicator(),
+                ),
+              );
+
+              try {
+                // Properly sign out through auth provider
+                await ref.read(authProvider.notifier).signOut();
+                // Navigation will be handled by router redirect logic automatically
+                if (context.mounted) {
+                  Navigator.of(context).pop(); // Close loading
+                  // Don't manually navigate - let the router's redirect logic handle it
+                }
+              } catch (e) {
+                if (context.mounted) {
+                  Navigator.of(context).pop(); // Close loading
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Logout failed: $e')),
+                  );
+                }
+              }
             },
             child: const Text('Logout'),
           ),
@@ -930,7 +1019,8 @@ class _LeaderboardTile extends StatelessWidget {
       ),
       title: Text(name),
       subtitle: Text(badge),
-      trailing: Text(points, style: const TextStyle(fontWeight: FontWeight.bold)),
+      trailing:
+          Text(points, style: const TextStyle(fontWeight: FontWeight.bold)),
     );
   }
 }
@@ -967,7 +1057,8 @@ class MentorProfileScreen extends StatelessWidget {
                   children: [
                     CircleAvatar(
                       radius: 50,
-                      backgroundColor: Theme.of(context).colorScheme.primaryContainer,
+                      backgroundColor:
+                          Theme.of(context).colorScheme.primaryContainer,
                       child: const Text(
                         'DS',
                         style: TextStyle(fontSize: 24),
@@ -976,7 +1067,8 @@ class MentorProfileScreen extends StatelessWidget {
                     const SizedBox(height: 16),
                     const Text(
                       'Dr. Sarah Smith',
-                      style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                      style:
+                          TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
                     ),
                     const Text(
                       'Mathematics Expert • 8+ years experience',
@@ -989,22 +1081,26 @@ class MentorProfileScreen extends StatelessWidget {
                         Column(
                           children: [
                             Icon(Icons.star, color: Colors.amber[600]),
-                            const Text('4.8', style: TextStyle(fontWeight: FontWeight.bold)),
-                            const Text('Rating', style: TextStyle(fontSize: 12)),
+                            const Text('4.8',
+                                style: TextStyle(fontWeight: FontWeight.bold)),
+                            const Text('Rating',
+                                style: TextStyle(fontSize: 12)),
                           ],
                         ),
-                        Column(
+                        const Column(
                           children: [
-                            const Icon(Icons.school, color: Colors.blue),
-                            const Text('245', style: TextStyle(fontWeight: FontWeight.bold)),
-                            const Text('Sessions', style: TextStyle(fontSize: 12)),
+                            Icon(Icons.school, color: Colors.blue),
+                            Text('245',
+                                style: TextStyle(fontWeight: FontWeight.bold)),
+                            Text('Sessions', style: TextStyle(fontSize: 12)),
                           ],
                         ),
-                        Column(
+                        const Column(
                           children: [
-                            const Icon(Icons.verified, color: Colors.green),
-                            const Text('Verified', style: TextStyle(fontWeight: FontWeight.bold)),
-                            const Text('Expert', style: TextStyle(fontSize: 12)),
+                            Icon(Icons.verified, color: Colors.green),
+                            Text('Verified',
+                                style: TextStyle(fontWeight: FontWeight.bold)),
+                            Text('Expert', style: TextStyle(fontSize: 12)),
                           ],
                         ),
                       ],
@@ -1013,9 +1109,9 @@ class MentorProfileScreen extends StatelessWidget {
                 ),
               ),
             ),
-            
+
             const SizedBox(height: 16),
-            
+
             // About Section
             Card(
               child: Padding(
@@ -1025,7 +1121,8 @@ class MentorProfileScreen extends StatelessWidget {
                   children: [
                     const Text(
                       'About',
-                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                      style:
+                          TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                     ),
                     const SizedBox(height: 8),
                     const Text(
@@ -1034,12 +1131,19 @@ class MentorProfileScreen extends StatelessWidget {
                     const SizedBox(height: 16),
                     const Text(
                       'Specializations',
-                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                      style:
+                          TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                     ),
                     const SizedBox(height: 8),
                     Wrap(
                       spacing: 8,
-                      children: ['Mathematics', 'JEE', 'NEET', 'Calculus', 'Algebra'].map((tag) {
+                      children: [
+                        'Mathematics',
+                        'JEE',
+                        'NEET',
+                        'Calculus',
+                        'Algebra'
+                      ].map((tag) {
                         return Chip(label: Text(tag));
                       }).toList(),
                     ),
@@ -1047,9 +1151,9 @@ class MentorProfileScreen extends StatelessWidget {
                 ),
               ),
             ),
-            
+
             const SizedBox(height: 16),
-            
+
             // Action Buttons
             Row(
               children: [

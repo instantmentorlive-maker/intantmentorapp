@@ -75,7 +75,7 @@ class SessionManagerService {
       await _secureStorage.write(key: _currentSessionKey, value: enhancedSession.sessionId);
       
       Logger.info('SessionManagerService: Session stored for user ${session.user.email}');
-      return Success(null);
+      return const Success(null);
       
     } catch (e) {
       Logger.error('SessionManagerService: Error storing session - $e');
@@ -90,7 +90,7 @@ class SessionManagerService {
     try {
       final currentSessionId = await _secureStorage.read(key: _currentSessionKey);
       if (currentSessionId == null) {
-        return Success(null);
+        return const Success(null);
       }
       
       final sessionsResult = await getAllSessions();
@@ -110,7 +110,7 @@ class SessionManagerService {
     } on StateError {
       Logger.warning('SessionManagerService: Current session not found');
       await _secureStorage.delete(key: _currentSessionKey);
-      return Success(null);
+      return const Success(null);
     } catch (e) {
       Logger.error('SessionManagerService: Error getting current session - $e');
       return Failure(
@@ -124,7 +124,7 @@ class SessionManagerService {
     try {
       final sessionsJson = await _secureStorage.read(key: _sessionsKey);
       if (sessionsJson == null) {
-        return Success(<EnhancedSession>[]);
+        return const Success(<EnhancedSession>[]);
       }
       
       final sessionsList = jsonDecode(sessionsJson) as List<dynamic>;
@@ -188,7 +188,7 @@ class SessionManagerService {
       }
       
       Logger.info('SessionManagerService: Session cleared');
-      return Success(null);
+      return const Success(null);
       
     } catch (e) {
       Logger.error('SessionManagerService: Error clearing session - $e');
@@ -205,7 +205,7 @@ class SessionManagerService {
       await _secureStorage.delete(key: _currentSessionKey);
       
       Logger.info('SessionManagerService: All sessions cleared');
-      return Success(null);
+      return const Success(null);
       
     } catch (e) {
       Logger.error('SessionManagerService: Error clearing all sessions - $e');
@@ -245,7 +245,7 @@ class SessionManagerService {
       }
       
       Logger.info('SessionManagerService: User sessions cleared');
-      return Success(null);
+      return const Success(null);
       
     } catch (e) {
       Logger.error('SessionManagerService: Error clearing user sessions - $e');
@@ -274,7 +274,7 @@ class SessionManagerService {
       await _updateSessionAccess(sessionId);
       
       Logger.info('SessionManagerService: Switched to session $sessionId');
-      return Success(null);
+      return const Success(null);
       
     } catch (e) {
       Logger.error('SessionManagerService: Error switching session - $e');
@@ -311,7 +311,7 @@ class SessionManagerService {
     try {
       await _secureStorage.write(key: _biometricEnabledKey, value: enabled.toString());
       Logger.info('SessionManagerService: Biometric enabled set to $enabled');
-      return Success(null);
+      return const Success(null);
     } catch (e) {
       Logger.error('SessionManagerService: Error setting biometric enabled - $e');
       return Failure(AppGeneralError.unknown('Failed to set biometric setting: $e'));
@@ -324,7 +324,7 @@ class SessionManagerService {
       return Success(value == 'true');
     } catch (e) {
       Logger.error('SessionManagerService: Error getting biometric enabled - $e');
-      return Success(false); // Default to false on error
+      return const Success(false); // Default to false on error
     }
   }
   
@@ -333,7 +333,7 @@ class SessionManagerService {
     try {
       await _secureStorage.write(key: _rememberMeKey, value: enabled.toString());
       Logger.info('SessionManagerService: Remember me set to $enabled');
-      return Success(null);
+      return const Success(null);
     } catch (e) {
       Logger.error('SessionManagerService: Error setting remember me - $e');
       return Failure(AppGeneralError.unknown('Failed to set remember me: $e'));
@@ -346,7 +346,7 @@ class SessionManagerService {
       return Success(value == 'true');
     } catch (e) {
       Logger.error('SessionManagerService: Error getting remember me - $e');
-      return Success(false); // Default to false on error
+      return const Success(false); // Default to false on error
     }
   }
   
@@ -355,7 +355,7 @@ class SessionManagerService {
     try {
       await _secureStorage.write(key: _autoLoginKey, value: enabled.toString());
       Logger.info('SessionManagerService: Auto-login set to $enabled');
-      return Success(null);
+      return const Success(null);
     } catch (e) {
       Logger.error('SessionManagerService: Error setting auto-login - $e');
       return Failure(AppGeneralError.unknown('Failed to set auto-login: $e'));
@@ -368,7 +368,7 @@ class SessionManagerService {
       return Success(value == 'true');
     } catch (e) {
       Logger.error('SessionManagerService: Error getting auto-login - $e');
-      return Success(false); // Default to false on error
+      return const Success(false); // Default to false on error
     }
   }
 }

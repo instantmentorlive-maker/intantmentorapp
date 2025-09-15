@@ -11,6 +11,7 @@ class ChatMessage {
   final DateTime timestamp;
   final bool isRead;
   final String? replyToId;
+  final bool isSent; // Phase 2 Day 14: Track if message was successfully sent
 
   const ChatMessage({
     required this.id,
@@ -23,6 +24,7 @@ class ChatMessage {
     required this.timestamp,
     this.isRead = false,
     this.replyToId,
+    this.isSent = false, // Phase 2 Day 14: Default to unsent
   });
 
   ChatMessage copyWith({
@@ -36,6 +38,7 @@ class ChatMessage {
     DateTime? timestamp,
     bool? isRead,
     String? replyToId,
+    bool? isSent,
   }) {
     return ChatMessage(
       id: id ?? this.id,
@@ -48,6 +51,44 @@ class ChatMessage {
       timestamp: timestamp ?? this.timestamp,
       isRead: isRead ?? this.isRead,
       replyToId: replyToId ?? this.replyToId,
+      isSent: isSent ?? this.isSent,
+    );
+  }
+
+  // Phase 2 Day 14: JSON serialization for local storage
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'chatId': chatId,
+      'senderId': senderId,
+      'senderName': senderName,
+      'type': type.name,
+      'content': content,
+      'attachments': attachments,
+      'timestamp': timestamp.toIso8601String(),
+      'isRead': isRead,
+      'replyToId': replyToId,
+      'isSent': isSent,
+    };
+  }
+
+  // Phase 2 Day 14: JSON deserialization for local storage
+  factory ChatMessage.fromJson(Map<String, dynamic> json) {
+    return ChatMessage(
+      id: json['id'],
+      chatId: json['chatId'],
+      senderId: json['senderId'],
+      senderName: json['senderName'],
+      type: MessageType.values.firstWhere(
+        (t) => t.name == json['type'],
+        orElse: () => MessageType.text,
+      ),
+      content: json['content'],
+      attachments: List<String>.from(json['attachments'] ?? []),
+      timestamp: DateTime.parse(json['timestamp']),
+      isRead: json['isRead'] ?? false,
+      replyToId: json['replyToId'],
+      isSent: json['isSent'] ?? false,
     );
   }
 }

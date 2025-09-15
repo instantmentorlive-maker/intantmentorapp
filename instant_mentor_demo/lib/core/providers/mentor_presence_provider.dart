@@ -69,7 +69,7 @@ final mentorPresenceProvider =
   final mentors = ref.read(mentorsProvider);
 
   // Create mock presence data with real-time updates
-  Map<String, MentorPresence> presences = {};
+  final Map<String, MentorPresence> presences = {};
 
   for (final mentor in mentors) {
     presences[mentor.id] = MentorPresence(
@@ -153,6 +153,57 @@ final availableMentorsCountProvider = Provider<int>((ref) {
     loading: () => 0,
     error: (_, __) => 0,
   );
+});
+
+/// Real-time average response time provider
+final averageResponseTimeProvider = StreamProvider<String>((ref) async* {
+  // Initial response time
+  yield '< 2min';
+
+  // Stream that updates every 10 seconds with realistic response times
+  await for (final _ in Stream.periodic(const Duration(seconds: 10))) {
+    final now = DateTime.now();
+    final presencesAsync = ref.read(mentorPresenceProvider);
+
+    final responseTime = presencesAsync.when(
+      data: (presences) {
+        final availableMentors =
+            presences.values.where((p) => p.isAvailable).length;
+
+        // Calculate response time based on availability and current load
+        String baseResponseTime;
+        if (availableMentors > 10) {
+          baseResponseTime = '< 1min';
+        } else if (availableMentors > 5) {
+          baseResponseTime = '< 2min';
+        } else if (availableMentors > 2) {
+          baseResponseTime = '< 3min';
+        } else if (availableMentors > 0) {
+          baseResponseTime = '< 5min';
+        } else {
+          baseResponseTime = '> 5min';
+        }
+
+        // Add some variation based on time of day
+        final hour = now.hour;
+        if (hour >= 10 && hour <= 14) {
+          // Peak hours - slightly slower
+          if (baseResponseTime == '< 1min') return '< 2min';
+          if (baseResponseTime == '< 2min') return '< 3min';
+        } else if (hour >= 20 || hour <= 6) {
+          // Off hours - might be slower
+          if (baseResponseTime == '< 2min') return '< 4min';
+          if (baseResponseTime == '< 3min') return '< 6min';
+        }
+
+        return baseResponseTime;
+      },
+      loading: () => '< 2min',
+      error: (_, __) => '< 3min',
+    );
+
+    yield responseTime;
+  }
 });
 
 // Helper functions

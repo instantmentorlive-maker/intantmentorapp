@@ -4,6 +4,10 @@ import 'dart:async';
 import '../../../core/services/websocket_service.dart';
 import '../../../core/providers/websocket_provider.dart';
 import '../../../core/providers/auth_provider.dart';
+import '../../../core/providers/chat_providers.dart';
+import '../../../core/providers/realtime_chat_provider.dart'
+    hide typingIndicatorProvider;
+import '../../../core/models/chat.dart';
 
 class RealTimeChatWidget extends ConsumerStatefulWidget {
   final String receiverId;
@@ -25,15 +29,33 @@ class _RealTimeChatWidgetState extends ConsumerState<RealTimeChatWidget> {
   final TextEditingController _messageController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   final List<ChatMessage> _messages = [];
-
-  Timer? _typingTimer;
   bool _isTyping = false;
   bool _showTypingIndicator = false;
+
+  Timer? _typingTimer;
 
   @override
   void initState() {
     super.initState();
     _setupMessageListener();
+    _loadInitialMessages();
+  }
+
+  void _loadInitialMessages() async {
+    try {
+      final chatService = ref.read(chatServiceProvider);
+      final messages = await chatService.fetchMessages(widget.receiverId);
+      if (mounted) {
+        setState(() {
+          _messages.clear();
+          _messages.addAll(messages);
+        });
+        _scrollToBottom();
+      }
+    } catch (e) {
+      debugPrint('Failed to load initial messages: $e');
+      // Continue without initial messages - they'll show as empty
+    }
   }
 
   @override
@@ -58,9 +80,10 @@ class _RealTimeChatWidgetState extends ConsumerState<RealTimeChatWidget> {
     // Listen to typing indicators
     ref.listen(typingIndicatorProvider(widget.receiverId), (previous, next) {
       next.whenData((isTyping) {
-        setState(() {
-          _showTypingIndicator = isTyping;
-        });
+        // Use provider instead of setState
+        ref
+            .read(realtimeChatProvider(widget.receiverId).notifier)
+            .setTypingIndicator(isTyping);
       });
     });
   }
@@ -69,17 +92,18 @@ class _RealTimeChatWidgetState extends ConsumerState<RealTimeChatWidget> {
     if (wsMessage.event == WebSocketEvent.messageReceived) {
       final chatMessage = ChatMessage(
         id: wsMessage.id,
+        chatId: widget.receiverId, // Use receiverId as chatId
         content: wsMessage.data['content'] ?? '',
         senderId: wsMessage.senderId ?? '',
+        senderName: wsMessage.data['senderName'] ?? 'Unknown',
+        type: MessageType.text, // Default to text
         timestamp: wsMessage.timestamp,
-        isFromCurrentUser: false,
-        messageType: wsMessage.data['messageType'] ?? 'text',
       );
 
-      setState(() {
-        _messages.add(chatMessage);
-      });
-
+      // Use provider instead of setState
+      ref
+          .read(realtimeChatProvider(widget.receiverId).notifier)
+          .addMessage(chatMessage);
       _scrollToBottom();
     }
   }
@@ -95,12 +119,13 @@ class _RealTimeChatWidgetState extends ConsumerState<RealTimeChatWidget> {
     // Add message to local list immediately
     final localMessage = ChatMessage(
       id: DateTime.now().millisecondsSinceEpoch.toString(),
+      chatId: widget.receiverId, // Use receiverId as chatId
       content: content,
       senderId: currentUser.id,
+      senderName: currentUser.email ?? 'User',
+      type: MessageType.text,
       timestamp: DateTime.now(),
-      isFromCurrentUser: true,
-      messageType: 'text',
-      status: MessageStatus.sending,
+      isSent: false, // Initially not sent
     );
 
     setState(() {
@@ -111,7 +136,7 @@ class _RealTimeChatWidgetState extends ConsumerState<RealTimeChatWidget> {
     _scrollToBottom();
 
     try {
-      // Send through WebSocket
+      // Send through WebSocket first (for real-time)
       final webSocketManager = ref.read(webSocketManagerProvider);
       await webSocketManager.sendChatMessage(
         receiverId: widget.receiverId,
@@ -119,12 +144,25 @@ class _RealTimeChatWidgetState extends ConsumerState<RealTimeChatWidget> {
         messageType: 'text',
       );
 
+      // Also save to persistent chat service
+      final chatService = ref.read(chatServiceProvider);
+      try {
+        await chatService.sendTextMessage(
+          chatId: widget.receiverId,
+          senderId: currentUser.id,
+          senderName: currentUser.email ?? 'User',
+          content: content,
+        );
+      } catch (e) {
+        debugPrint('Failed to save to chat service (using mock): $e');
+        // Message still shows as sent via WebSocket
+      }
+
       // Update message status to sent
       final messageIndex = _messages.indexWhere((m) => m.id == localMessage.id);
       if (messageIndex != -1) {
         setState(() {
-          _messages[messageIndex] =
-              localMessage.copyWith(status: MessageStatus.sent);
+          _messages[messageIndex] = localMessage.copyWith(isSent: true);
         });
       }
     } catch (e) {
@@ -134,8 +172,7 @@ class _RealTimeChatWidgetState extends ConsumerState<RealTimeChatWidget> {
       final messageIndex = _messages.indexWhere((m) => m.id == localMessage.id);
       if (messageIndex != -1) {
         setState(() {
-          _messages[messageIndex] =
-              localMessage.copyWith(status: MessageStatus.failed);
+          _messages[messageIndex] = localMessage.copyWith(isSent: false);
         });
       }
     }
@@ -371,7 +408,9 @@ class _RealTimeChatWidgetState extends ConsumerState<RealTimeChatWidget> {
 
   Widget _buildMessageBubble(ChatMessage message) {
     final theme = Theme.of(context);
-    final isFromCurrentUser = message.isFromCurrentUser;
+    final currentUser = ref.read(authProvider).user;
+    final isFromCurrentUser =
+        currentUser != null && message.senderId == currentUser.id;
 
     return Align(
       alignment:
@@ -391,7 +430,7 @@ class _RealTimeChatWidgetState extends ConsumerState<RealTimeChatWidget> {
               decoration: BoxDecoration(
                 color: isFromCurrentUser
                     ? theme.colorScheme.primary
-                    : theme.colorScheme.surfaceVariant,
+                    : theme.colorScheme.surfaceContainerHighest,
                 borderRadius: BorderRadius.circular(20).copyWith(
                   bottomRight:
                       isFromCurrentUser ? const Radius.circular(4) : null,
@@ -421,9 +460,9 @@ class _RealTimeChatWidgetState extends ConsumerState<RealTimeChatWidget> {
                       color: theme.colorScheme.onSurface.withOpacity(0.6),
                     ),
                   ),
-                  if (isFromCurrentUser && message.status != null) ...[
+                  if (isFromCurrentUser) ...[
                     const SizedBox(width: 4),
-                    _buildMessageStatusIcon(message.status!),
+                    _buildMessageStatusIcon(message.isSent),
                   ],
                 ],
               ),
@@ -443,7 +482,7 @@ class _RealTimeChatWidgetState extends ConsumerState<RealTimeChatWidget> {
         margin: const EdgeInsets.only(bottom: 8),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
         decoration: BoxDecoration(
-          color: theme.colorScheme.surfaceVariant,
+          color: theme.colorScheme.surfaceContainerHighest,
           borderRadius: BorderRadius.circular(20).copyWith(
             bottomLeft: const Radius.circular(4),
           ),
@@ -483,38 +522,19 @@ class _RealTimeChatWidgetState extends ConsumerState<RealTimeChatWidget> {
     );
   }
 
-  Widget _buildMessageStatusIcon(MessageStatus status) {
-    switch (status) {
-      case MessageStatus.sending:
-        return Icon(
-          Icons.access_time,
-          size: 12,
-          color: Colors.grey[600],
-        );
-      case MessageStatus.sent:
-        return Icon(
-          Icons.check,
-          size: 12,
-          color: Colors.grey[600],
-        );
-      case MessageStatus.delivered:
-        return Icon(
-          Icons.done_all,
-          size: 12,
-          color: Colors.grey[600],
-        );
-      case MessageStatus.read:
-        return Icon(
-          Icons.done_all,
-          size: 12,
-          color: Colors.blue[600],
-        );
-      case MessageStatus.failed:
-        return Icon(
-          Icons.error_outline,
-          size: 12,
-          color: Colors.red[600],
-        );
+  Widget _buildMessageStatusIcon(bool isSent) {
+    if (isSent) {
+      return Icon(
+        Icons.check,
+        size: 12,
+        color: Colors.grey[600],
+      );
+    } else {
+      return Icon(
+        Icons.access_time,
+        size: 12,
+        color: Colors.grey[600],
+      );
     }
   }
 
@@ -532,53 +552,4 @@ class _RealTimeChatWidgetState extends ConsumerState<RealTimeChatWidget> {
       return '${timestamp.day}/${timestamp.month}';
     }
   }
-}
-
-// Supporting classes
-class ChatMessage {
-  final String id;
-  final String content;
-  final String senderId;
-  final DateTime timestamp;
-  final bool isFromCurrentUser;
-  final String messageType;
-  final MessageStatus? status;
-
-  ChatMessage({
-    required this.id,
-    required this.content,
-    required this.senderId,
-    required this.timestamp,
-    required this.isFromCurrentUser,
-    this.messageType = 'text',
-    this.status,
-  });
-
-  ChatMessage copyWith({
-    String? id,
-    String? content,
-    String? senderId,
-    DateTime? timestamp,
-    bool? isFromCurrentUser,
-    String? messageType,
-    MessageStatus? status,
-  }) {
-    return ChatMessage(
-      id: id ?? this.id,
-      content: content ?? this.content,
-      senderId: senderId ?? this.senderId,
-      timestamp: timestamp ?? this.timestamp,
-      isFromCurrentUser: isFromCurrentUser ?? this.isFromCurrentUser,
-      messageType: messageType ?? this.messageType,
-      status: status ?? this.status,
-    );
-  }
-}
-
-enum MessageStatus {
-  sending,
-  sent,
-  delivered,
-  read,
-  failed,
 }

@@ -101,7 +101,7 @@ class EarningsReport {
 class LeaderboardEntry {
   final String userId;
   final String userName;
-  final UserRole userRole;
+  final dynamic userRole; // Use domain UserRole; kept dynamic to avoid circular import
   final double score;
   final int rank;
   final String metric; // e.g., "sessions_completed", "earnings", "rating"
@@ -117,5 +117,3 @@ class LeaderboardEntry {
     this.additionalData = const {},
   });
 }
-
-enum UserRole { student, mentor }

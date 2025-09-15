@@ -438,7 +438,7 @@ class PerformanceAnalyticsScreen extends ConsumerWidget {
                   ],
                 ),
               );
-            }).toList(),
+            }),
           ],
         ),
       ),

@@ -283,7 +283,7 @@ class MentorPresenceCard extends ConsumerWidget {
 
     Color backgroundColor;
     Color textColor;
-    String label = presence.displayStatus;
+    final String label = presence.displayStatus;
 
     if (presence.isAvailable) {
       backgroundColor = Colors.green.withValues(alpha: 0.1);
@@ -349,7 +349,11 @@ class MentorAvailabilityStats extends ConsumerWidget {
             icon: Icons.schedule,
             iconColor: Colors.orange,
             label: 'Avg Response',
-            value: '< 2min',
+            value: ref.watch(averageResponseTimeProvider).when(
+                  data: (responseTime) => responseTime,
+                  loading: () => '< 2min',
+                  error: (_, __) => '< 3min',
+                ),
           ),
         ],
       ),

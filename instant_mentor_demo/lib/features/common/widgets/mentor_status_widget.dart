@@ -148,7 +148,7 @@ class _MentorStatusWidgetState extends ConsumerState<MentorStatusWidget> {
                 Switch(
                   value: mentorStatus.isAvailable,
                   onChanged: (value) => _updateAvailability(value),
-                  activeColor: Colors.green,
+                  activeThumbColor: Colors.green,
                   activeTrackColor: Colors.green.withValues(alpha: 0.3),
                 ),
               ],

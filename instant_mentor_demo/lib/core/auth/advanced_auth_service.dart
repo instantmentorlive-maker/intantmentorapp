@@ -84,7 +84,7 @@ class AdvancedAuthService {
       // Check if biometric is enabled
       final biometricEnabledResult = await _sessionManager.isBiometricEnabled();
       if (biometricEnabledResult.isFailure || !biometricEnabledResult.data!) {
-        return Failure(
+        return const Failure(
           AuthError(
             message: 'Biometric authentication is not enabled.',
             code: 'BIOMETRIC_NOT_ENABLED',
@@ -104,7 +104,7 @@ class AdvancedAuthService {
       }
       
       if (!authResult.data!) {
-        return Failure(
+        return const Failure(
           AuthError(
             message: 'Biometric authentication was not successful.',
             code: 'BIOMETRIC_AUTH_FAILED',
@@ -119,7 +119,7 @@ class AdvancedAuthService {
       }
       
       if (sessionResult.data == null) {
-        return Failure(
+        return const Failure(
           AuthError(
             message: 'No saved session found. Please sign in with your credentials.',
             code: 'NO_SAVED_SESSION',
@@ -147,19 +147,19 @@ class AdvancedAuthService {
       final autoLoginEnabledResult = await _sessionManager.isAutoLoginEnabled();
       if (autoLoginEnabledResult.isFailure || !autoLoginEnabledResult.data!) {
         Logger.info('AdvancedAuthService: Auto-login is disabled');
-        return Success(null);
+        return const Success(null);
       }
       
       // Get current session
       final sessionResult = await _sessionManager.getCurrentSession();
       if (sessionResult.isFailure) {
         Logger.warning('AdvancedAuthService: Auto-login failed - ${sessionResult.error}');
-        return Success(null);
+        return const Success(null);
       }
       
       if (sessionResult.data == null) {
         Logger.info('AdvancedAuthService: No saved session for auto-login');
-        return Success(null);
+        return const Success(null);
       }
       
       final session = sessionResult.data!;
@@ -170,7 +170,7 @@ class AdvancedAuthService {
         if (!isAuthenticatedResult) {
           Logger.info('AdvancedAuthService: Saved session is no longer valid');
           await _sessionManager.clearSession(session.token.accessToken);
-          return Success(null);
+          return const Success(null);
         }
       }
       
@@ -179,7 +179,7 @@ class AdvancedAuthService {
       
     } catch (e) {
       Logger.error('AdvancedAuthService: Error during auto-login - $e');
-      return Success(null); // Don't fail the app, just don't auto-login
+      return const Success(null); // Don't fail the app, just don't auto-login
     }
   }
   
@@ -196,7 +196,7 @@ class AdvancedAuthService {
       // Check if biometrics are available
       final availabilityResult = await _biometricService.isAvailable();
       if (availabilityResult.isFailure || !availabilityResult.data!) {
-        return Failure(
+        return const Failure(
           AuthError(
             message: 'Biometric authentication is not available on this device.',
             code: 'BIOMETRIC_NOT_AVAILABLE',
@@ -207,7 +207,7 @@ class AdvancedAuthService {
       // Check if biometrics are enrolled
       final enrolledResult = await _biometricService.hasEnrolledBiometrics();
       if (enrolledResult.isFailure || !enrolledResult.data!) {
-        return Failure(
+        return const Failure(
           AuthError(
             message: 'No biometrics are enrolled on this device. Please set up fingerprint or face recognition in your device settings.',
             code: 'BIOMETRIC_NOT_ENROLLED',
@@ -227,7 +227,7 @@ class AdvancedAuthService {
       }
       
       if (!authResult.data!) {
-        return Failure(
+        return const Failure(
           AuthError(
             message: 'Biometric setup was cancelled or failed.',
             code: 'BIOMETRIC_SETUP_FAILED',
@@ -239,7 +239,7 @@ class AdvancedAuthService {
       await _sessionManager.setBiometricEnabled(true);
       
       Logger.info('AdvancedAuthService: Biometric authentication setup complete');
-      return Success(null);
+      return const Success(null);
       
     } catch (e) {
       Logger.error('AdvancedAuthService: Error setting up biometric auth - $e');
@@ -254,7 +254,7 @@ class AdvancedAuthService {
     try {
       await _sessionManager.setBiometricEnabled(false);
       Logger.info('AdvancedAuthService: Biometric authentication disabled');
-      return Success(null);
+      return const Success(null);
     } catch (e) {
       Logger.error('AdvancedAuthService: Error disabling biometric auth - $e');
       return Failure(
@@ -293,7 +293,7 @@ class AdvancedAuthService {
       }
       
       Logger.info('AdvancedAuthService: Sign out complete');
-      return Success(null);
+      return const Success(null);
       
     } catch (e) {
       Logger.error('AdvancedAuthService: Error during sign out - $e');
@@ -329,7 +329,7 @@ class AdvancedAuthService {
       await _sessionManager.setAutoLoginEnabled(false);
       
       Logger.info('AdvancedAuthService: Sign out from all sessions complete');
-      return Success(null);
+      return const Success(null);
       
     } catch (e) {
       Logger.error('AdvancedAuthService: Error signing out from all sessions - $e');
@@ -349,11 +349,11 @@ class AdvancedAuthService {
     try {
       final sessionResult = await getCurrentSession();
       if (sessionResult.isFailure) {
-        return Success(false);
+        return const Success(false);
       }
       
       if (sessionResult.data == null) {
-        return Success(false);
+        return const Success(false);
       }
       
       // Double-check with auth repository if available
@@ -362,11 +362,11 @@ class AdvancedAuthService {
         return Success(repoResult);
       }
       
-      return Success(true);
+      return const Success(true);
       
     } catch (e) {
       Logger.error('AdvancedAuthService: Error checking authentication - $e');
-      return Success(false);
+      return const Success(false);
     }
   }
   

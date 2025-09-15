@@ -1,5 +1,5 @@
 // HTTP Performance Optimization Integration Example
-// 
+//
 // This file demonstrates how to integrate the HTTP Performance Optimization
 // system into your Flutter app for maximum network performance.
 
@@ -15,12 +15,12 @@ import 'core/providers/network_providers.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  
+
   // Initialize HTTP Performance Optimization System
   await initializeHttpPerformance();
-  
+
   runApp(
-    ProviderScope(
+    const ProviderScope(
       child: MyApp(),
     ),
   );
@@ -30,17 +30,17 @@ void main() async {
 Future<void> initializeHttpPerformance() async {
   // Configure performance settings
   final config = PerformanceConfig()
-    ..enableCaching = true              // HTTP response caching
-    ..enableRetry = true                // Automatic request retry
-    ..enableOfflineSupport = true       // Offline request queuing
-    ..enableConnectionPooling = true    // Connection reuse
+    ..enableCaching = true // HTTP response caching
+    ..enableRetry = true // Automatic request retry
+    ..enableOfflineSupport = true // Offline request queuing
+    ..enableConnectionPooling = true // Connection reuse
     ..enablePerformanceMonitoring = true // Real-time metrics
-    ..maxConnections = 8                // Concurrent connections
-    ..maxConnectionsPerHost = 6         // Per-host connections
-    ..connectionTimeout = Duration(seconds: 15)
-    ..receiveTimeout = Duration(seconds: 30)
-    ..defaultCacheDuration = Duration(minutes: 10)
-    ..retryConfig = RetryConfig(
+    ..maxConnections = 8 // Concurrent connections
+    ..maxConnectionsPerHost = 6 // Per-host connections
+    ..connectionTimeout = const Duration(seconds: 15)
+    ..receiveTimeout = const Duration(seconds: 30)
+    ..defaultCacheDuration = const Duration(minutes: 10)
+    ..retryConfig = const RetryConfig(
       maxRetries: 3,
       baseDelay: Duration(seconds: 1),
       backoffMultiplier: 2.0,
@@ -50,16 +50,19 @@ Future<void> initializeHttpPerformance() async {
 
   // Initialize the enhanced network client
   await EnhancedNetworkClient.initialize(config: config);
-  
-  print('🚀 HTTP Performance Optimization System initialized!');
-  print('   ✅ HTTP Caching: ${config.enableCaching}');
-  print('   ✅ Request Retry: ${config.enableRetry}');
-  print('   ✅ Offline Support: ${config.enableOfflineSupport}');
-  print('   ✅ Connection Pooling: ${config.enableConnectionPooling}');
-  print('   ✅ Performance Monitoring: ${config.enablePerformanceMonitoring}');
+
+  debugPrint('🚀 HTTP Performance Optimization System initialized!');
+  debugPrint('   ✅ HTTP Caching: ${config.enableCaching}');
+  debugPrint('   ✅ Request Retry: ${config.enableRetry}');
+  debugPrint('   ✅ Offline Support: ${config.enableOfflineSupport}');
+  debugPrint('   ✅ Connection Pooling: ${config.enableConnectionPooling}');
+  debugPrint(
+      '   ✅ Performance Monitoring: ${config.enablePerformanceMonitoring}');
 }
 
 class MyApp extends ConsumerWidget {
+  const MyApp({super.key});
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return MaterialApp(
@@ -68,44 +71,50 @@ class MyApp extends ConsumerWidget {
         primarySwatch: Colors.blue,
         useMaterial3: true,
       ),
-      home: HomeScreen(),
+      home: const HomeScreen(),
     );
   }
 }
 
 class HomeScreen extends ConsumerWidget {
+  const HomeScreen({super.key});
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     // Watch network connectivity status
     final connectivityState = ref.watch(networkConnectivityProvider);
-    
+
     return Scaffold(
       appBar: AppBar(
-        title: Text('HTTP Performance Demo'),
+        title: const Text('HTTP Performance Demo'),
         backgroundColor: Colors.blue[700],
         foregroundColor: Colors.white,
         actions: [
           // Connectivity indicator
           Container(
-            margin: EdgeInsets.only(right: 16),
+            margin: const EdgeInsets.only(right: 16),
             child: Row(
               children: [
                 Icon(
                   connectivityState.isOnline ? Icons.wifi : Icons.wifi_off,
-                  color: connectivityState.isOnline ? Colors.white : Colors.red[200],
+                  color: connectivityState.isOnline
+                      ? Colors.white
+                      : Colors.red[200],
                   size: 20,
                 ),
-                SizedBox(width: 4),
+                const SizedBox(width: 4),
                 if (connectivityState.queuedRequestsCount > 0)
                   Container(
-                    padding: EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                     decoration: BoxDecoration(
                       color: Colors.orange,
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child: Text(
                       '${connectivityState.queuedRequestsCount}',
-                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                      style: const TextStyle(
+                          fontSize: 12, fontWeight: FontWeight.bold),
                     ),
                   ),
               ],
@@ -117,21 +126,21 @@ class HomeScreen extends ConsumerWidget {
         children: [
           // Performance status bar
           _buildPerformanceStatusBar(ref),
-          
+
           // Main content
           Expanded(
             child: Padding(
-              padding: EdgeInsets.all(16),
+              padding: const EdgeInsets.all(16),
               child: Column(
                 children: [
                   Text(
                     'HTTP Performance Features',
                     style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
+                          fontWeight: FontWeight.bold,
+                        ),
                   ),
-                  SizedBox(height: 24),
-                  
+                  const SizedBox(height: 24),
+
                   // Feature showcase
                   Expanded(
                     child: GridView.count(
@@ -166,25 +175,25 @@ class HomeScreen extends ConsumerWidget {
                       ],
                     ),
                   ),
-                  
-                  SizedBox(height: 24),
-                  
+
+                  const SizedBox(height: 24),
+
                   // Action buttons
                   Row(
                     children: [
                       Expanded(
                         child: ElevatedButton.icon(
                           onPressed: () => _makeTestRequest(ref),
-                          icon: Icon(Icons.send),
-                          label: Text('Test Request'),
+                          icon: const Icon(Icons.send),
+                          label: const Text('Test Request'),
                         ),
                       ),
-                      SizedBox(width: 16),
+                      const SizedBox(width: 16),
                       Expanded(
                         child: OutlinedButton.icon(
                           onPressed: () => _showPerformanceStats(context, ref),
-                          icon: Icon(Icons.analytics),
-                          label: Text('View Stats'),
+                          icon: const Icon(Icons.analytics),
+                          label: const Text('View Stats'),
                         ),
                       ),
                     ],
@@ -201,19 +210,22 @@ class HomeScreen extends ConsumerWidget {
   Widget _buildPerformanceStatusBar(WidgetRef ref) {
     final performanceState = ref.watch(networkPerformanceProvider);
     final stats = performanceState.stats;
-    
+
     return Container(
-      padding: EdgeInsets.all(12),
+      padding: const EdgeInsets.all(12),
       color: Colors.blue[50],
       child: Row(
         children: [
           _buildStatChip('Requests', '${stats.totalRequests}', Colors.blue),
-          SizedBox(width: 8),
-          _buildStatChip('Success', '${(stats.successRate * 100).toInt()}%', Colors.green),
-          SizedBox(width: 8),
-          _buildStatChip('Cached', '${(stats.cacheHitRate * 100).toInt()}%', Colors.purple),
-          SizedBox(width: 8),
-          _buildStatChip('Avg Time', '${stats.averageResponseTime.inMilliseconds}ms', Colors.orange),
+          const SizedBox(width: 8),
+          _buildStatChip(
+              'Success', '${(stats.successRate * 100).toInt()}%', Colors.green),
+          const SizedBox(width: 8),
+          _buildStatChip('Cached', '${(stats.cacheHitRate * 100).toInt()}%',
+              Colors.purple),
+          const SizedBox(width: 8),
+          _buildStatChip('Avg Time',
+              '${stats.averageResponseTime.inMilliseconds}ms', Colors.orange),
         ],
       ),
     );
@@ -221,7 +233,7 @@ class HomeScreen extends ConsumerWidget {
 
   Widget _buildStatChip(String label, String value, Color color) {
     return Container(
-      padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
         color: color.withOpacity(0.1),
         borderRadius: BorderRadius.circular(12),
@@ -250,10 +262,11 @@ class HomeScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildFeatureCard(String title, String description, IconData icon, Color color) {
+  Widget _buildFeatureCard(
+      String title, String description, IconData icon, Color color) {
     return Card(
       child: Padding(
-        padding: EdgeInsets.all(16),
+        padding: const EdgeInsets.all(16),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
@@ -262,16 +275,16 @@ class HomeScreen extends ConsumerWidget {
               backgroundColor: color.withOpacity(0.1),
               child: Icon(icon, color: color, size: 24),
             ),
-            SizedBox(height: 12),
+            const SizedBox(height: 12),
             Text(
               title,
-              style: TextStyle(
+              style: const TextStyle(
                 fontWeight: FontWeight.bold,
                 fontSize: 14,
               ),
               textAlign: TextAlign.center,
             ),
-            SizedBox(height: 4),
+            const SizedBox(height: 4),
             Text(
               description,
               style: TextStyle(
@@ -289,32 +302,35 @@ class HomeScreen extends ConsumerWidget {
   Future<void> _makeTestRequest(WidgetRef ref) async {
     try {
       final client = ref.read(enhancedHttpClientProvider);
-      
+
       // Make a test request with performance optimizations
       final response = await client.get('/test-endpoint');
-      
-      print('✅ Test request completed: ${response.statusCode}');
-      print('   Cache status: ${response.statusMessage}');
+
+      debugPrint('✅ Test request completed: ${response.statusCode}');
+      debugPrint('   Cache status: ${response.statusMessage}');
     } catch (e) {
-      print('❌ Test request failed: $e');
+      debugPrint('❌ Test request failed: $e');
     }
   }
 
   void _showPerformanceStats(BuildContext context, WidgetRef ref) {
     final stats = ref.read(networkPerformanceProvider).stats;
-    
+
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text('Performance Statistics'),
+        title: const Text('Performance Statistics'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text('Total Requests: ${stats.totalRequests}'),
-            Text('Success Rate: ${(stats.successRate * 100).toStringAsFixed(1)}%'),
-            Text('Cache Hit Rate: ${(stats.cacheHitRate * 100).toStringAsFixed(1)}%'),
-            Text('Average Response: ${stats.averageResponseTime.inMilliseconds}ms'),
+            Text(
+                'Success Rate: ${(stats.successRate * 100).toStringAsFixed(1)}%'),
+            Text(
+                'Cache Hit Rate: ${(stats.cacheHitRate * 100).toStringAsFixed(1)}%'),
+            Text(
+                'Average Response: ${stats.averageResponseTime.inMilliseconds}ms'),
             Text('P95 Response: ${stats.p95ResponseTime.inMilliseconds}ms'),
             Text('Failed Requests: ${stats.failedRequests}'),
           ],
@@ -322,7 +338,7 @@ class HomeScreen extends ConsumerWidget {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: Text('Close'),
+            child: const Text('Close'),
           ),
         ],
       ),
@@ -333,7 +349,7 @@ class HomeScreen extends ConsumerWidget {
 /// Example usage in a service class
 class ApiService {
   final Dio _client;
-  
+
   ApiService(this._client);
 
   /// Get user data with caching
@@ -351,9 +367,9 @@ class ApiService {
       data: userData,
     )
       // Configure offline support
-      ..setOfflinePriority(1)  // High priority for user creation
+      ..setOfflinePriority(1) // High priority for user creation
       ..setOfflineMetadata({'operation': 'create_user'});
-    
+
     final response = await _client.fetch(options);
     return response.data;
   }
@@ -363,7 +379,7 @@ class ApiService {
     final options = RequestOptions(path: '/data')
       // Use aggressive retry for critical data
       ..setRetryConfig(RetryPolicies.aggressive);
-    
+
     final response = await _client.fetch(options);
     return response.data;
   }

@@ -116,7 +116,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
       } else {
         // Handle sign up failure
         final appError = result.error ??
-            AuthError(
+            const AuthError(
                 message: 'Sign up failed. Please try again.',
                 code: 'SIGNUP_FAILED');
 

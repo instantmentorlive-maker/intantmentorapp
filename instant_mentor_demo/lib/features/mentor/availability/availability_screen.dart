@@ -127,7 +127,7 @@ class _AvailabilityScreenState extends State<AvailabilityScreen> {
                 ),
               ),
             );
-          }).toList(),
+          }),
         ],
       ),
     );

@@ -26,7 +26,7 @@ class ErrorHandler {
     }
 
     if (error is StateError) {
-      return AppError.unknown('Invalid state: ${error.message}');
+      return AppGeneralError.unknown('Invalid state: ${error.message}');
     }
 
     // For network-related errors (when using http package)
@@ -42,40 +42,37 @@ class ErrorHandler {
     }
 
     if (errorMessage.contains('http') && errorMessage.contains('404')) {
-      return NetworkError.notFound();
+      return AppGeneralError.notFound('Requested resource');
     }
 
     // Default to unknown error
-    return AppError.unknown(error.toString());
+    return AppGeneralError.unknown(error.toString());
   }
 
   /// Handles errors specifically for authentication operations
   static AppError handleAuthError(Object error, StackTrace? stackTrace) {
     final baseError = handleError(error, stackTrace);
 
-    // Convert generic errors to auth-specific errors where appropriate
-    if (baseError is NetworkError) {
-      return baseError; // Keep network errors as is
+    // Preserve specific error types
+    if (baseError is NetworkError ||
+        baseError is ValidationError ||
+        baseError is AuthError) {
+      return baseError;
     }
 
-    if (baseError is ValidationError) {
-      return baseError; // Keep validation errors as is
-    }
-
-    // Convert unknown errors to auth errors
-    if (baseError.type == AppErrorType.unknown) {
-      return AuthError.operationFailed(baseError.message);
-    }
-
-    return baseError;
+    // Wrap anything else in a generic auth error context
+    return AuthError(
+      message: baseError.message,
+      code: baseError.code ?? 'AUTH_OPERATION_FAILED',
+      originalError: baseError,
+      stackTrace: stackTrace,
+    );
   }
 
   /// Logs error for debugging purposes
   static void logError(AppError error, {StackTrace? stackTrace}) {
-    debugPrint('AppError [${error.type.name}]: ${error.message}');
-    if (error.details != null) {
-      debugPrint('Details: ${error.details}');
-    }
+    debugPrint(
+        'AppError [${error.runtimeType}]: ${error.message} (${error.code ?? 'NO_CODE'})');
     if (kDebugMode && stackTrace != null) {
       debugPrint('Stack trace: $stackTrace');
     }
@@ -83,50 +80,15 @@ class ErrorHandler {
 
   /// Gets a user-friendly message for the error
   static String getUserMessage(AppError error) {
-    switch (error.type) {
-      case AppErrorType.network:
-        if (error is NetworkError) {
-          switch (error.networkErrorType) {
-            case NetworkErrorType.noConnection:
-              return 'Please check your internet connection and try again.';
-            case NetworkErrorType.timeout:
-              return 'The request timed out. Please try again.';
-            case NetworkErrorType.serverError:
-              return 'Server is temporarily unavailable. Please try again later.';
-            case NetworkErrorType.notFound:
-              return 'The requested resource was not found.';
-            case NetworkErrorType.unauthorized:
-              return 'Your session has expired. Please sign in again.';
-            case NetworkErrorType.forbidden:
-              return 'You don\'t have permission to perform this action.';
-          }
-        }
-        return 'Network error occurred. Please try again.';
-
-      case AppErrorType.auth:
-        if (error is AuthError) {
-          switch (error.authErrorType) {
-            case AuthErrorType.invalidCredentials:
-              return 'Invalid email or password. Please try again.';
-            case AuthErrorType.accountNotFound:
-              return 'No account found with this email address.';
-            case AuthErrorType.emailAlreadyExists:
-              return 'An account with this email already exists.';
-            case AuthErrorType.weakPassword:
-              return 'Password must be at least 6 characters long.';
-            case AuthErrorType.sessionExpired:
-              return 'Your session has expired. Please sign in again.';
-            case AuthErrorType.operationFailed:
-              return error.message;
-          }
-        }
-        return 'Authentication error occurred.';
-
-      case AppErrorType.validation:
-        return error.message; // Validation messages are already user-friendly
-
-      case AppErrorType.unknown:
-        return 'An unexpected error occurred. Please try again.';
+    // Our AppError classes already carry user-friendly messages.
+    // Return them directly, with a few common fallbacks based on code.
+    if (error is NetworkError ||
+        error is ValidationError ||
+        error is AuthError) {
+      return error.message;
     }
+    return error.message.isNotEmpty
+        ? error.message
+        : 'An unexpected error occurred. Please try again.';
   }
 }

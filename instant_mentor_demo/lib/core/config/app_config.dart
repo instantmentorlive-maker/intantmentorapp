@@ -89,4 +89,27 @@ class AppConfig {
   String get mentorsEndpoint => '$fullApiUrl/mentors';
   String get studentsEndpoint => '$fullApiUrl/students';
   String get sessionsEndpoint => '$fullApiUrl/sessions';
+
+    // WebRTC ICE servers
+    List<Map<String, dynamic>> get webrtcIceServers {
+        final stun = dotenv.env['STUN_URL'] ?? 'stun:stun.l.google.com:19302';
+        final turnUrl = dotenv.env['TURN_URL'];
+        final turnUser = dotenv.env['TURN_USERNAME'];
+        final turnPass = dotenv.env['TURN_PASSWORD'];
+
+        final servers = <Map<String, dynamic>>[
+            {
+                'urls': [stun],
+            },
+        ];
+
+        if (turnUrl != null && turnUrl.isNotEmpty) {
+            servers.add({
+                'urls': [turnUrl],
+                if (turnUser != null) 'username': turnUser,
+                if (turnPass != null) 'credential': turnPass,
+            });
+        }
+        return servers;
+    }
 }

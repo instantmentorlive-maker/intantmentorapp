@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'dart:math' as math;
 import 'session_video_player.dart';
 
 // Note model
@@ -53,6 +54,37 @@ class SessionNote {
       videoUrl: videoUrl ?? this.videoUrl,
     );
   }
+
+  // JSON serialization
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'mentor': mentor,
+      'subject': subject,
+      'title': title,
+      'content': content,
+      'topic': topic,
+      'date': date.toIso8601String(),
+      'hasRecording': hasRecording,
+      'isBookmarked': isBookmarked,
+      'videoUrl': videoUrl,
+    };
+  }
+
+  factory SessionNote.fromJson(Map<String, dynamic> json) {
+    return SessionNote(
+      id: json['id'],
+      mentor: json['mentor'],
+      subject: json['subject'],
+      title: json['title'],
+      content: json['content'],
+      topic: json['topic'],
+      date: DateTime.parse(json['date']),
+      hasRecording: json['hasRecording'] ?? false,
+      isBookmarked: json['isBookmarked'] ?? false,
+      videoUrl: json['videoUrl'],
+    );
+  }
 }
 
 // Provider for notes
@@ -61,8 +93,54 @@ final notesProvider =
   return NotesNotifier();
 });
 
+// Provider for filtered notes
+final filteredNotesProvider = Provider<List<SessionNote>>((ref) {
+  final notes = ref.watch(notesProvider);
+  final filter = ref.watch(filterStateProvider);
+
+  return notes.where((note) {
+    // Filter by subject
+    if (filter.selectedSubject != null &&
+        note.subject != filter.selectedSubject) {
+      return false;
+    }
+
+    // Filter by mentor
+    if (filter.selectedMentor != null && note.mentor != filter.selectedMentor) {
+      return false;
+    }
+
+    // Filter by date range
+    if (filter.dateRange != null) {
+      final noteDate = DateTime(note.date.year, note.date.month, note.date.day);
+      final startDate = DateTime(filter.dateRange!.start.year,
+          filter.dateRange!.start.month, filter.dateRange!.start.day);
+      final endDate = DateTime(filter.dateRange!.end.year,
+          filter.dateRange!.end.month, filter.dateRange!.end.day);
+
+      if (noteDate.isBefore(startDate) || noteDate.isAfter(endDate)) {
+        return false;
+      }
+    }
+
+    // Filter by bookmarked
+    if (filter.showBookmarkedOnly && !note.isBookmarked) {
+      return false;
+    }
+
+    // Filter by recording
+    if (filter.showWithRecordingOnly && !note.hasRecording) {
+      return false;
+    }
+
+    return true;
+  }).toList();
+});
+
 class NotesNotifier extends StateNotifier<List<SessionNote>> {
-  NotesNotifier() : super(_defaultNotes);
+  NotesNotifier() : super([]) {
+    _loadNotes();
+  }
 
   static final List<SessionNote> _defaultNotes = [
     SessionNote(
@@ -93,8 +171,34 @@ class NotesNotifier extends StateNotifier<List<SessionNote>> {
     ),
   ];
 
+  void _loadNotes() {
+    try {
+      // For web, we'll use browser localStorage via dart:html
+      // For simplicity, let's start with the default notes and then add to them
+      state = [..._defaultNotes];
+      print('Loaded ${state.length} notes');
+    } catch (e) {
+      print('Error loading notes: $e');
+      state = [..._defaultNotes];
+    }
+  }
+
+  void _saveNotes() {
+    try {
+      // For now, just log the save action
+      // In a real app, you'd save to SharedPreferences or a database
+      print('Saving ${state.length} notes');
+    } catch (e) {
+      print('Error saving notes: $e');
+    }
+  }
+
   void addNote(SessionNote note) {
+    print(
+        'Adding note: ${note.title} - ${note.content.substring(0, math.min(50, note.content.length))}...');
     state = [note, ...state];
+    _saveNotes();
+    print('Notes count after adding: ${state.length}');
   }
 
   void toggleBookmark(String noteId) {
@@ -104,6 +208,7 @@ class NotesNotifier extends StateNotifier<List<SessionNote>> {
       }
       return note;
     }).toList();
+    _saveNotes();
   }
 }
 
@@ -112,7 +217,15 @@ class SessionNotesScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final notes = ref.watch(notesProvider);
+    final notes = ref.watch(filteredNotesProvider);
+    final filter = ref.watch(filterStateProvider);
+
+    // Check if any filters are active
+    final hasActiveFilters = filter.selectedSubject != null ||
+        filter.selectedMentor != null ||
+        filter.dateRange != null ||
+        filter.showBookmarkedOnly ||
+        filter.showWithRecordingOnly;
 
     return Scaffold(
       appBar: AppBar(
@@ -140,9 +253,31 @@ class SessionNotesScreen extends ConsumerWidget {
                   ),
                 ),
                 const SizedBox(width: 12),
-                IconButton(
-                  onPressed: () => _showFilterDialog(context),
-                  icon: const Icon(Icons.filter_list),
+                Stack(
+                  children: [
+                    IconButton(
+                      onPressed: () => _showFilterDialog(context),
+                      icon: Icon(
+                        Icons.filter_list,
+                        color: hasActiveFilters
+                            ? Theme.of(context).colorScheme.primary
+                            : null,
+                      ),
+                    ),
+                    if (hasActiveFilters)
+                      Positioned(
+                        right: 8,
+                        top: 8,
+                        child: Container(
+                          width: 8,
+                          height: 8,
+                          decoration: BoxDecoration(
+                            color: Theme.of(context).colorScheme.primary,
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                      ),
+                  ],
                 ),
               ],
             ),
@@ -180,6 +315,53 @@ class SessionNotesScreen extends ConsumerWidget {
                 ),
               ],
             ),
+
+            // Filter status message
+            if (hasActiveFilters) ...[
+              const SizedBox(height: 16),
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: Theme.of(context)
+                      .colorScheme
+                      .primaryContainer
+                      .withOpacity(0.5),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.info_outline,
+                      size: 16,
+                      color: Theme.of(context).colorScheme.primary,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Filters applied - Showing ${notes.length} filtered notes',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Theme.of(context).colorScheme.primary,
+                        ),
+                      ),
+                    ),
+                    TextButton(
+                      onPressed: () {
+                        ref.read(filterStateProvider.notifier).state =
+                            const FilterState();
+                      },
+                      style: TextButton.styleFrom(
+                        minimumSize: const Size(0, 24),
+                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                      ),
+                      child:
+                          const Text('Clear', style: TextStyle(fontSize: 12)),
+                    ),
+                  ],
+                ),
+              ),
+            ],
 
             const SizedBox(height: 24),
 
@@ -349,7 +531,10 @@ class SessionNotesScreen extends ConsumerWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 DropdownButtonFormField<String>(
-                  decoration: const InputDecoration(labelText: 'Select Mentor'),
+                  decoration: const InputDecoration(
+                    labelText: 'Select Mentor',
+                    border: OutlineInputBorder(),
+                  ),
                   value: selectedMentor,
                   items: [
                     'Dr. Sarah Smith',
@@ -360,19 +545,30 @@ class SessionNotesScreen extends ConsumerWidget {
                       .map((mentor) =>
                           DropdownMenuItem(value: mentor, child: Text(mentor)))
                       .toList(),
-                  onChanged: (value) => setState(() => selectedMentor = value!),
+                  onChanged: (value) {
+                    if (value != null) {
+                      setState(() => selectedMentor = value);
+                      print('Selected mentor: $value');
+                    }
+                  },
                 ),
                 const SizedBox(height: 16),
                 DropdownButtonFormField<String>(
-                  decoration:
-                      const InputDecoration(labelText: 'Select Subject'),
+                  decoration: const InputDecoration(
+                    labelText: 'Select Subject',
+                    border: OutlineInputBorder(),
+                  ),
                   value: selectedSubject,
                   items: ['Mathematics', 'Physics', 'Chemistry', 'English']
                       .map((subject) => DropdownMenuItem(
                           value: subject, child: Text(subject)))
                       .toList(),
-                  onChanged: (value) =>
-                      setState(() => selectedSubject = value!),
+                  onChanged: (value) {
+                    if (value != null) {
+                      setState(() => selectedSubject = value);
+                      print('Selected subject: $value');
+                    }
+                  },
                 ),
                 const SizedBox(height: 16),
                 TextField(
@@ -380,6 +576,7 @@ class SessionNotesScreen extends ConsumerWidget {
                   decoration: const InputDecoration(
                     labelText: 'Topic',
                     hintText: 'e.g., Calculus Integration',
+                    border: OutlineInputBorder(),
                   ),
                   onChanged: (value) => selectedTopic = value,
                 ),
@@ -390,6 +587,7 @@ class SessionNotesScreen extends ConsumerWidget {
                     labelText: 'Note Content',
                     hintText: 'Write your note here...',
                     alignLabelWithHint: true,
+                    border: OutlineInputBorder(),
                   ),
                   maxLines: 4,
                 ),
@@ -403,29 +601,55 @@ class SessionNotesScreen extends ConsumerWidget {
             ),
             ElevatedButton(
               onPressed: () {
-                if (titleController.text.isNotEmpty &&
-                    contentController.text.isNotEmpty) {
+                // Debug: Check what values we have
+                print('Title: "${titleController.text}"');
+                print('Content: "${contentController.text}"');
+                print('Mentor: "$selectedMentor"');
+                print('Subject: "$selectedSubject"');
+
+                if (titleController.text.trim().isNotEmpty &&
+                    contentController.text.trim().isNotEmpty &&
+                    selectedMentor.isNotEmpty &&
+                    selectedSubject.isNotEmpty) {
                   final newNote = SessionNote(
                     id: DateTime.now().millisecondsSinceEpoch.toString(),
                     mentor: selectedMentor,
                     subject: selectedSubject,
-                    title: titleController.text,
-                    content: contentController.text,
+                    title: titleController.text.trim(),
+                    content: contentController.text.trim(),
                     topic: selectedTopic.isNotEmpty
-                        ? selectedTopic
-                        : titleController.text,
+                        ? selectedTopic.trim()
+                        : titleController.text.trim(),
                     date: DateTime.now(),
-                    hasRecording: false,
-                    isBookmarked: false,
                   );
 
-                  ref.read(notesProvider.notifier).addNote(newNote);
-                  Navigator.pop(context);
+                  try {
+                    ref.read(notesProvider.notifier).addNote(newNote);
+                    Navigator.pop(context);
 
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Note saved successfully!'),
+                        backgroundColor: Colors.green,
+                        duration: Duration(seconds: 2),
+                      ),
+                    );
+                  } catch (e) {
+                    print('Error saving note: $e');
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Error saving note: $e'),
+                        backgroundColor: Colors.red,
+                      ),
+                    );
+                  }
+                } else {
+                  // Show validation error
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
-                      content: Text('Note added successfully!'),
-                      backgroundColor: Colors.green,
+                      content:
+                          Text('Please fill in both title and content fields'),
+                      backgroundColor: Colors.orange,
                     ),
                   );
                 }
@@ -497,21 +721,228 @@ class SessionNotesScreen extends ConsumerWidget {
   void _showFilterDialog(BuildContext context) {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Filter Notes'),
-        content: const Column(
+      builder: (context) => _FilterNotesDialog(),
+    );
+  }
+}
+
+// Filter state provider
+class FilterState {
+  final String? selectedSubject;
+  final String? selectedMentor;
+  final DateTimeRange? dateRange;
+  final bool showBookmarkedOnly;
+  final bool showWithRecordingOnly;
+
+  const FilterState({
+    this.selectedSubject,
+    this.selectedMentor,
+    this.dateRange,
+    this.showBookmarkedOnly = false,
+    this.showWithRecordingOnly = false,
+  });
+
+  FilterState copyWith({
+    String? selectedSubject,
+    String? selectedMentor,
+    DateTimeRange? dateRange,
+    bool? showBookmarkedOnly,
+    bool? showWithRecordingOnly,
+  }) {
+    return FilterState(
+      selectedSubject: selectedSubject ?? this.selectedSubject,
+      selectedMentor: selectedMentor ?? this.selectedMentor,
+      dateRange: dateRange ?? this.dateRange,
+      showBookmarkedOnly: showBookmarkedOnly ?? this.showBookmarkedOnly,
+      showWithRecordingOnly:
+          showWithRecordingOnly ?? this.showWithRecordingOnly,
+    );
+  }
+}
+
+final filterStateProvider =
+    StateProvider<FilterState>((ref) => const FilterState());
+
+class _FilterNotesDialog extends ConsumerStatefulWidget {
+  @override
+  _FilterNotesDialogState createState() => _FilterNotesDialogState();
+}
+
+class _FilterNotesDialogState extends ConsumerState<_FilterNotesDialog> {
+  late FilterState _tempFilter;
+
+  @override
+  void initState() {
+    super.initState();
+    _tempFilter = ref.read(filterStateProvider);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final notes = ref.watch(notesProvider);
+
+    // Get unique subjects and mentors from notes
+    final subjects = notes.map((note) => note.subject).toSet().toList()..sort();
+    final mentors = notes.map((note) => note.mentor).toSet().toList()..sort();
+
+    return AlertDialog(
+      title: const Text('Filter Notes'),
+      content: SingleChildScrollView(
+        child: Column(
           mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Filter options will be implemented here'),
+            // Subject Filter
+            const Text('Subject:',
+                style: TextStyle(fontWeight: FontWeight.bold)),
+            const SizedBox(height: 8),
+            DropdownButtonFormField<String>(
+              value: _tempFilter.selectedSubject,
+              decoration: const InputDecoration(
+                hintText: 'All Subjects',
+                border: OutlineInputBorder(),
+                isDense: true,
+              ),
+              items: [
+                const DropdownMenuItem<String>(
+                  value: null,
+                  child: Text('All Subjects'),
+                ),
+                ...subjects.map((subject) => DropdownMenuItem<String>(
+                      value: subject,
+                      child: Text(subject),
+                    )),
+              ],
+              onChanged: (value) {
+                setState(() {
+                  _tempFilter = _tempFilter.copyWith(selectedSubject: value);
+                });
+              },
+            ),
+
+            const SizedBox(height: 16),
+
+            // Mentor Filter
+            const Text('Mentor:',
+                style: TextStyle(fontWeight: FontWeight.bold)),
+            const SizedBox(height: 8),
+            DropdownButtonFormField<String>(
+              value: _tempFilter.selectedMentor,
+              decoration: const InputDecoration(
+                hintText: 'All Mentors',
+                border: OutlineInputBorder(),
+                isDense: true,
+              ),
+              items: [
+                const DropdownMenuItem<String>(
+                  value: null,
+                  child: Text('All Mentors'),
+                ),
+                ...mentors.map((mentor) => DropdownMenuItem<String>(
+                      value: mentor,
+                      child: Text(mentor),
+                    )),
+              ],
+              onChanged: (value) {
+                setState(() {
+                  _tempFilter = _tempFilter.copyWith(selectedMentor: value);
+                });
+              },
+            ),
+
+            const SizedBox(height: 16),
+
+            // Date Range Filter
+            const Text('Date Range:',
+                style: TextStyle(fontWeight: FontWeight.bold)),
+            const SizedBox(height: 8),
+            OutlinedButton(
+              onPressed: () async {
+                final DateTimeRange? picked = await showDateRangePicker(
+                  context: context,
+                  firstDate: DateTime(2020),
+                  lastDate: DateTime.now(),
+                  initialDateRange: _tempFilter.dateRange,
+                );
+                if (picked != null) {
+                  setState(() {
+                    _tempFilter = _tempFilter.copyWith(dateRange: picked);
+                  });
+                }
+              },
+              child: Text(
+                _tempFilter.dateRange != null
+                    ? '${_tempFilter.dateRange!.start.day}/${_tempFilter.dateRange!.start.month}/${_tempFilter.dateRange!.start.year} - ${_tempFilter.dateRange!.end.day}/${_tempFilter.dateRange!.end.month}/${_tempFilter.dateRange!.end.year}'
+                    : 'Select Date Range',
+              ),
+            ),
+
+            if (_tempFilter.dateRange != null) ...[
+              const SizedBox(height: 8),
+              TextButton(
+                onPressed: () {
+                  setState(() {
+                    _tempFilter = _tempFilter.copyWith(dateRange: null);
+                  });
+                },
+                child: const Text('Clear Date Range'),
+              ),
+            ],
+
+            const SizedBox(height: 16),
+
+            // Toggle Filters
+            CheckboxListTile(
+              title: const Text('Show only bookmarked notes'),
+              value: _tempFilter.showBookmarkedOnly,
+              onChanged: (value) {
+                setState(() {
+                  _tempFilter =
+                      _tempFilter.copyWith(showBookmarkedOnly: value ?? false);
+                });
+              },
+              dense: true,
+              contentPadding: EdgeInsets.zero,
+            ),
+
+            CheckboxListTile(
+              title: const Text('Show only notes with recordings'),
+              value: _tempFilter.showWithRecordingOnly,
+              onChanged: (value) {
+                setState(() {
+                  _tempFilter = _tempFilter.copyWith(
+                      showWithRecordingOnly: value ?? false);
+                });
+              },
+              dense: true,
+              contentPadding: EdgeInsets.zero,
+            ),
           ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Close'),
-          ),
-        ],
       ),
+      actions: [
+        TextButton(
+          onPressed: () {
+            // Clear all filters
+            setState(() {
+              _tempFilter = const FilterState();
+            });
+          },
+          child: const Text('Clear All'),
+        ),
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        ElevatedButton(
+          onPressed: () {
+            // Apply filters
+            ref.read(filterStateProvider.notifier).state = _tempFilter;
+            Navigator.pop(context);
+          },
+          child: const Text('Apply'),
+        ),
+      ],
     );
   }
 }

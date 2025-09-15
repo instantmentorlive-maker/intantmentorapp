@@ -1,5 +1,4 @@
 import 'package:flutter_dotenv/flutter_dotenv.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
 class SupabaseConfig {
   static String get supabaseUrl => dotenv.env['SUPABASE_URL'] ?? '';

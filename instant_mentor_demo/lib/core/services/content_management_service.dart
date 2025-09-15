@@ -43,7 +43,10 @@ class ContentManagementService {
         data: moduleData,
       );
 
-      return result['id'].toString();
+      if (result.isNotEmpty) {
+        return result.first['id'].toString();
+      }
+      return null;
     } catch (e) {
       debugPrint('Error creating learning module: $e');
       return null;
@@ -109,8 +112,8 @@ class ContentManagementService {
         table: 'quizzes',
         data: quizData,
       );
-
-      final quizId = result['id'].toString();
+      if (result.isEmpty) return null;
+      final quizId = result.first['id'].toString();
 
       // Add questions to quiz
       for (int i = 0; i < questions.length; i++) {
@@ -195,8 +198,10 @@ class ContentManagementService {
         table: 'assignments',
         data: assignmentData,
       );
-
-      return result['id'].toString();
+      if (result.isNotEmpty) {
+        return result.first['id'].toString();
+      }
+      return null;
     } catch (e) {
       debugPrint('Error creating assignment: $e');
       return null;
@@ -297,8 +302,10 @@ class ContentManagementService {
         table: 'resources',
         data: resourceData,
       );
-
-      return result['id'].toString();
+      if (result.isNotEmpty) {
+        return result.first['id'].toString();
+      }
+      return null;
     } catch (e) {
       debugPrint('Error creating resource: $e');
       return null;
@@ -537,7 +544,7 @@ class ContentManagementService {
       final questionId = question['id'];
       final correctAnswer = question['correct_answer'];
       final studentAnswer = answers[questionId];
-      final points = (question['points'] ?? 1).toInt();
+      final int points = (question['points'] ?? 1).toInt();
 
       totalPoints += points;
 

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:go_router/go_router.dart';
 import 'core/config/app_config.dart';
 import 'core/network/network_client.dart';
 import 'core/routing/routing.dart';
@@ -8,6 +9,7 @@ import 'core/services/supabase_service.dart';
 import 'core/providers/websocket_provider.dart';
 import 'features/common/widgets/error_handler_widget.dart';
 import 'features/realtime/realtime_communication_overlay.dart';
+import 'core/debug/provider_observer.dart';
 
 void main() async {
   // Ensure Flutter binding is initialized
@@ -16,14 +18,22 @@ void main() async {
   // Initialize app configuration and network client
   await _initializeApp();
 
-  runApp(const ProviderScope(child: MyApp()));
+  runApp(
+    ProviderScope(
+      observers: [
+        DebugProviderObserver(),
+        MemoryLeakObserver(),
+      ],
+      child: const MyApp(),
+    ),
+  );
 }
 
 /// Initialize application dependencies
 Future<void> _initializeApp() async {
   try {
     // Load environment variables first
-    await dotenv.load(fileName: ".env");
+    await dotenv.load();
 
     // Initialize app configuration from .env
     await AppConfig.initialize();
@@ -57,44 +67,43 @@ class MyApp extends ConsumerWidget {
     // Wrap MaterialApp with overlays that depend on Directionality by
     // placing RealtimeCommunicationOverlay ABOVE its navigator via builder.
     return MaterialApp.router(
-          title: 'InstantMentor',
-          theme: ThemeData(
-            useMaterial3: true,
-            colorScheme: const ColorScheme.light(
-              primary: Color(0xFF2563EB), // Bright Blue
-              secondary: Color(0xFF0B1C49), // Deep Navy
-              surface: Color(0xFFFFFFFF), // Light Gray
-              onPrimary: Color(0xFFFFFFFF),
-              onSecondary: Color(0xFFFFFFFF),
-              onSurface: Color(0xFF0B1C49),
-            ),
-            scaffoldBackgroundColor: const Color(0xFFF8FAFC),
-            appBarTheme: const AppBarTheme(
-              backgroundColor: Color(0xFF0B1C49),
-              foregroundColor: Color(0xFFFFFFFF),
-              elevation: 0,
-              centerTitle: true,
-            ),
-            cardTheme: CardThemeData(
-              elevation: 2,
-              shadowColor: const Color(0xFF0B1C49).withValues(alpha: 0.1),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-              ),
-            ),
-            elevatedButtonTheme: ElevatedButtonThemeData(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF2563EB),
-                foregroundColor: const Color(0xFFFFFFFF),
-                elevation: 2,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
+      title: 'InstantMentor',
+      theme: ThemeData(
+        useMaterial3: true,
+        colorScheme: const ColorScheme.light(
+          primary: Color(0xFF2563EB), // Original blue color
+          secondary: Color(0xFF0B1C49), // Deep Navy
+          onSecondary: Color(0xFFFFFFFF),
+          onSurface: Color(0xFF0B1C49),
+        ),
+        scaffoldBackgroundColor:
+            const Color(0xFFF8FAFC), // Light gray background
+        appBarTheme: const AppBarTheme(
+          backgroundColor: Color(0xFF0B1C49),
+          foregroundColor: Color(0xFFFFFFFF),
+          elevation: 0,
+          centerTitle: true,
+        ),
+        cardTheme: CardThemeData(
+          elevation: 2,
+          shadowColor: const Color(0xFF0B1C49).withValues(alpha: 0.1),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+        ),
+        elevatedButtonTheme: ElevatedButtonThemeData(
+          style: ElevatedButton.styleFrom(
+            backgroundColor: const Color(0xFF2563EB), // Original blue color
+            foregroundColor: const Color(0xFFFFFFFF), // White text
+            elevation: 2,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
             ),
           ),
-          routerConfig: router,
-          debugShowCheckedModeBanner: false,
+        ),
+      ),
+      routerConfig: router,
+      debugShowCheckedModeBanner: false,
       builder: (context, child) {
         // Preserve existing global error + realtime overlays.
         return ErrorHandlerWidget(
@@ -292,6 +301,7 @@ class _DemoScreenState extends State<DemoScreen> {
               children: [
                 _UpcomingSessionTile(
                   mentorName: 'Dr. Sarah Smith',
+                  mentorId: 'mentor_2',
                   subject: 'Mathematics',
                   time: 'Today, 3:00 PM',
                   duration: '60 min',
@@ -299,6 +309,7 @@ class _DemoScreenState extends State<DemoScreen> {
                 Divider(height: 1),
                 _UpcomingSessionTile(
                   mentorName: 'Prof. Raj Kumar',
+                  mentorId: 'mentor_1',
                   subject: 'Physics',
                   time: 'Tomorrow, 10:00 AM',
                   duration: '45 min',
@@ -309,7 +320,7 @@ class _DemoScreenState extends State<DemoScreen> {
 
           const SizedBox(height: 24),
 
-          // Top Mentors
+          // Top Mentors - Made more compact
           Text('Top Mentors',
               style: Theme.of(context)
                   .textTheme
@@ -317,7 +328,7 @@ class _DemoScreenState extends State<DemoScreen> {
                   ?.copyWith(fontWeight: FontWeight.bold)),
           const SizedBox(height: 12),
           SizedBox(
-            height: 200,
+            height: 180, // Reduced from 200 to make it more compact
             child: ListView.builder(
               scrollDirection: Axis.horizontal,
               itemCount: 5,
@@ -347,6 +358,9 @@ class _DemoScreenState extends State<DemoScreen> {
               },
             ),
           ),
+
+          // Add some bottom padding to prevent overlap with floating widgets
+          const SizedBox(height: 100),
         ],
       ),
     );
@@ -1320,11 +1334,12 @@ class _QuickActionCard extends StatelessWidget {
   final Color color;
   final VoidCallback onTap;
 
-  const _QuickActionCard(
-      {required this.icon,
-      required this.title,
-      required this.color,
-      required this.onTap});
+  const _QuickActionCard({
+    required this.icon,
+    required this.title,
+    required this.color,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -1495,22 +1510,37 @@ class _EarningsCard extends StatelessWidget {
 
 class _UpcomingSessionTile extends StatelessWidget {
   final String mentorName;
+  final String mentorId;
   final String subject;
   final String time;
   final String duration;
 
-  const _UpcomingSessionTile(
-      {required this.mentorName,
-      required this.subject,
-      required this.time,
-      required this.duration});
+  const _UpcomingSessionTile({
+    required this.mentorName,
+    required this.mentorId,
+    required this.subject,
+    required this.time,
+    required this.duration,
+  });
 
   @override
   Widget build(BuildContext context) {
     return ListTile(
-      leading: CircleAvatar(
-        backgroundColor: Theme.of(context).colorScheme.primaryContainer,
-        child: Text(mentorName.split(' ').map((n) => n[0]).join()),
+      leading: GestureDetector(
+        onTap: () {
+          // Navigate to mentor profile using GoRouter
+          context.go('/mentor-profile/$mentorId');
+        },
+        child: CircleAvatar(
+          backgroundColor: Theme.of(context).colorScheme.primaryContainer,
+          child: Text(
+            mentorName.split(' ').map((n) => n[0]).join(),
+            style: TextStyle(
+              color: Theme.of(context).colorScheme.onPrimaryContainer,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ),
       ),
       title: Text('$subject with $mentorName'),
       subtitle: Text('$time • $duration'),
@@ -1530,12 +1560,13 @@ class _MentorSessionTile extends StatelessWidget {
   final String duration;
   final String amount;
 
-  const _MentorSessionTile(
-      {required this.studentName,
-      required this.subject,
-      required this.time,
-      required this.duration,
-      required this.amount});
+  const _MentorSessionTile({
+    required this.studentName,
+    required this.subject,
+    required this.time,
+    required this.duration,
+    required this.amount,
+  });
 
   @override
   Widget build(BuildContext context) {

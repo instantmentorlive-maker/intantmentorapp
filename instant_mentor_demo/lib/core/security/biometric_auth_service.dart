@@ -1,8 +1,9 @@
 import 'dart:convert';
 import 'dart:developer' as developer;
-import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
-import 'package:local_auth/local_auth.dart';
+import 'package:local_auth/local_auth.dart' as la;
+import 'package:local_auth_android/local_auth_android.dart';
+import 'package:local_auth_darwin/local_auth_darwin.dart';
 import 'package:local_auth/error_codes.dart' as auth_error;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:crypto/crypto.dart';
@@ -198,12 +199,13 @@ class BiometricSession {
 /// Advanced biometric authentication service
 class BiometricAuthService {
   static BiometricAuthService? _instance;
-  static BiometricAuthService get instance => _instance ??= BiometricAuthService._();
-  
+  static BiometricAuthService get instance =>
+      _instance ??= BiometricAuthService._();
+
   BiometricAuthService._();
 
-  final LocalAuthentication _localAuth = LocalAuthentication();
-  
+  final la.LocalAuthentication _localAuth = la.LocalAuthentication();
+
   final FlutterSecureStorage _secureStorage = const FlutterSecureStorage(
     aOptions: AndroidOptions(
       encryptedSharedPreferences: true,
@@ -228,11 +230,12 @@ class BiometricAuthService {
     } else {
       await _loadPolicy();
     }
-    
+
     await _loadSession();
     await _loadFailedAttempts();
-    
-    developer.log('Biometric authentication service initialized', name: 'BiometricAuthService');
+
+    developer.log('Biometric authentication service initialized',
+        name: 'BiometricAuthService');
   }
 
   /// Check biometric capabilities
@@ -246,25 +249,26 @@ class BiometricAuthService {
       String? unavailabilityReason;
 
       if (!isDeviceSupported) {
-        unavailabilityReason = 'Device does not support biometric authentication';
+        unavailabilityReason =
+            'Device does not support biometric authentication';
       } else if (!isAvailable) {
         unavailabilityReason = 'No biometric authentication methods available';
       } else {
         for (final biometric in availableBiometrics) {
           switch (biometric) {
-            case BiometricType.fingerprint:
+            case la.BiometricType.fingerprint:
               availableTypes.add(BiometricType.fingerprint);
               break;
-            case BiometricType.face:
+            case la.BiometricType.face:
               availableTypes.add(BiometricType.face);
               break;
-            case BiometricType.iris:
+            case la.BiometricType.iris:
               availableTypes.add(BiometricType.iris);
               break;
-            case BiometricType.weak:
+            case la.BiometricType.weak:
               availableTypes.add(BiometricType.weak);
               break;
-            case BiometricType.strong:
+            case la.BiometricType.strong:
               availableTypes.add(BiometricType.strong);
               break;
           }
@@ -272,17 +276,20 @@ class BiometricAuthService {
       }
 
       final capability = BiometricCapability(
-        isAvailable: isAvailable && isDeviceSupported && availableTypes.isNotEmpty,
+        isAvailable:
+            isAvailable && isDeviceSupported && availableTypes.isNotEmpty,
         isDeviceSupported: isDeviceSupported,
         availableTypes: availableTypes,
         canCheckBiometrics: isAvailable,
         unavailabilityReason: unavailabilityReason,
       );
 
-      developer.log('Biometric capabilities: ${capability.toJson()}', name: 'BiometricAuthService');
+      developer.log('Biometric capabilities: ${capability.toJson()}',
+          name: 'BiometricAuthService');
       return capability;
     } catch (e) {
-      developer.log('Error checking biometric capabilities: $e', name: 'BiometricAuthService');
+      developer.log('Error checking biometric capabilities: $e',
+          name: 'BiometricAuthService');
       return BiometricCapability(
         isAvailable: false,
         isDeviceSupported: false,
@@ -306,41 +313,34 @@ class BiometricAuthService {
     if (_isLockedOut()) {
       final remaining = _lockoutUntil!.difference(DateTime.now());
       return BiometricAuthResult.failure(
-        'Too many failed attempts. Try again in ${remaining.inMinutes} minutes.'
-      );
+          'Too many failed attempts. Try again in ${remaining.inMinutes} minutes.');
     }
 
     try {
       final capabilities = await checkCapabilities();
-      
+
       if (!capabilities.isAvailable) {
+        return BiometricAuthResult.failure(capabilities.unavailabilityReason ??
+            'Biometric authentication not available');
+      }
+
+      // Determine if any allowed method is available
+      final hasBiometric =
+          capabilities.availableTypes.contains(BiometricType.fingerprint) ||
+              capabilities.availableTypes.contains(BiometricType.face) ||
+              capabilities.availableTypes.contains(BiometricType.iris) ||
+              capabilities.availableTypes.contains(BiometricType.strong) ||
+              capabilities.availableTypes.contains(BiometricType.weak);
+      final deviceCredentialAllowed =
+          _policy.allowDeviceCredential && !biometricOnly;
+      if (!hasBiometric && !deviceCredentialAllowed) {
         return BiometricAuthResult.failure(
-          capabilities.unavailabilityReason ?? 'Biometric authentication not available'
-        );
-      }
-
-      // Determine authentication options
-      final authOptions = <AuthenticationOption>[];
-      
-      if (_policy.allowFingerprintAuth && capabilities.availableTypes.contains(BiometricType.fingerprint)) {
-        authOptions.add(AuthenticationOption.biometric);
-      }
-      
-      if (_policy.allowFaceAuth && capabilities.availableTypes.contains(BiometricType.face)) {
-        authOptions.add(AuthenticationOption.biometric);
-      }
-      
-      if (_policy.allowDeviceCredential && !biometricOnly) {
-        authOptions.add(AuthenticationOption.deviceCredential);
-      }
-
-      if (authOptions.isEmpty) {
-        return BiometricAuthResult.failure('No suitable authentication methods available');
+            'No suitable authentication methods available');
       }
 
       // Perform authentication
       final isAuthenticated = await _localAuth.authenticate(
-        localizedFallbackTitle: localizedFallbackTitle,
+        localizedReason: signInTitle,
         authMessages: [
           AndroidAuthMessages(
             signInTitle: signInTitle,
@@ -351,18 +351,20 @@ class BiometricAuthService {
             deviceCredentialsRequiredTitle: 'Device credential required',
             deviceCredentialsSetupDescription: 'Set up device credentials',
             goToSettingsButton: 'Settings',
-            goToSettingsDescription: 'Go to settings to set up biometric authentication',
+            goToSettingsDescription:
+                'Go to settings to set up biometric authentication',
           ),
           IOSAuthMessages(
             cancelButton: cancelButtonText,
             goToSettingsButton: 'Settings',
-            goToSettingsDescription: 'Go to settings to enable biometric authentication',
+            goToSettingsDescription:
+                'Go to settings to enable biometric authentication',
             lockOut: 'Reenable biometric authentication',
           ),
         ],
-        options: AuthenticationOptions(
-          biometricOnly: biometricOnly,
-          stickyAuth: stickyAuth,
+        options: const la.AuthenticationOptions(
+          biometricOnly: false,
+          stickyAuth: true,
           useErrorDialogs: true,
         ),
       );
@@ -374,12 +376,16 @@ class BiometricAuthService {
 
         // Create session
         final session = await _createSession(
-          authenticationType: _detectAuthenticationType(capabilities.availableTypes),
-          strength: biometricOnly ? AuthenticationStrength.strong : AuthenticationStrength.deviceCredential,
+          authenticationType:
+              _detectAuthenticationType(capabilities.availableTypes),
+          strength: biometricOnly
+              ? AuthenticationStrength.strong
+              : AuthenticationStrength.deviceCredential,
           metadata: metadata ?? {},
         );
 
-        developer.log('Biometric authentication successful', name: 'BiometricAuthService');
+        developer.log('Biometric authentication successful',
+            name: 'BiometricAuthService');
 
         return BiometricAuthResult.success(
           type: session.authenticationType,
@@ -392,7 +398,7 @@ class BiometricAuthService {
       }
     } on PlatformException catch (e) {
       await _handleFailedAttempt();
-      
+
       String errorMessage;
       switch (e.code) {
         case auth_error.notAvailable:
@@ -414,11 +420,13 @@ class BiometricAuthService {
           errorMessage = 'Authentication error: ${e.message}';
       }
 
-      developer.log('Biometric authentication error: $errorMessage', name: 'BiometricAuthService');
+      developer.log('Biometric authentication error: $errorMessage',
+          name: 'BiometricAuthService');
       return BiometricAuthResult.failure(errorMessage);
     } catch (e) {
       await _handleFailedAttempt();
-      developer.log('Unexpected biometric authentication error: $e', name: 'BiometricAuthService');
+      developer.log('Unexpected biometric authentication error: $e',
+          name: 'BiometricAuthService');
       return BiometricAuthResult.failure('Unexpected error: $e');
     }
   }
@@ -429,7 +437,8 @@ class BiometricAuthService {
     Map<String, dynamic>? metadata,
   }) async {
     if (_currentSession != null && _currentSession!.isValid) {
-      developer.log('Using existing session for quick auth', name: 'BiometricAuthService');
+      developer.log('Using existing session for quick auth',
+          name: 'BiometricAuthService');
       return BiometricAuthResult.success(
         type: _currentSession!.authenticationType,
         strength: _currentSession!.strength,
@@ -475,20 +484,22 @@ class BiometricAuthService {
   Future<void> invalidateSession() async {
     _currentSession = null;
     await _secureStorage.delete(key: 'biometric_session');
-    developer.log('Biometric session invalidated', name: 'BiometricAuthService');
+    developer.log('Biometric session invalidated',
+        name: 'BiometricAuthService');
   }
 
   /// Update authentication policy
   Future<void> updatePolicy(AuthenticationPolicy policy) async {
     _policy = policy;
     await _savePolicy();
-    
+
     // Invalidate session if policy is more restrictive
     if (_currentSession != null && !_isPolicyCompatible(_currentSession!)) {
       await invalidateSession();
     }
-    
-    developer.log('Authentication policy updated', name: 'BiometricAuthService');
+
+    developer.log('Authentication policy updated',
+        name: 'BiometricAuthService');
   }
 
   /// Get current policy
@@ -575,12 +586,13 @@ class BiometricAuthService {
 
   Future<void> _handleFailedAttempt() async {
     _failedAttempts++;
-    
+
     if (_failedAttempts >= _policy.maxRetryAttempts) {
       _lockoutUntil = DateTime.now().add(_policy.lockoutDuration);
-      developer.log('Too many failed attempts. Locked out until $_lockoutUntil', name: 'BiometricAuthService');
+      developer.log('Too many failed attempts. Locked out until $_lockoutUntil',
+          name: 'BiometricAuthService');
     }
-    
+
     await _saveFailedAttempts();
   }
 
@@ -612,7 +624,8 @@ class BiometricAuthService {
         final policyMap = jsonDecode(policyJson);
         _policy = AuthenticationPolicy.fromJson(policyMap);
       } catch (e) {
-        developer.log('Error loading authentication policy: $e', name: 'BiometricAuthService');
+        developer.log('Error loading authentication policy: $e',
+            name: 'BiometricAuthService');
         _policy = const AuthenticationPolicy();
       }
     }
@@ -631,14 +644,15 @@ class BiometricAuthService {
       try {
         final sessionMap = jsonDecode(sessionJson);
         final session = BiometricSession.fromJson(sessionMap);
-        
+
         if (session.isValid) {
           _currentSession = session;
         } else {
           await _secureStorage.delete(key: 'biometric_session');
         }
       } catch (e) {
-        developer.log('Error loading biometric session: $e', name: 'BiometricAuthService');
+        developer.log('Error loading biometric session: $e',
+            name: 'BiometricAuthService');
         await _secureStorage.delete(key: 'biometric_session');
       }
     }
@@ -649,7 +663,7 @@ class BiometricAuthService {
       'failedAttempts': _failedAttempts,
       'lockoutUntil': _lockoutUntil?.toIso8601String(),
     };
-    
+
     await _secureStorage.write(
       key: 'failed_attempts',
       value: jsonEncode(data),
@@ -662,10 +676,10 @@ class BiometricAuthService {
       try {
         final data = jsonDecode(dataJson);
         _failedAttempts = data['failedAttempts'] ?? 0;
-        
+
         if (data['lockoutUntil'] != null) {
           _lockoutUntil = DateTime.parse(data['lockoutUntil']);
-          
+
           // Clear lockout if expired
           if (_lockoutUntil!.isBefore(DateTime.now())) {
             _lockoutUntil = null;
@@ -674,7 +688,8 @@ class BiometricAuthService {
           }
         }
       } catch (e) {
-        developer.log('Error loading failed attempts: $e', name: 'BiometricAuthService');
+        developer.log('Error loading failed attempts: $e',
+            name: 'BiometricAuthService');
         _failedAttempts = 0;
         _lockoutUntil = null;
       }

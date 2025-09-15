@@ -8,6 +8,26 @@ class EmailService {
 
   final SupabaseService _supabase = SupabaseService.instance;
 
+  /// Simple passthrough to Supabase Edge Function email sender
+  Future<bool> sendEmail({
+    required String to,
+    required String subject,
+    required String htmlContent,
+    String? textContent,
+  }) async {
+    try {
+      await _supabase.sendEmail(
+        to: to,
+        subject: subject,
+        htmlContent: htmlContent,
+        textContent: textContent,
+      );
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
   /// Send welcome email to new users
   Future<void> sendWelcomeEmail({
     required String userEmail,

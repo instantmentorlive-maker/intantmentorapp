@@ -4,6 +4,8 @@ import '../../core/providers/admin_provider.dart';
 import '../../core/providers/user_provider.dart';
 import '../../core/models/user.dart';
 import '../../core/services/websocket_service.dart';
+import '../../core/providers/websocket_provider.dart';
+import '../../core/providers/api_state_provider.dart';
 
 class AdminDashboardScreen extends ConsumerWidget {
   const AdminDashboardScreen({super.key});
@@ -17,30 +19,30 @@ class AdminDashboardScreen extends ConsumerWidget {
       );
     }
 
-  return DefaultTabController(
-    length: 6,
+    return DefaultTabController(
+      length: 6,
       child: Scaffold(
         appBar: AppBar(
           title: const Text('Admin Dashboard'),
-      bottom: const TabBar(
+          bottom: const TabBar(
             isScrollable: true,
             tabs: [
               Tab(text: 'Applications'),
               Tab(text: 'Call Logs'),
               Tab(text: 'Disputes'),
               Tab(text: 'Bans'),
-        Tab(text: 'Refunds'),
+              Tab(text: 'Refunds'),
               Tab(text: 'GDPR'),
             ],
           ),
         ),
-    body: const TabBarView(
+        body: const TabBarView(
           children: [
             _ApplicationsTab(),
             _CallLogsTab(),
             _DisputesTab(),
             _BansTab(),
-      _RefundsTab(),
+            _RefundsTab(),
             _GdprTab(),
           ],
         ),
@@ -103,13 +105,17 @@ class _CallLogsTab extends ConsumerWidget {
     return logs.when(
       data: (rows) {
         final total = rows.length;
-        final active = rows.where((r) => (r['status'] == 'ringing' || r['status'] == 'accepted') && r['ended_at'] == null).length;
+        final active = rows
+            .where((r) =>
+                (r['status'] == 'ringing' || r['status'] == 'accepted') &&
+                r['ended_at'] == null)
+            .length;
         final failed = rows.where((r) => r['status'] == 'rejected').length;
         return Column(
           children: [
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              color: Theme.of(context).colorScheme.surfaceVariant,
+              color: Theme.of(context).colorScheme.surfaceContainerHighest,
               child: Row(
                 children: [
                   _MetricChip(label: 'Total', value: total.toString()),
@@ -118,7 +124,8 @@ class _CallLogsTab extends ConsumerWidget {
                   const SizedBox(width: 8),
                   _MetricChip(label: 'Rejected', value: failed.toString()),
                   const Spacer(),
-                  Text('WS: ${conn.value?.name ?? '...'}', style: const TextStyle(fontSize: 12)),
+                  Text('WS: ${conn.value?.name ?? '...'}',
+                      style: const TextStyle(fontSize: 12)),
                 ],
               ),
             ),
@@ -136,8 +143,10 @@ class _CallLogsTab extends ConsumerWidget {
                           ? Icons.call
                           : Icons.call_end,
                     ),
-                    title: Text('${r['call_type'] ?? 'video'} • ${r['status']}'),
-                    subtitle: Text('caller: ${r['caller_id']} → receiver: ${r['receiver_id']}'),
+                    title:
+                        Text('${r['call_type'] ?? 'video'} • ${r['status']}'),
+                    subtitle: Text(
+                        'caller: ${r['caller_id']} → receiver: ${r['receiver_id']}'),
                     trailing: Text('${duration}s'),
                   );
                 },
@@ -167,13 +176,16 @@ class _DisputesTab extends ConsumerWidget {
             margin: const EdgeInsets.all(8),
             child: ListTile(
               title: Text(r['reason'] ?? 'Dispute'),
-              subtitle: Text('status: ${r['status']} • session: ${r['session_id'] ?? '-'}'),
+              subtitle: Text(
+                  'status: ${r['status']} • session: ${r['session_id'] ?? '-'}'),
               trailing: PopupMenuButton<String>(
                 onSelected: (v) async {
                   if (v == 'resolve') {
-                    await admin.updateDisputeStatus(id: r['id'], status: 'resolved');
+                    await admin.updateDisputeStatus(
+                        id: r['id'], status: 'resolved');
                   } else if (v == 'reject') {
-                    await admin.updateDisputeStatus(id: r['id'], status: 'rejected');
+                    await admin.updateDisputeStatus(
+                        id: r['id'], status: 'rejected');
                   }
                 },
                 itemBuilder: (_) => const [
@@ -235,9 +247,13 @@ class _RefundsTab extends ConsumerWidget {
             margin: const EdgeInsets.all(8),
             child: ListTile(
               leading: const Icon(Icons.refresh),
-              title: Text('Session: ${r['session_id'] ?? '-'} • ${r['status']}'),
-              subtitle: Text('Amount: ${r['amount']} • Reason: ${r['reason'] ?? '-'}'),
-              trailing: Text(r['created_at'] != null ? (r['created_at'] as String).split('T').first : ''),
+              title:
+                  Text('Session: ${r['session_id'] ?? '-'} • ${r['status']}'),
+              subtitle: Text(
+                  'Amount: ${r['amount']} • Reason: ${r['reason'] ?? '-'}'),
+              trailing: Text(r['created_at'] != null
+                  ? (r['created_at'] as String).split('T').first
+                  : ''),
             ),
           );
         },
@@ -270,12 +286,12 @@ class _GdprTab extends ConsumerStatefulWidget {
 
 class _GdprTabState extends ConsumerState<_GdprTab> {
   final _controller = TextEditingController();
-  String? _result;
-  bool _busy = false;
 
   @override
   Widget build(BuildContext context) {
     final admin = ref.read(adminServiceProvider);
+    final gdprApiState = ref.watch(apiStateProvider('gdpr'));
+
     return Padding(
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -295,31 +311,30 @@ class _GdprTabState extends ConsumerState<_GdprTab> {
             spacing: 12,
             children: [
               ElevatedButton(
-                onPressed: _busy
+                onPressed: gdprApiState.isLoading
                     ? null
                     : () async {
-                        setState(() => _busy = true);
-                        try {
-                          final data = await admin.exportUserData(_controller.text.trim());
-                          setState(() => _result = data.toString());
-                        } finally {
-                          setState(() => _busy = false);
-                        }
+                        final notifier =
+                            ref.read(apiStateProvider('gdpr').notifier);
+                        await notifier.execute(() async {
+                          final data = await admin
+                              .exportUserData(_controller.text.trim());
+                          return {'result': data.toString()};
+                        });
                       },
                 child: const Text('Export'),
               ),
               ElevatedButton(
                 style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-                onPressed: _busy
+                onPressed: gdprApiState.isLoading
                     ? null
                     : () async {
-                        setState(() => _busy = true);
-                        try {
+                        final notifier =
+                            ref.read(apiStateProvider('gdpr').notifier);
+                        await notifier.execute(() async {
                           await admin.deleteUserData(_controller.text.trim());
-                          setState(() => _result = 'Deleted');
-                        } finally {
-                          setState(() => _busy = false);
-                        }
+                          return {'result': 'Deleted'};
+                        });
                       },
                 child: const Text('Delete'),
               ),
@@ -328,7 +343,9 @@ class _GdprTabState extends ConsumerState<_GdprTab> {
           const SizedBox(height: 16),
           Expanded(
             child: SingleChildScrollView(
-              child: Text(_result ?? 'No result'),
+              child: Text(gdprApiState.hasError
+                  ? 'Error: ${gdprApiState.errorMessage}'
+                  : gdprApiState.data?['result']?.toString() ?? 'No result'),
             ),
           ),
         ],

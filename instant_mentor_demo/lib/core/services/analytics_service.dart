@@ -1,5 +1,7 @@
-import 'package:flutter/foundation.dart';
 import 'dart:math' as math;
+
+import 'package:flutter/foundation.dart';
+
 import 'supabase_service.dart';
 
 /// Advanced analytics and insights service
@@ -10,6 +12,35 @@ class AnalyticsService {
   AnalyticsService._();
 
   final SupabaseService _supabase = SupabaseService.instance;
+
+  // Feature toggle for analytics - Day 11 requirement
+  bool _analyticsEnabled = kDebugMode; // Default enabled in debug mode
+
+  // PII-safe fields whitelist
+  static const Set<String> _piiSafeFields = {
+    'event_type',
+    'timestamp',
+    'session_duration',
+    'success',
+    'error_code',
+    'platform',
+    'app_version',
+    'feature_flag',
+    'user_role',
+    'action_type',
+    'category',
+    'count',
+    'amount_range', // Instead of exact amount
+    'subject_category', // Instead of exact subject
+  };
+
+  /// Toggle analytics collection - Day 11 requirement
+  void setAnalyticsEnabled(bool enabled) {
+    _analyticsEnabled = enabled;
+    debugPrint('Analytics collection ${enabled ? 'enabled' : 'disabled'}');
+  }
+
+  bool get isAnalyticsEnabled => _analyticsEnabled;
 
   /// Get comprehensive learning analytics for a student
   Future<StudentAnalytics> getStudentAnalytics(String studentId) async {
@@ -136,6 +167,325 @@ class AnalyticsService {
     }
   }
 
+  // ==================== EVENT TRACKING (Day 11 Requirements) ====================
+
+  /// Track authentication events - Day 11 requirement
+  Future<void> trackAuthEvent({
+    required String eventType, // 'login', 'logout', 'signup', 'password_reset'
+    required bool success,
+    String? errorCode,
+    String? platform,
+    Map<String, dynamic>? metadata,
+  }) async {
+    if (!_analyticsEnabled) return;
+
+    final eventData = _sanitizeEventData({
+      'event_type': 'auth_$eventType',
+      'success': success,
+      'error_code': errorCode,
+      'platform': platform ?? 'unknown',
+      'timestamp': DateTime.now().toIso8601String(),
+      'category': 'authentication',
+      ...?metadata,
+    });
+
+    await _recordEvent(eventData);
+  }
+
+  /// Track payment events - Day 11 requirement
+  Future<void> trackPaymentEvent({
+    required String
+        eventType, // 'payment_initiated', 'payment_success', 'payment_failed'
+    required bool success,
+    double? amount,
+    String? paymentMethod, // 'upi', 'stripe', 'wallet'
+    String? errorCode,
+    String? transactionId,
+    Map<String, dynamic>? metadata,
+  }) async {
+    if (!_analyticsEnabled) return;
+
+    final eventData = _sanitizeEventData({
+      'event_type': 'payment_$eventType',
+      'success': success,
+      'amount_range':
+          _getAmountRange(amount), // PII-safe: range instead of exact amount
+      'payment_method': paymentMethod,
+      'error_code': errorCode,
+      'transaction_id':
+          transactionId != null ? _hashPII(transactionId) : null, // Hash PII
+      'timestamp': DateTime.now().toIso8601String(),
+      'category': 'payment',
+      ...?metadata,
+    });
+
+    await _recordEvent(eventData);
+  }
+
+  /// Track session events
+  Future<void> trackSessionEvent({
+    required String eventType, // 'session_start', 'session_end', 'session_join'
+    required String sessionType, // 'mentoring', 'group', 'trial'
+    int? duration,
+    bool? success,
+    String? errorCode,
+    Map<String, dynamic>? metadata,
+  }) async {
+    if (!_analyticsEnabled) return;
+
+    final eventData = _sanitizeEventData({
+      'event_type': 'session_$eventType',
+      'session_type': sessionType,
+      'duration_minutes': duration,
+      'success': success,
+      'error_code': errorCode,
+      'timestamp': DateTime.now().toIso8601String(),
+      'category': 'session',
+      ...?metadata,
+    });
+
+    await _recordEvent(eventData);
+  }
+
+  /// Track user engagement events
+  Future<void> trackEngagementEvent({
+    required String action, // 'page_view', 'feature_used', 'button_clicked'
+    required String feature,
+    int? duration,
+    Map<String, dynamic>? metadata,
+  }) async {
+    if (!_analyticsEnabled) return;
+
+    final eventData = _sanitizeEventData({
+      'event_type': 'engagement_$action',
+      'feature': feature,
+      'duration_seconds': duration,
+      'timestamp': DateTime.now().toIso8601String(),
+      'category': 'engagement',
+      ...?metadata,
+    });
+
+    await _recordEvent(eventData);
+  }
+
+  /// Sanitize event data to remove PII - Day 11 requirement
+  Map<String, dynamic> _sanitizeEventData(Map<String, dynamic> eventData) {
+    final sanitized = <String, dynamic>{};
+
+    for (final entry in eventData.entries) {
+      if (entry.value == null) continue;
+
+      // Only include PII-safe fields
+      if (_piiSafeFields.contains(entry.key)) {
+        sanitized[entry.key] = entry.value;
+      } else if (entry.key.startsWith('is_') || entry.key.startsWith('has_')) {
+        // Allow boolean flags
+        sanitized[entry.key] = entry.value;
+      } else {
+        // Log dropped fields in debug mode
+        if (kDebugMode) {
+          debugPrint(
+              'Analytics: Dropped potentially sensitive field: ${entry.key}');
+        }
+      }
+    }
+
+    return sanitized;
+  }
+
+  /// Convert amount to privacy-safe range
+  String _getAmountRange(double? amount) {
+    if (amount == null) return 'unknown';
+    if (amount < 100) return '0-100';
+    if (amount < 500) return '100-500';
+    if (amount < 1000) return '500-1000';
+    if (amount < 5000) return '1000-5000';
+    return '5000+';
+  }
+
+  /// Hash PII data for analytics (one-way hash)
+  String _hashPII(String data) {
+    // Simple hash for demo - in production use proper cryptographic hash
+    return data.hashCode.abs().toString();
+  }
+
+  /// Record event to analytics backend
+  Future<void> _recordEvent(Map<String, dynamic> eventData) async {
+    try {
+      // Use batch processing for better performance
+      await _queueEvent(eventData);
+    } catch (e) {
+      debugPrint('Failed to queue analytics event: $e');
+      // Fail silently to not impact user experience
+    }
+  }
+
+  // ==================== END EVENT TRACKING ====================
+
+  // ==================== ERROR & PERFORMANCE TRACKING ====================
+
+  /// Track errors and exceptions - Day 7 requirement (error handling)
+  Future<void> trackError({
+    required String errorType,
+    required String errorMessage,
+    String? stackTrace,
+    String? feature,
+    Map<String, dynamic>? context,
+  }) async {
+    if (!_analyticsEnabled) return;
+
+    final eventData = _sanitizeEventData({
+      'event_type': 'error_occurred',
+      'error_type': errorType,
+      'error_message': errorMessage.length > 500
+          ? errorMessage.substring(0, 500) + '...'
+          : errorMessage,
+      'feature': feature,
+      'has_stack_trace': stackTrace != null,
+      'timestamp': DateTime.now().toIso8601String(),
+      'category': 'error',
+      ...?context,
+    });
+
+    await _recordEvent(eventData);
+  }
+
+  /// Track performance metrics - Day 7 requirement
+  Future<void> trackPerformanceMetric({
+    required String metricName,
+    required double value,
+    String? unit,
+    String? feature,
+    Map<String, dynamic>? metadata,
+  }) async {
+    if (!_analyticsEnabled) return;
+
+    final eventData = _sanitizeEventData({
+      'event_type': 'performance_metric',
+      'metric_name': metricName,
+      'metric_value': value,
+      'unit': unit ?? 'ms',
+      'feature': feature,
+      'timestamp': DateTime.now().toIso8601String(),
+      'category': 'performance',
+      ...?metadata,
+    });
+
+    await _recordEvent(eventData);
+  }
+
+  /// Track network requests - Day 7 requirement (retry/error handling)
+  Future<void> trackNetworkEvent({
+    required String endpoint,
+    required String method,
+    required int statusCode,
+    required int duration,
+    bool? isRetry,
+    String? errorType,
+  }) async {
+    if (!_analyticsEnabled) return;
+
+    final eventData = _sanitizeEventData({
+      'event_type': 'network_request',
+      'endpoint_category':
+          _categorizeEndpoint(endpoint), // Don't store full URL
+      'method': method,
+      'status_code': statusCode,
+      'duration_ms': duration,
+      'success': statusCode >= 200 && statusCode < 300,
+      'is_retry': isRetry ?? false,
+      'error_type': errorType,
+      'timestamp': DateTime.now().toIso8601String(),
+      'category': 'network',
+    });
+
+    await _recordEvent(eventData);
+  }
+
+  /// Track feature flag usage - Day 4/9 requirement
+  Future<void> trackFeatureFlag({
+    required String flagName,
+    required bool enabled,
+    String? variant,
+    String? feature,
+  }) async {
+    if (!_analyticsEnabled) return;
+
+    final eventData = _sanitizeEventData({
+      'event_type': 'feature_flag_used',
+      'flag_name': flagName,
+      'enabled': enabled,
+      'variant': variant,
+      'feature': feature,
+      'timestamp': DateTime.now().toIso8601String(),
+      'category': 'feature_flag',
+    });
+
+    await _recordEvent(eventData);
+  }
+
+  /// Categorize endpoint for privacy (don't store full URLs)
+  String _categorizeEndpoint(String endpoint) {
+    if (endpoint.contains('/auth')) return 'auth';
+    if (endpoint.contains('/payment')) return 'payment';
+    if (endpoint.contains('/session')) return 'session';
+    if (endpoint.contains('/profile')) return 'profile';
+    if (endpoint.contains('/chat')) return 'chat';
+    return 'other';
+  }
+
+  // ==================== BATCH ANALYTICS (Day 12 optimization) ====================
+
+  final List<Map<String, dynamic>> _eventQueue = [];
+  static const int _batchSize = 10;
+
+  /// Queue events for batch processing
+  Future<void> _queueEvent(Map<String, dynamic> eventData) async {
+    _eventQueue.add(eventData);
+
+    if (_eventQueue.length >= _batchSize) {
+      await _flushEventQueue();
+    }
+  }
+
+  /// Flush queued events to backend
+  Future<void> _flushEventQueue() async {
+    if (_eventQueue.isEmpty) return;
+
+    try {
+      final events = List<Map<String, dynamic>>.from(_eventQueue);
+      _eventQueue.clear();
+
+      await _supabase.insertData(
+        table: 'analytics_events',
+        data: events.first, // For now, insert one by one
+        // TODO: Implement batch insert in SupabaseService
+      );
+
+      // Insert remaining events
+      for (int i = 1; i < events.length; i++) {
+        await _supabase.insertData(
+          table: 'analytics_events',
+          data: events[i],
+        );
+      }
+    } catch (e) {
+      debugPrint('Failed to flush analytics events: $e');
+      // Re-queue events on failure (with limit to prevent memory issues)
+      if (_eventQueue.length < 100) {
+        // Keep only recent events
+        _eventQueue.addAll(_eventQueue.take(50));
+      }
+    }
+  }
+
+  /// Force flush all queued events
+  Future<void> flushAnalytics() async {
+    await _flushEventQueue();
+  }
+
+  // ==================== END ERROR & PERFORMANCE TRACKING ====================
+
   /// Calculate learning progress metrics
   Map<String, dynamic> _calculateProgressMetrics(
       List<Map<String, dynamic>> sessions) {
@@ -143,8 +493,8 @@ class AnalyticsService {
 
     final completedSessions =
         sessions.where((s) => s['status'] == 'completed').toList();
-    final totalSessionTime = completedSessions.fold<int>(
-        0, (sum, session) => sum + (session['duration_minutes'] ?? 0));
+    final totalSessionTime = completedSessions.fold<int>(0,
+        (sum, session) => sum + ((session['duration_minutes'] as int?) ?? 0));
 
     // Calculate learning velocity (sessions per week)
     final firstSession = sessions.isNotEmpty
@@ -277,7 +627,7 @@ class AnalyticsService {
       'student_retention_rate': studentRetention,
       'average_response_time_hours': avgResponseTime,
       'total_teaching_hours': completedSessions.fold<int>(
-              0, (sum, s) => sum + (s['duration_minutes'] ?? 0)) /
+              0, (sum, s) => sum + ((s['duration_minutes'] as int?) ?? 0)) /
           60.0,
     };
   }
@@ -648,6 +998,329 @@ class AnalyticsService {
 
     return sortedSubjects.take(count).map((entry) => entry.key).toList();
   }
+
+  // ==================== USER JOURNEY & DASHBOARD ANALYTICS ====================
+
+  /// Track user onboarding progress - Day 1-5 requirement
+  Future<void> trackOnboardingStep({
+    required String
+        step, // 'signup', 'profile_setup', 'first_session', 'verification'
+    required bool completed,
+    int? timeSpent,
+    String? errorReason,
+  }) async {
+    await trackEngagementEvent(
+      action: 'onboarding_step',
+      feature: step,
+      duration: timeSpent,
+      metadata: {
+        'completed': completed,
+        'error_reason': errorReason,
+        'step_name': step,
+      },
+    );
+  }
+
+  /// Get dashboard analytics summary - Day 12 requirement
+  Future<Map<String, dynamic>> getDashboardAnalytics({
+    required String userId,
+    required String userRole, // 'student', 'mentor', 'admin'
+    int days = 30,
+  }) async {
+    if (!_analyticsEnabled) {
+      return {'message': 'Analytics disabled'};
+    }
+
+    try {
+      final endDate = DateTime.now();
+      final startDate = endDate.subtract(Duration(days: days));
+
+      // Get user-specific metrics based on role
+      final analytics = await _getUserAnalyticsSummary(
+        userId: userId,
+        userRole: userRole,
+        startDate: startDate,
+        endDate: endDate,
+      );
+
+      return {
+        'period_days': days,
+        'user_role': userRole,
+        'summary': analytics,
+        'generated_at': DateTime.now().toIso8601String(),
+      };
+    } catch (e) {
+      debugPrint('Error generating dashboard analytics: $e');
+      return {'error': 'Failed to generate analytics'};
+    }
+  }
+
+  /// Get user analytics summary by role
+  Future<Map<String, dynamic>> _getUserAnalyticsSummary({
+    required String userId,
+    required String userRole,
+    required DateTime startDate,
+    required DateTime endDate,
+  }) async {
+    switch (userRole.toLowerCase()) {
+      case 'student':
+        return await _getStudentDashboardMetrics(userId, startDate, endDate);
+      case 'mentor':
+        return await _getMentorDashboardMetrics(userId, startDate, endDate);
+      case 'admin':
+        return await _getAdminDashboardMetrics(startDate, endDate);
+      default:
+        return {'error': 'Unknown user role: $userRole'};
+    }
+  }
+
+  /// Get student dashboard metrics
+  Future<Map<String, dynamic>> _getStudentDashboardMetrics(
+    String studentId,
+    DateTime startDate,
+    DateTime endDate,
+  ) async {
+    try {
+      final sessions = await _supabase.fetchData(
+        table: 'mentoring_sessions',
+        filters: {'student_id': studentId},
+      );
+
+      final recentSessions = sessions.where((session) {
+        final sessionDate = DateTime.parse(session['created_at']);
+        return sessionDate.isAfter(startDate) && sessionDate.isBefore(endDate);
+      }).toList();
+
+      return {
+        'total_sessions': recentSessions.length,
+        'completed_sessions':
+            recentSessions.where((s) => s['status'] == 'completed').length,
+        'total_learning_time': recentSessions.fold<int>(
+            0,
+            (sum, session) =>
+                sum + ((session['duration_minutes'] as int?) ?? 0)),
+        'subjects_studied': _getUniqueSubjects(recentSessions).length,
+        'completion_rate': recentSessions.isNotEmpty
+            ? recentSessions.where((s) => s['status'] == 'completed').length /
+                recentSessions.length
+            : 0.0,
+      };
+    } catch (e) {
+      debugPrint('Error getting student dashboard metrics: $e');
+      return {};
+    }
+  }
+
+  /// Get mentor dashboard metrics
+  Future<Map<String, dynamic>> _getMentorDashboardMetrics(
+    String mentorId,
+    DateTime startDate,
+    DateTime endDate,
+  ) async {
+    try {
+      // Get mentor profile first
+      final mentorProfile = await _supabase.fetchData(
+        table: 'mentor_profiles',
+        filters: {'user_id': mentorId},
+      );
+
+      if (mentorProfile.isEmpty) return {};
+
+      final mentorProfileId = mentorProfile.first['id'];
+      final sessions = await _supabase.fetchData(
+        table: 'mentoring_sessions',
+        filters: {'mentor_id': mentorProfileId},
+      );
+
+      final recentSessions = sessions.where((session) {
+        final sessionDate = DateTime.parse(session['created_at']);
+        return sessionDate.isAfter(startDate) && sessionDate.isBefore(endDate);
+      }).toList();
+
+      final completedSessions =
+          recentSessions.where((s) => s['status'] == 'completed').toList();
+      final totalEarnings = completedSessions.fold<double>(
+          0.0, (sum, session) => sum + ((session['cost'] as double?) ?? 0.0));
+
+      return {
+        'total_sessions': recentSessions.length,
+        'completed_sessions': completedSessions.length,
+        'total_students': _countUniqueStudents(recentSessions),
+        'total_earnings': totalEarnings,
+        'average_session_value': completedSessions.isNotEmpty
+            ? totalEarnings / completedSessions.length
+            : 0.0,
+        'subjects_taught': _getUniqueSubjects(recentSessions).length,
+      };
+    } catch (e) {
+      debugPrint('Error getting mentor dashboard metrics: $e');
+      return {};
+    }
+  }
+
+  /// Get admin dashboard metrics
+  Future<Map<String, dynamic>> _getAdminDashboardMetrics(
+    DateTime startDate,
+    DateTime endDate,
+  ) async {
+    try {
+      final sessions = await _supabase.fetchData(table: 'mentoring_sessions');
+      final users = await _supabase.fetchData(table: 'user_profiles');
+
+      final recentSessions = sessions.where((session) {
+        final sessionDate = DateTime.parse(session['created_at']);
+        return sessionDate.isAfter(startDate) && sessionDate.isBefore(endDate);
+      }).toList();
+
+      final recentUsers = users.where((user) {
+        final userDate = DateTime.parse(
+            user['created_at'] ?? DateTime.now().toIso8601String());
+        return userDate.isAfter(startDate) && userDate.isBefore(endDate);
+      }).toList();
+
+      return {
+        'new_users': recentUsers.length,
+        'total_sessions': recentSessions.length,
+        'completed_sessions':
+            recentSessions.where((s) => s['status'] == 'completed').length,
+        'platform_revenue': recentSessions.fold<double>(
+            0.0, (sum, session) => sum + ((session['cost'] as double?) ?? 0.0)),
+        'active_mentors':
+            recentSessions.map((s) => s['mentor_id']).toSet().length,
+        'active_students':
+            recentSessions.map((s) => s['student_id']).toSet().length,
+      };
+    } catch (e) {
+      debugPrint('Error getting admin dashboard metrics: $e');
+      return {};
+    }
+  }
+
+  /// Helper to get unique subjects from sessions
+  Set<String> _getUniqueSubjects(List<Map<String, dynamic>> sessions) {
+    return sessions
+        .map((session) => session['subject'] as String? ?? 'Unknown')
+        .toSet();
+  }
+
+  /// Generate analytics report for admin - Day 12 requirement
+  Future<Map<String, dynamic>> generateAnalyticsReport({
+    int days = 30,
+    List<String> metrics = const ['users', 'sessions', 'revenue', 'quality'],
+  }) async {
+    if (!_analyticsEnabled) {
+      return {'message': 'Analytics disabled'};
+    }
+
+    final report = <String, dynamic>{
+      'report_period_days': days,
+      'generated_at': DateTime.now().toIso8601String(),
+      'metrics_included': metrics,
+    };
+
+    try {
+      if (metrics.contains('users')) {
+        report['user_metrics'] = await _getUserGrowthMetrics(days);
+      }
+
+      if (metrics.contains('sessions')) {
+        report['session_metrics'] = await _getSessionMetrics(days);
+      }
+
+      if (metrics.contains('revenue')) {
+        report['revenue_metrics'] = await _getRevenueMetrics(days);
+      }
+
+      if (metrics.contains('quality')) {
+        report['quality_metrics'] = await _calculateQualityMetrics();
+      }
+
+      return report;
+    } catch (e) {
+      debugPrint('Error generating analytics report: $e');
+      return {'error': 'Failed to generate report'};
+    }
+  }
+
+  /// Get user growth metrics
+  Future<Map<String, dynamic>> _getUserGrowthMetrics(int days) async {
+    try {
+      final users = await _supabase.fetchData(table: 'user_profiles');
+      final endDate = DateTime.now();
+      final startDate = endDate.subtract(Duration(days: days));
+
+      final newUsers = users.where((user) {
+        final userDate = DateTime.parse(
+            user['created_at'] ?? DateTime.now().toIso8601String());
+        return userDate.isAfter(startDate);
+      }).length;
+
+      return {
+        'total_users': users.length,
+        'new_users_period': newUsers,
+        'growth_rate': users.length > 0 ? (newUsers / users.length) * 100 : 0.0,
+      };
+    } catch (e) {
+      return {'error': 'Failed to get user metrics'};
+    }
+  }
+
+  /// Get session metrics
+  Future<Map<String, dynamic>> _getSessionMetrics(int days) async {
+    try {
+      final sessions = await _supabase.fetchData(table: 'mentoring_sessions');
+      final endDate = DateTime.now();
+      final startDate = endDate.subtract(Duration(days: days));
+
+      final recentSessions = sessions.where((session) {
+        final sessionDate = DateTime.parse(session['created_at']);
+        return sessionDate.isAfter(startDate);
+      }).toList();
+
+      return {
+        'total_sessions': sessions.length,
+        'sessions_period': recentSessions.length,
+        'completion_rate': recentSessions.isNotEmpty
+            ? recentSessions.where((s) => s['status'] == 'completed').length /
+                recentSessions.length
+            : 0.0,
+        'average_daily_sessions': recentSessions.length / days,
+      };
+    } catch (e) {
+      return {'error': 'Failed to get session metrics'};
+    }
+  }
+
+  /// Get revenue metrics
+  Future<Map<String, dynamic>> _getRevenueMetrics(int days) async {
+    try {
+      final sessions = await _supabase.fetchData(table: 'mentoring_sessions');
+      final endDate = DateTime.now();
+      final startDate = endDate.subtract(Duration(days: days));
+
+      final paidSessions = sessions.where((session) {
+        final sessionDate = DateTime.parse(session['created_at']);
+        return sessionDate.isAfter(startDate) &&
+            session['status'] == 'completed' &&
+            session['payment_status'] == 'paid';
+      }).toList();
+
+      final totalRevenue = paidSessions.fold<double>(
+          0.0, (sum, session) => sum + ((session['cost'] as double?) ?? 0.0));
+
+      return {
+        'total_revenue_period': totalRevenue,
+        'paid_sessions_count': paidSessions.length,
+        'average_session_value':
+            paidSessions.isNotEmpty ? totalRevenue / paidSessions.length : 0.0,
+        'daily_revenue_average': totalRevenue / days,
+      };
+    } catch (e) {
+      return {'error': 'Failed to get revenue metrics'};
+    }
+  }
+
+  // ==================== END USER JOURNEY & DASHBOARD ANALYTICS ====================
 }
 
 /// Student analytics data model

@@ -117,9 +117,13 @@ class SecureKeyMetadata {
       usage: KeyUsage.values.firstWhere((u) => u.name == json['usage']),
       status: KeyStatus.values.firstWhere((s) => s.name == json['status']),
       createdAt: DateTime.parse(json['createdAt']),
-      expiresAt: json['expiresAt'] != null ? DateTime.parse(json['expiresAt']) : null,
-      lastUsed: json['lastUsed'] != null ? DateTime.parse(json['lastUsed']) : null,
-      lastRotated: json['lastRotated'] != null ? DateTime.parse(json['lastRotated']) : null,
+      expiresAt:
+          json['expiresAt'] != null ? DateTime.parse(json['expiresAt']) : null,
+      lastUsed:
+          json['lastUsed'] != null ? DateTime.parse(json['lastUsed']) : null,
+      lastRotated: json['lastRotated'] != null
+          ? DateTime.parse(json['lastRotated'])
+          : null,
       usageCount: json['usageCount'],
       algorithm: json['algorithm'],
       keySize: json['keySize'],
@@ -162,7 +166,8 @@ class KeyRotationConfig {
 
   factory KeyRotationConfig.fromJson(Map<String, dynamic> json) {
     return KeyRotationConfig(
-      policy: KeyRotationPolicy.values.firstWhere((p) => p.name == json['policy']),
+      policy:
+          KeyRotationPolicy.values.firstWhere((p) => p.name == json['policy']),
       rotationInterval: json['rotationIntervalMinutes'] != null
           ? Duration(minutes: json['rotationIntervalMinutes'])
           : null,
@@ -195,12 +200,12 @@ class KeyDerivationContext {
     final parts = <String>[purpose];
     if (userId != null) parts.add('user:$userId');
     if (sessionId != null) parts.add('session:$sessionId');
-    
+
     final sortedKeys = additionalContext.keys.toList()..sort();
     for (final key in sortedKeys) {
       parts.add('$key:${additionalContext[key]}');
     }
-    
+
     return parts.join('|');
   }
 
@@ -247,11 +252,12 @@ class KeyExchangeResult {
 class SecureKeyManager {
   static SecureKeyManager? _instance;
   static SecureKeyManager get instance => _instance ??= SecureKeyManager._();
-  
+
   SecureKeyManager._();
 
-  final AdvancedEncryptionService _encryptionService = AdvancedEncryptionService.instance;
-  
+  final AdvancedEncryptionService _encryptionService =
+      AdvancedEncryptionService.instance;
+
   final FlutterSecureStorage _secureStorage = const FlutterSecureStorage(
     aOptions: AndroidOptions(
       encryptedSharedPreferences: true,
@@ -274,10 +280,10 @@ class SecureKeyManager {
     await _encryptionService.initialize();
     await _loadKeyMetadata();
     await _loadRotationConfigs();
-    
+
     // Schedule automatic key rotation check
     _scheduleRotationCheck();
-    
+
     _initialized = true;
     developer.log('Secure key manager initialized', name: 'SecureKeyManager');
   }
@@ -304,12 +310,14 @@ class SecureKeyManager {
         actualKeySize = 256;
         break;
       case 'RSA-2048':
-        final keyPair = await _encryptionService.generateRSAKeyPair(keySize: 2048);
+        final keyPair =
+            await _encryptionService.generateRSAKeyPair(keySize: 2048);
         keyData = keyPair.privateKey;
         actualKeySize = 2048;
         break;
       case 'RSA-4096':
-        final keyPair = await _encryptionService.generateRSAKeyPair(keySize: 4096);
+        final keyPair =
+            await _encryptionService.generateRSAKeyPair(keySize: 4096);
         keyData = keyPair.privateKey;
         actualKeySize = 4096;
         break;
@@ -320,7 +328,9 @@ class SecureKeyManager {
     // Create metadata
     final keyMetadata = SecureKeyMetadata(
       keyId: keyId,
-      keyType: algorithm.contains('RSA') ? KeyType.asymmetricPrivate : KeyType.symmetric,
+      keyType: algorithm.contains('RSA')
+          ? KeyType.asymmetricPrivate
+          : KeyType.symmetric,
       usage: usage,
       status: KeyStatus.active,
       createdAt: DateTime.now(),
@@ -333,13 +343,14 @@ class SecureKeyManager {
 
     // Store key and metadata
     await _storeKey(keyId, keyData, keyMetadata);
-    
+
     // Set rotation config if provided
     if (rotationConfig != null) {
       await _setRotationConfig(keyId, rotationConfig);
     }
 
-    developer.log('Generated key: $keyId ($algorithm)', name: 'SecureKeyManager');
+    developer.log('Generated key: $keyId ($algorithm)',
+        name: 'SecureKeyManager');
     return keyId;
   }
 
@@ -360,7 +371,7 @@ class SecureKeyManager {
     }
 
     final derivedKeyId = _generateKeyId();
-    
+
     // Use HKDF for key derivation
     final salt = _encryptionService.generateSalt();
     final info = context.contextBytes;
@@ -370,7 +381,8 @@ class SecureKeyManager {
     final keyMetadata = SecureKeyMetadata(
       keyId: derivedKeyId,
       keyType: KeyType.derived,
-      usage: KeyUsage.values.firstWhere((u) => u.name == context.purpose, orElse: () => KeyUsage.dataProtection),
+      usage: KeyUsage.values.firstWhere((u) => u.name == context.purpose,
+          orElse: () => KeyUsage.dataProtection),
       status: KeyStatus.active,
       createdAt: DateTime.now(),
       expiresAt: expiresIn != null ? DateTime.now().add(expiresIn) : null,
@@ -386,7 +398,8 @@ class SecureKeyManager {
 
     await _storeKey(derivedKeyId, derivedKey, keyMetadata);
 
-    developer.log('Derived key: $derivedKeyId from $parentKeyId', name: 'SecureKeyManager');
+    developer.log('Derived key: $derivedKeyId from $parentKeyId',
+        name: 'SecureKeyManager');
     return derivedKeyId;
   }
 
@@ -424,7 +437,8 @@ class SecureKeyManager {
       _keyCache[keyId] = metadata;
       return metadata;
     } catch (e) {
-      developer.log('Error loading key metadata for $keyId: $e', name: 'SecureKeyManager');
+      developer.log('Error loading key metadata for $keyId: $e',
+          name: 'SecureKeyManager');
       return null;
     }
   }
@@ -445,7 +459,7 @@ class SecureKeyManager {
 
       try {
         final metadata = SecureKeyMetadata.fromJson(jsonDecode(entry.value));
-        
+
         // Apply filters
         if (usage != null && metadata.usage != usage) continue;
         if (status != null && metadata.status != status) continue;
@@ -453,7 +467,8 @@ class SecureKeyManager {
 
         keys.add(metadata);
       } catch (e) {
-        developer.log('Error loading key metadata: $e', name: 'SecureKeyManager');
+        developer.log('Error loading key metadata: $e',
+            name: 'SecureKeyManager');
       }
     }
 
@@ -482,10 +497,12 @@ class SecureKeyManager {
     // Update old key status
     if (retainOldVersion) {
       final config = _rotationConfigs[keyId];
-      await _updateKeyMetadata(keyId, oldMetadata.copyWith(
-        status: KeyStatus.deprecated,
-        lastRotated: DateTime.now(),
-      ));
+      await _updateKeyMetadata(
+          keyId,
+          oldMetadata.copyWith(
+            status: KeyStatus.deprecated,
+            lastRotated: DateTime.now(),
+          ));
 
       // Clean up old versions if needed
       if (config?.retainOldVersions == true) {
@@ -509,7 +526,8 @@ class SecureKeyManager {
   Future<void> setRotationConfig(String keyId, KeyRotationConfig config) async {
     _ensureInitialized();
     await _setRotationConfig(keyId, config);
-    developer.log('Set rotation config for key: $keyId', name: 'SecureKeyManager');
+    developer.log('Set rotation config for key: $keyId',
+        name: 'SecureKeyManager');
   }
 
   /// Revoke a key
@@ -519,7 +537,8 @@ class SecureKeyManager {
     final metadata = await getKeyMetadata(keyId);
     if (metadata == null) return;
 
-    await _updateKeyMetadata(keyId, metadata.copyWith(status: KeyStatus.revoked));
+    await _updateKeyMetadata(
+        keyId, metadata.copyWith(status: KeyStatus.revoked));
     developer.log('Revoked key: $keyId', name: 'SecureKeyManager');
   }
 
@@ -530,7 +549,7 @@ class SecureKeyManager {
     await _deleteKeyData(keyId);
     _keyCache.remove(keyId);
     _rotationConfigs.remove(keyId);
-    
+
     developer.log('Deleted key: $keyId', name: 'SecureKeyManager');
   }
 
@@ -583,7 +602,8 @@ class SecureKeyManager {
     _ensureInitialized();
 
     // Find ephemeral key by exchange ID
-    final keys = await listKeys(usage: KeyUsage.keyDerivation, status: KeyStatus.active);
+    final keys =
+        await listKeys(usage: KeyUsage.keyDerivation, status: KeyStatus.active);
     final ephemeralKey = keys.firstWhere(
       (k) => k.customMetadata['exchangeId'] == exchangeId,
       orElse: () => throw Exception('Exchange not found: $exchangeId'),
@@ -596,12 +616,19 @@ class SecureKeyManager {
 
     // Perform ECDH-like key agreement (simplified)
     final sharedSecret = _computeSharedSecret(privateKey, peerPublicKey);
-    
+
     // Derive shared key
     final context = KeyDerivationContext(
       purpose: 'key_exchange',
       sessionId: exchangeId,
-      additionalContext: {'context': derivationContext ?? 'default'},
+      // Include a truncated fingerprint of the secret to tie the derived key context
+      // to this exchange without exposing the secret itself.
+      additionalContext: {
+        'context': derivationContext ?? 'default',
+        'secret_fpr': base64Url
+            .encode(sha256.convert(sharedSecret).bytes)
+            .substring(0, 12),
+      },
     );
 
     final sharedKeyId = await deriveKey(
@@ -618,12 +645,14 @@ class SecureKeyManager {
     // Clean up ephemeral key
     await deleteKey(ephemeralKey.keyId);
 
-    developer.log('Completed key exchange: $exchangeId -> $sharedKeyId', name: 'SecureKeyManager');
+    developer.log('Completed key exchange: $exchangeId -> $sharedKeyId',
+        name: 'SecureKeyManager');
     return sharedKeyId;
   }
 
   /// Export key in secure format
-  Future<Map<String, dynamic>> exportKey(String keyId, {String? password}) async {
+  Future<Map<String, dynamic>> exportKey(String keyId,
+      {String? password}) async {
     _ensureInitialized();
 
     final metadata = await getKeyMetadata(keyId);
@@ -637,13 +666,13 @@ class SecureKeyManager {
     }
 
     EncryptionResult encryptedKey;
-    
+
     if (password != null) {
       // Encrypt with password-derived key
       final salt = _encryptionService.generateSalt();
       final derivedKey = _encryptionService.deriveKeyPBKDF2(password, salt);
       encryptedKey = _encryptionService.encryptAESGCM(keyData, derivedKey);
-      
+
       return {
         'keyId': keyId,
         'metadata': metadata.toJson(),
@@ -663,19 +692,20 @@ class SecureKeyManager {
   }
 
   /// Import key from secure format
-  Future<String> importKey(Map<String, dynamic> keyExport, {String? password}) async {
+  Future<String> importKey(Map<String, dynamic> keyExport,
+      {String? password}) async {
     _ensureInitialized();
 
     final metadata = SecureKeyMetadata.fromJson(keyExport['metadata']);
     final newKeyId = _generateKeyId();
-    
+
     Uint8List keyData;
-    
+
     if (keyExport['isPasswordProtected'] == true) {
       if (password == null) {
         throw Exception('Password required for encrypted key import');
       }
-      
+
       final salt = base64Decode(keyExport['salt']);
       final derivedKey = _encryptionService.deriveKeyPBKDF2(password, salt);
       final encryptedKey = EncryptionResult.fromJson(keyExport['encryptedKey']);
@@ -704,7 +734,8 @@ class SecureKeyManager {
 
     await _storeKey(newKeyId, keyData, newMetadata);
 
-    developer.log('Imported key: ${metadata.keyId} -> $newKeyId', name: 'SecureKeyManager');
+    developer.log('Imported key: ${metadata.keyId} -> $newKeyId',
+        name: 'SecureKeyManager');
     return newKeyId;
   }
 
@@ -712,20 +743,22 @@ class SecureKeyManager {
   Future<void> clearAllKeys() async {
     final allKeys = await _secureStorage.readAll();
     final keysToDelete = <String>[];
-    
+
     for (final key in allKeys.keys) {
-      if (key.startsWith('key_') || key.startsWith('metadata_') || key.startsWith('rotation_')) {
+      if (key.startsWith('key_') ||
+          key.startsWith('metadata_') ||
+          key.startsWith('rotation_')) {
         keysToDelete.add(key);
       }
     }
-    
+
     for (final key in keysToDelete) {
       await _secureStorage.delete(key: key);
     }
-    
+
     _keyCache.clear();
     _rotationConfigs.clear();
-    
+
     developer.log('Cleared all keys', name: 'SecureKeyManager');
   }
 
@@ -733,7 +766,8 @@ class SecureKeyManager {
 
   void _ensureInitialized() {
     if (!_initialized) {
-      throw Exception('SecureKeyManager not initialized. Call initialize() first.');
+      throw Exception(
+          'SecureKeyManager not initialized. Call initialize() first.');
     }
   }
 
@@ -752,16 +786,17 @@ class SecureKeyManager {
     return base64Url.encode(bytes);
   }
 
-  Future<void> _storeKey(String keyId, Uint8List keyData, SecureKeyMetadata metadata) async {
+  Future<void> _storeKey(
+      String keyId, Uint8List keyData, SecureKeyMetadata metadata) async {
     // Store key data
     await _encryptionService.storeKey(keyId, keyData, metadata.keyType);
-    
+
     // Store metadata
     await _secureStorage.write(
       key: 'metadata_$keyId',
       value: jsonEncode(metadata.toJson()),
     );
-    
+
     // Cache metadata
     _keyCache[keyId] = metadata;
   }
@@ -770,7 +805,8 @@ class SecureKeyManager {
     return await _encryptionService.getKey(keyId);
   }
 
-  Future<void> _updateKeyMetadata(String keyId, SecureKeyMetadata metadata) async {
+  Future<void> _updateKeyMetadata(
+      String keyId, SecureKeyMetadata metadata) async {
     await _secureStorage.write(
       key: 'metadata_$keyId',
       value: jsonEncode(metadata.toJson()),
@@ -796,7 +832,8 @@ class SecureKeyManager {
     await _secureStorage.delete(key: 'rotation_$keyId');
   }
 
-  Future<void> _setRotationConfig(String keyId, KeyRotationConfig config) async {
+  Future<void> _setRotationConfig(
+      String keyId, KeyRotationConfig config) async {
     _rotationConfigs[keyId] = config;
     await _secureStorage.write(
       key: 'rotation_$keyId',
@@ -806,32 +843,34 @@ class SecureKeyManager {
 
   Future<void> _loadKeyMetadata() async {
     final allKeys = await _secureStorage.readAll();
-    
+
     for (final entry in allKeys.entries) {
       if (!entry.key.startsWith('metadata_')) continue;
-      
+
       try {
         final keyId = entry.key.substring(9);
         final metadata = SecureKeyMetadata.fromJson(jsonDecode(entry.value));
         _keyCache[keyId] = metadata;
       } catch (e) {
-        developer.log('Error loading key metadata: $e', name: 'SecureKeyManager');
+        developer.log('Error loading key metadata: $e',
+            name: 'SecureKeyManager');
       }
     }
   }
 
   Future<void> _loadRotationConfigs() async {
     final allKeys = await _secureStorage.readAll();
-    
+
     for (final entry in allKeys.entries) {
       if (!entry.key.startsWith('rotation_')) continue;
-      
+
       try {
         final keyId = entry.key.substring(9);
         final config = KeyRotationConfig.fromJson(jsonDecode(entry.value));
         _rotationConfigs[keyId] = config;
       } catch (e) {
-        developer.log('Error loading rotation config: $e', name: 'SecureKeyManager');
+        developer.log('Error loading rotation config: $e',
+            name: 'SecureKeyManager');
       }
     }
   }
@@ -848,13 +887,14 @@ class SecureKeyManager {
     for (final entry in _rotationConfigs.entries) {
       final keyId = entry.key;
       final config = entry.value;
-      
+
       try {
         if (await _shouldRotateKey(keyId, config)) {
           await rotateKey(keyId);
         }
       } catch (e) {
-        developer.log('Error during automatic rotation of $keyId: $e', name: 'SecureKeyManager');
+        developer.log('Error during automatic rotation of $keyId: $e',
+            name: 'SecureKeyManager');
       }
     }
   }
@@ -868,7 +908,8 @@ class SecureKeyManager {
     switch (config.policy) {
       case KeyRotationPolicy.timeBasedRotation:
         if (config.rotationInterval != null) {
-          final rotateAt = (metadata.lastRotated ?? metadata.createdAt).add(config.rotationInterval!);
+          final rotateAt = (metadata.lastRotated ?? metadata.createdAt)
+              .add(config.rotationInterval!);
           return now.isAfter(rotateAt);
         }
         break;
@@ -882,7 +923,8 @@ class SecureKeyManager {
       case KeyRotationPolicy.automatic:
         // Rotate before expiry
         if (config.autoRotateBeforeExpiry && metadata.expiresAt != null) {
-          final rotateAt = metadata.expiresAt!.subtract(config.preExpiryRotationWindow!);
+          final rotateAt =
+              metadata.expiresAt!.subtract(config.preExpiryRotationWindow!);
           return now.isAfter(rotateAt);
         }
         break;
@@ -906,30 +948,32 @@ class SecureKeyManager {
   Future<void> _cleanupOldKeyVersions(String keyId, int maxVersions) async {
     // This would implement cleanup of old key versions
     // For now, we'll just log the action
-    developer.log('Cleaning up old versions for key: $keyId', name: 'SecureKeyManager');
+    developer.log('Cleaning up old versions for key: $keyId',
+        name: 'SecureKeyManager');
   }
 
-  Future<Uint8List> _hkdfExpand(Uint8List key, Uint8List salt, Uint8List info, int length) async {
+  Future<Uint8List> _hkdfExpand(
+      Uint8List key, Uint8List salt, Uint8List info, int length) async {
     // Simplified HKDF implementation using HMAC-SHA256
     final hmac = Hmac(sha256, salt);
     final prk = hmac.convert(key).bytes;
-    
+
     final hmacPrk = Hmac(sha256, prk);
     final iterations = (length / 32).ceil();
     final result = <int>[];
-    
+
     Uint8List t = Uint8List(0);
-    
+
     for (int i = 1; i <= iterations; i++) {
       final input = <int>[];
       input.addAll(t);
       input.addAll(info);
       input.add(i);
-      
+
       t = Uint8List.fromList(hmacPrk.convert(input).bytes);
       result.addAll(t);
     }
-    
+
     return Uint8List.fromList(result.take(length).toList());
   }
 
@@ -939,7 +983,7 @@ class SecureKeyManager {
     final combined = <int>[];
     combined.addAll(privateKey.take(32));
     combined.addAll(publicKey.take(32));
-    
+
     return Uint8List.fromList(sha256.convert(combined).bytes);
   }
 }

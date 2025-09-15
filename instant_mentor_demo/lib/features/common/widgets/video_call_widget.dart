@@ -281,7 +281,7 @@ class _VideoCallWidgetState extends ConsumerState<VideoCallWidget> {
                       shape: BoxShape.circle,
                       color: theme.colorScheme.primary,
                     ),
-                    child: Icon(
+                    child: const Icon(
                       Icons.person,
                       size: 60,
                       color: Colors.white,

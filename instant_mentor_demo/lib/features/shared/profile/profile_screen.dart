@@ -1,8 +1,10 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:flutter/foundation.dart';
+
 import '../../../core/providers/user_provider.dart';
+import '../../../core/providers/auth_provider.dart';
 
 class ProfileScreen extends ConsumerStatefulWidget {
   const ProfileScreen({super.key});
@@ -579,10 +581,33 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             child: const Text('Cancel'),
           ),
           ElevatedButton(
-            onPressed: () {
-              ref.read(userProvider.notifier).logout();
+            onPressed: () async {
               Navigator.pop(context);
-              Navigator.pop(context); // Go back to main screen
+              // Show loading indicator
+              showDialog(
+                context: context,
+                barrierDismissible: false,
+                builder: (context) => const Center(
+                  child: CircularProgressIndicator(),
+                ),
+              );
+
+              try {
+                // Properly sign out through auth provider
+                await ref.read(authProvider.notifier).signOut();
+                // Navigation will be handled by router redirect logic automatically
+                if (context.mounted) {
+                  Navigator.of(context).pop(); // Close loading
+                  // Don't manually navigate - let the router's redirect logic handle it
+                }
+              } catch (e) {
+                if (context.mounted) {
+                  Navigator.of(context).pop(); // Close loading
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Logout failed: $e')),
+                  );
+                }
+              }
             },
             child: const Text('Logout'),
           ),

@@ -147,7 +147,7 @@ class StudentHistoryScreen extends ConsumerWidget {
                 const SizedBox(width: 12),
                 _buildStatCard('This Week', '${_getThisWeekCount(studentHistory)}', Colors.green),
                 const SizedBox(width: 12),
-                _buildStatCard('Avg Rating', '${_getAverageRating(studentHistory).toStringAsFixed(1)}', Colors.amber),
+                _buildStatCard('Avg Rating', _getAverageRating(studentHistory).toStringAsFixed(1), Colors.amber),
               ],
             ),
           ),
@@ -199,7 +199,7 @@ class StudentHistoryScreen extends ConsumerWidget {
         border: Border.all(color: Colors.grey.withOpacity(0.3)),
       ),
       child: DropdownButtonFormField<String>(
-        value: value,
+        initialValue: value,
         decoration: InputDecoration(
           labelText: label,
           border: InputBorder.none,
@@ -330,7 +330,7 @@ class StudentHistoryScreen extends ConsumerWidget {
                     const SizedBox(width: 20),
                     Row(
                       children: [
-                        Icon(Icons.star, size: 16, color: Colors.amber),
+                        const Icon(Icons.star, size: 16, color: Colors.amber),
                         const SizedBox(width: 4),
                         Text(
                           '${session['rating']}/5',

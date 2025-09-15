@@ -10,7 +10,12 @@ const server = http.createServer(app);
 
 // Configure CORS
 const corsOptions = {
-  origin: process.env.CORS_ORIGIN?.split(',') || ["http://localhost:3000", "http://localhost:8080"],
+  origin: process.env.CORS_ORIGIN?.split(',') || [
+    "http://localhost:3000", 
+    "http://localhost:8080", 
+    "http://localhost:5311",  // Add Flutter web server port
+    "http://localhost:5312"   // Add new Flutter web server port
+  ],
   credentials: true
 };
 
@@ -237,6 +242,58 @@ io.on('connection', (socket) => {
       activeCalls.delete(data.callId);
     }
   });
+
+  // ---- WebRTC Signaling Relay ----
+  // Relays SDP offer/answer and ICE candidates between the two participants of an active call
+  // Expected incoming payload shape (client emitted):
+  //  {
+  //    callId: string,
+  //    targetUserId: string, // optional if derivable from activeCalls
+  //    payload: { sdp/type OR candidate/sdpMid/sdpMLineIndex },
+  //  }
+  function relayIfParticipant(callId, senderSocket, event, data) {
+    const call = activeCalls.get(callId);
+    if (!call) {
+      console.log(`⚠️  WebRTC relay rejected (no call found) ${event} callId=${callId}`);
+      return;
+    }
+    // Validate sender is part of the call
+    if (call.callerId !== senderSocket.userId && call.receiverId !== senderSocket.userId) {
+      console.log(`🚫 WebRTC relay rejected (sender not participant) ${event} callId=${callId}`);
+      return;
+    }
+    const targetUserId = data.targetUserId && data.targetUserId !== senderSocket.userId
+      ? data.targetUserId
+      : (call.callerId === senderSocket.userId ? call.receiverId : call.callerId);
+    const targetConn = connectedUsers.get(targetUserId);
+    if (!targetConn) {
+      console.log(`⚠️  WebRTC relay target not connected ${event} target=${targetUserId}`);
+      return;
+    }
+    io.to(targetConn.socketId).emit(event, {
+      callId,
+      fromUserId: senderSocket.userId,
+      payload: data.payload || {},
+      timestamp: new Date().toISOString(),
+    });
+  }
+
+  socket.on('webrtc_offer', (data) => {
+    relayIfParticipant(data.callId, socket, 'webrtc_offer', data);
+  });
+
+  socket.on('webrtc_answer', (data) => {
+    relayIfParticipant(data.callId, socket, 'webrtc_answer', data);
+  });
+
+  socket.on('webrtc_ice_candidate', (data) => {
+    relayIfParticipant(data.callId, socket, 'webrtc_ice_candidate', data);
+  });
+
+  socket.on('webrtc_hangup', (data) => {
+    relayIfParticipant(data.callId, socket, 'webrtc_hangup', data);
+  });
+  // ---- End WebRTC Signaling Relay ----
 
   // Handle mentor status updates
   socket.on('mentor_available', (data) => {

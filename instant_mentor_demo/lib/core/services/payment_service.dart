@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_stripe/flutter_stripe.dart';
 import '../config/app_config.dart';
 import 'supabase_service.dart';
@@ -13,7 +14,7 @@ class PaymentService {
 
   /// Initialize Stripe
   static Future<void> initialize() async {
-    Stripe.publishableKey = AppConfig.instance.stripePublishableKey;
+    Stripe.publishableKey = AppConfig.stripePublishableKey;
     await Stripe.instance.applySettings();
   }
 
@@ -144,7 +145,7 @@ class PaymentService {
       }
 
       final clientSecret = response.data['clientSecret'] as String;
-      final merchantDisplayName = 'InstantMentor';
+      const merchantDisplayName = 'InstantMentor';
 
       // Initialize payment sheet
       await Stripe.instance.initPaymentSheet(

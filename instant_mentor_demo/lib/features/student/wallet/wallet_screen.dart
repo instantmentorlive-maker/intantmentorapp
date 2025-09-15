@@ -75,7 +75,8 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
             // Top-up input
             TextField(
               controller: _amountController,
-              keyboardType: TextInputType.numberWithOptions(decimal: true),
+              keyboardType:
+                  const TextInputType.numberWithOptions(decimal: true),
               decoration: const InputDecoration(
                 labelText: 'Amount (₹)',
                 border: OutlineInputBorder(),
@@ -116,9 +117,27 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
   Future<void> _topUp(String? userId) async {
     if (userId == null) return;
     final amountText = _amountController.text.trim();
-    if (amountText.isEmpty) return;
+    if (amountText.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Enter an amount to add.')));
+      return;
+    }
     final amount = double.tryParse(amountText);
-    if (amount == null || amount <= 0) return;
+    if (amount == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Enter a valid number amount.')));
+      return;
+    }
+    if (amount <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Amount must be greater than zero.')));
+      return;
+    }
+    if (amount < 1) {
+      ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Minimum top-up amount is ₹1.00.')));
+      return;
+    }
 
     setState(() => _loading = true);
     final upi = UpiPaymentService();
@@ -144,17 +163,23 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
             userId: userId,
             amount: amount,
             txnId: response.transactionId ?? txnRef);
-        ScaffoldMessenger.of(context)
-            .showSnackBar(const SnackBar(content: Text('Top-up successful')));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text(
+                'Top-up successful. Txn: ${response.transactionId ?? txnRef}')));
         // Refresh balance
         ref.invalidate(walletBalanceProvider(userId));
       } catch (e) {
         ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text('Top-up recording failed: $e')));
       }
+    } else if (response != null &&
+        response.status == UpiResultStatus.submitted) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text(
+              'Payment submitted. If debited, balance will update shortly.')));
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('UPI payment failed or cancelled')));
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('UPI payment failed or cancelled. Try again.')));
     }
 
     setState(() => _loading = false);
@@ -196,7 +221,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
         title: const Text('Request Withdrawal'),
         content: TextField(
           controller: amountController,
-          keyboardType: TextInputType.numberWithOptions(decimal: true),
+          keyboardType: const TextInputType.numberWithOptions(decimal: true),
           decoration: const InputDecoration(labelText: 'Amount (₹)'),
         ),
         actions: [
@@ -221,7 +246,7 @@ class _WalletScreenState extends ConsumerState<WalletScreen> {
 }
 
 class _TransactionsScreen extends ConsumerWidget {
-  const _TransactionsScreen({Key? key}) : super(key: key);
+  const _TransactionsScreen();
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -236,8 +261,9 @@ class _TransactionsScreen extends ConsumerWidget {
             : Future.value([]),
         builder: (context, snapshot) {
           final items = snapshot.data ?? [];
-          if (items.isEmpty)
+          if (items.isEmpty) {
             return const Center(child: Text('No transactions'));
+          }
           return ListView.builder(
             itemCount: items.length,
             itemBuilder: (context, index) {

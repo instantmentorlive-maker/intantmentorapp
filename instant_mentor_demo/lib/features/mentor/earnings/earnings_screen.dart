@@ -11,12 +11,12 @@ class EarningsScreen extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Earnings Overview
-          Row(
+          const Row(
             children: [
               Expanded(child: _EarningsCard('Today', '\$250', Colors.green)),
-              const SizedBox(width: 12),
+              SizedBox(width: 12),
               Expanded(child: _EarningsCard('This Week', '\$1,250', Colors.blue)),
-              const SizedBox(width: 12),
+              SizedBox(width: 12),
               Expanded(child: _EarningsCard('This Month', '\$4,800', Colors.purple)),
             ],
           ),
@@ -28,13 +28,13 @@ class EarningsScreen extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           
-          Card(
+          const Card(
             child: Column(
               children: [
                 _EarningsTile('Alex Johnson', 'Mathematics', 50.0, 'Today, 2:00 PM'),
-                const Divider(height: 1),
+                Divider(height: 1),
                 _EarningsTile('Maria Garcia', 'Mathematics', 37.5, 'Today, 10:00 AM'),
-                const Divider(height: 1),
+                Divider(height: 1),
                 _EarningsTile('James Wilson', 'Physics', 50.0, 'Yesterday, 4:00 PM'),
               ],
             ),

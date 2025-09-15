@@ -56,9 +56,12 @@ class UpiPaymentService {
       UpiApp? selectedApp;
       if (appId != null) {
         final all = await getInstalledUpiApps();
-        selectedApp = all?.firstWhere(
+        if (all != null) {
+          selectedApp = all.firstWhere(
             (a) => a.toString().split('.').last == appId,
-            orElse: () => UpiApp.googlePay);
+            orElse: () => UpiApp.googlePay,
+          );
+        }
       }
 
       final response = await _upi.startTransaction(
@@ -72,7 +75,7 @@ class UpiPaymentService {
 
       final status = () {
         try {
-          switch (response?.status) {
+          switch (response.status) {
             case UpiPaymentStatus.SUCCESS:
               return UpiResultStatus.success;
             case UpiPaymentStatus.SUBMITTED:
@@ -89,16 +92,14 @@ class UpiPaymentService {
 
       return UpiPaymentResult(
         status: status,
-        transactionId: response?.transactionId,
-        rawResponse: response != null
-            ? {
-                'status': response.status.toString(),
-                'txnId': response.transactionId,
-                // upi_india v3 exposes a different shape; include stringified
-                // response as a fallback to avoid referencing removed fields.
-                'raw': response.toString(),
-              }
-            : null,
+        transactionId: response.transactionId,
+        rawResponse: {
+          'status': response.status.toString(),
+          'txnId': response.transactionId,
+          // upi_india v3 exposes a different shape; include stringified
+          // response as a fallback to avoid referencing removed fields.
+          'raw': response.toString(),
+        },
       );
     } catch (e) {
       return null;

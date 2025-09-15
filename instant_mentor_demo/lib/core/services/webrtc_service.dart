@@ -1,3 +1,7 @@
+// DEPRECATED: Replaced by features/call/webrtc/webrtc_media_service.dart integrated
+// with CallController & SignalingService. This file will be removed after all
+// references are migrated. Do not add new logic here.
+// ignore_for_file: unused_import, dead_code, unused_field, unnecessary_this, deprecated_member_use, avoid_print, no_leading_underscores_for_local_identifiers, prefer_final_fields
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
@@ -73,7 +77,8 @@ class WebRTCService {
     };
   }
 
-  Future<MediaStream> _getUserMedia({bool video = true, bool audio = true}) async {
+  Future<MediaStream> _getUserMedia(
+      {bool video = true, bool audio = true}) async {
     final constraints = <String, dynamic>{
       'audio': audio,
       'video': video
@@ -99,13 +104,14 @@ class WebRTCService {
     _peerUserId = peerUserId;
     await _ensurePeer();
 
-    _localStream = await _getUserMedia(video: video, audio: true);
+    _localStream = await _getUserMedia(video: video);
     for (var track in _localStream!.getTracks()) {
       await _pc!.addTrack(track, _localStream!);
     }
     localRenderer.srcObject = _localStream;
 
-    final offer = await _pc!.createOffer({'offerToReceiveAudio': 1, 'offerToReceiveVideo': video ? 1 : 0});
+    final offer = await _pc!.createOffer(
+        {'offerToReceiveAudio': 1, 'offerToReceiveVideo': video ? 1 : 0});
     await _pc!.setLocalDescription(offer);
 
     _sendSignal('webrtc-offer', {
@@ -124,7 +130,7 @@ class WebRTCService {
     _peerUserId = peerUserId;
     await _ensurePeer();
 
-    _localStream = await _getUserMedia(video: video, audio: true);
+    _localStream = await _getUserMedia(video: video);
     for (var track in _localStream!.getTracks()) {
       await _pc!.addTrack(track, _localStream!);
     }
@@ -133,10 +139,12 @@ class WebRTCService {
 
   Future<void> handleRemoteOffer(Map<String, dynamic> data) async {
     await _ensurePeer();
-    final desc = RTCSessionDescription(data['sdp'] as String, data['type'] as String);
+    final desc =
+        RTCSessionDescription(data['sdp'] as String, data['type'] as String);
     await _pc!.setRemoteDescription(desc);
 
-    final answer = await _pc!.createAnswer({'offerToReceiveAudio': 1, 'offerToReceiveVideo': 1});
+    final answer = await _pc!
+        .createAnswer({'offerToReceiveAudio': 1, 'offerToReceiveVideo': 1});
     await _pc!.setLocalDescription(answer);
 
     _sendSignal('webrtc-answer', {
@@ -146,7 +154,8 @@ class WebRTCService {
   }
 
   Future<void> handleRemoteAnswer(Map<String, dynamic> data) async {
-    final desc = RTCSessionDescription(data['sdp'] as String, data['type'] as String);
+    final desc =
+        RTCSessionDescription(data['sdp'] as String, data['type'] as String);
     await _pc?.setRemoteDescription(desc);
   }
 
@@ -208,17 +217,17 @@ class WebRTCService {
   }
 
   void _onSignalMessage(WebSocketMessage msg) {
-  if (msg.receiverId != _ws.currentUserId) return;
-  final Map<String, dynamic> map = msg.data;
-  // Only process true WebRTC signaling relays
-  if (!map.containsKey('sig')) return;
-  // If we haven't bound to a call yet, adopt ids from the first signal
-  _currentCallId ??= map['callId'] as String?;
-  _peerUserId ??= msg.senderId;
-  if (_currentCallId != null && map['callId'] != _currentCallId) return;
+    if (msg.receiverId != _ws.currentUserId) return;
+    final Map<String, dynamic> map = msg.data;
+    // Only process true WebRTC signaling relays
+    if (!map.containsKey('sig')) return;
+    // If we haven't bound to a call yet, adopt ids from the first signal
+    _currentCallId ??= map['callId'] as String?;
+    _peerUserId ??= msg.senderId;
+    if (_currentCallId != null && map['callId'] != _currentCallId) return;
 
-  final type = map['sig'] as String;
-  final payload = Map<String, dynamic>.from(map['payload'] as Map);
+    final type = map['sig'] as String;
+    final payload = Map<String, dynamic>.from(map['payload'] as Map);
     switch (type) {
       case 'webrtc-offer':
         handleRemoteOffer(payload);

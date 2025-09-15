@@ -8,7 +8,9 @@ class MentorProfileScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Mock mentor data - in real app, this would be fetched based on mentorId
+    // Mock mentor data based on mentorId - in real app, this would be fetched from database
+    Map<String, dynamic> mentorData = _getMentorData(mentorId);
+    
     return Scaffold(
       appBar: AppBar(
         title: const Text('Mentor Profile'),
@@ -34,19 +36,19 @@ class MentorProfileScreen extends StatelessWidget {
                     CircleAvatar(
                       radius: 50,
                       backgroundColor: Theme.of(context).colorScheme.primaryContainer,
-                      child: const Text(
-                        'DS',
-                        style: TextStyle(fontSize: 24),
+                      child: Text(
+                        mentorData['initials'],
+                        style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
                       ),
                     ),
                     const SizedBox(height: 16),
-                    const Text(
-                      'Dr. Sarah Smith',
-                      style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                    Text(
+                      mentorData['name'],
+                      style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
                     ),
-                    const Text(
-                      'Mathematics Expert • 8+ years experience',
-                      style: TextStyle(color: Colors.grey),
+                    Text(
+                      mentorData['description'],
+                      style: const TextStyle(color: Colors.grey),
                     ),
                     const SizedBox(height: 16),
                     Row(
@@ -59,18 +61,18 @@ class MentorProfileScreen extends StatelessWidget {
                             const Text('Rating', style: TextStyle(fontSize: 12)),
                           ],
                         ),
-                        Column(
+                        const Column(
                           children: [
-                            const Icon(Icons.school, color: Colors.blue),
-                            const Text('245', style: TextStyle(fontWeight: FontWeight.bold)),
-                            const Text('Sessions', style: TextStyle(fontSize: 12)),
+                            Icon(Icons.school, color: Colors.blue),
+                            Text('245', style: TextStyle(fontWeight: FontWeight.bold)),
+                            Text('Sessions', style: TextStyle(fontSize: 12)),
                           ],
                         ),
-                        Column(
+                        const Column(
                           children: [
-                            const Icon(Icons.verified, color: Colors.green),
-                            const Text('Verified', style: TextStyle(fontWeight: FontWeight.bold)),
-                            const Text('Expert', style: TextStyle(fontSize: 12)),
+                            Icon(Icons.verified, color: Colors.green),
+                            Text('Verified', style: TextStyle(fontWeight: FontWeight.bold)),
+                            Text('Expert', style: TextStyle(fontSize: 12)),
                           ],
                         ),
                       ],
@@ -94,9 +96,7 @@ class MentorProfileScreen extends StatelessWidget {
                       style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                     ),
                     const SizedBox(height: 8),
-                    const Text(
-                      'Experienced mathematics mentor with 8+ years of teaching JEE and NEET aspirants. PhD in Mathematics from IIT Delhi. Specialized in helping students overcome math anxiety and build strong problem-solving skills.',
-                    ),
+                    Text(mentorData['about']),
                     const SizedBox(height: 16),
                     const Text(
                       'Specializations',
@@ -105,7 +105,7 @@ class MentorProfileScreen extends StatelessWidget {
                     const SizedBox(height: 8),
                     Wrap(
                       spacing: 8,
-                      children: ['Mathematics', 'JEE', 'NEET', 'Calculus', 'Algebra'].map((tag) {
+                      children: (mentorData['specializations'] as List<String>).map((tag) {
                         return Chip(label: Text(tag));
                       }).toList(),
                     ),
@@ -140,5 +140,27 @@ class MentorProfileScreen extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  // Mock method to get mentor data based on mentorId
+  Map<String, dynamic> _getMentorData(String mentorId) {
+    final mentors = {
+      'mentor_1': {
+        'name': 'Prof. Raj Kumar',
+        'initials': 'PRK',
+        'description': 'Physics Expert • 10+ years experience',
+        'about': 'Experienced physics mentor with 10+ years of teaching IIT-JEE and NEET aspirants. PhD in Physics from IIT Bombay. Expert in mechanics, thermodynamics, and electromagnetism.',
+        'specializations': ['Physics', 'IIT-JEE', 'NEET', 'Mechanics', 'Thermodynamics'],
+      },
+      'mentor_2': {
+        'name': 'Dr. Sarah Smith',
+        'initials': 'DS',
+        'description': 'Mathematics Expert • 8+ years experience',
+        'about': 'Experienced mathematics mentor with 8+ years of teaching JEE and NEET aspirants. PhD in Mathematics from IIT Delhi. Specialized in helping students overcome math anxiety and build strong problem-solving skills.',
+        'specializations': ['Mathematics', 'JEE', 'NEET', 'Calculus', 'Algebra'],
+      },
+    };
+
+    return mentors[mentorId] ?? mentors['mentor_2']!; // Default to Dr. Sarah Smith
   }
 }

@@ -10,7 +10,7 @@ void main() {
         const data = 'test data';
         
         // Act
-        final result = Success(data);
+        const result = Success(data);
         
         // Assert
         expect(result.data, equals(data));

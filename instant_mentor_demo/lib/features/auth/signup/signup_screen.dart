@@ -30,26 +30,20 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
   }
 
   void _handleSignup() async {
-    if (_formKey.currentState?.validate() ?? false) {
-      debugPrint('SignupScreen: Attempting to send OTP...');
-
-      try {
-        // Send OTP to email for verification
-        await ref
-            .read(authProvider.notifier)
-            .sendEmailOTP(_emailController.text);
-
-        // Navigate to OTP verification screen with signup data
-        if (mounted) {
-          context.go(
-              '/otp-verification?email=${_emailController.text}&type=email&signup=true&password=${_passwordController.text}&name=${_nameController.text}&role=${_isStudent ? 'student' : 'mentor'}');
-        }
-
-        debugPrint('SignupScreen: OTP sent, navigating to verification');
-      } catch (error, stackTrace) {
-        // Handle and show error using global error system
-        ErrorUtils.handleAndShowError(ref, error, stackTrace);
-      }
+    if (!(_formKey.currentState?.validate() ?? false)) return;
+    debugPrint('SignupScreen: Creating account with email/password...');
+    try {
+      await ref.read(authProvider.notifier).signUp(
+        email: _emailController.text.trim(),
+        password: _passwordController.text,
+        fullName: _nameController.text.trim(),
+        additionalData: {
+          'role': _isStudent ? 'student' : 'mentor',
+        },
+      );
+      // On success, GoRouter redirect should take user to home
+    } catch (error, stackTrace) {
+      ErrorUtils.handleAndShowError(ref, error, stackTrace);
     }
   }
 

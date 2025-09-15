@@ -25,7 +25,6 @@ class _WebSocketDemoScreenState extends ConsumerState<WebSocketDemoScreen>
   void initState() {
     super.initState();
     _tabController = TabController(length: 4, vsync: this);
-    _setupMessageListener();
   }
 
   @override
@@ -49,6 +48,9 @@ class _WebSocketDemoScreenState extends ConsumerState<WebSocketDemoScreen>
 
   @override
   Widget build(BuildContext context) {
+    // Set up message listener in build method (required for Riverpod)
+    _setupMessageListener();
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('WebSocket Real-time Demo'),

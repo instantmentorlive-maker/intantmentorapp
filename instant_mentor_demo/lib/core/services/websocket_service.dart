@@ -1,7 +1,10 @@
 import 'dart:async';
+import 'dart:math' as math;
+
+import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/foundation.dart';
-import 'package:socket_io_client/socket_io_client.dart' as IO;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:socket_io_client/socket_io_client.dart' as IO;
 
 /// WebSocket connection states
 enum WebSocketConnectionState {
@@ -110,8 +113,34 @@ class WebSocketService {
   Timer? _reconnectTimer;
   int _reconnectAttempts = 0;
   static const int _maxReconnectAttempts = 5;
-  static const Duration _reconnectDelay = Duration(seconds: 5);
   static const Duration _heartbeatInterval = Duration(seconds: 30);
+
+  // Phase 2 Day 13: Enhanced reconnection with jitter backoff
+  static const Duration _initialReconnectDelay = Duration(seconds: 1);
+  static const Duration _maxReconnectDelay = Duration(minutes: 5);
+  static const double _jitterFactor = 0.3; // 30% jitter
+
+  // Phase 2 Day 13: Offline message queue
+  final List<WebSocketMessage> _offlineMessageQueue = [];
+  static const int _maxOfflineQueueSize = 100;
+
+  // Phase 2 Day 13: Network connectivity monitoring
+  StreamSubscription<ConnectivityResult>? _connectivitySubscription;
+  bool _isOnline = true;
+
+  // Exponential backoff calculator
+  Duration _calculateBackoffDelay() {
+    final baseDelay = _initialReconnectDelay.inMilliseconds *
+        math.pow(2, _reconnectAttempts.clamp(0, 10));
+    final maxDelay = _maxReconnectDelay.inMilliseconds;
+    final delay = math.min(baseDelay.toInt(), maxDelay);
+
+    // Add jitter to prevent thundering herd
+    final jitter = delay * _jitterFactor * (math.Random().nextDouble() - 0.5);
+    final finalDelay = (delay + jitter).toInt().clamp(1000, maxDelay);
+
+    return Duration(milliseconds: finalDelay);
+  }
 
   String? _currentUserId;
   String? _userRole;
@@ -144,6 +173,17 @@ class WebSocketService {
     _userRole = userRole;
 
     final wsUrl = serverUrl ?? _getDefaultServerUrl();
+
+    // Skip connection if URL is empty (demo mode)
+    if (wsUrl.isEmpty) {
+      debugPrint('🌐 WebSocket: Skipping connection in demo mode');
+      _updateConnectionState(WebSocketConnectionState.disconnected);
+      return;
+    }
+
+    // Phase 2 Day 13: Setup network connectivity monitoring
+    _setupNetworkMonitoring();
+
     debugPrint('🌐 WebSocket: Connecting to $wsUrl');
 
     _updateConnectionState(WebSocketConnectionState.connecting);
@@ -165,8 +205,35 @@ class WebSocketService {
     } catch (e) {
       debugPrint('🔴 WebSocket: Connection error: $e');
       _updateConnectionState(WebSocketConnectionState.error);
-      _scheduleReconnect();
+      _scheduleEnhancedReconnect();
     }
+  }
+
+  /// Phase 2 Day 13: Setup network connectivity monitoring
+  void _setupNetworkMonitoring() {
+    _connectivitySubscription?.cancel();
+    _connectivitySubscription = Connectivity().onConnectivityChanged.listen(
+      (ConnectivityResult result) {
+        final wasOnline = _isOnline;
+        _isOnline = result != ConnectivityResult.none;
+
+        debugPrint('🌐 Network status: ${_isOnline ? 'Online' : 'Offline'}');
+
+        if (!wasOnline && _isOnline) {
+          // Network restored - attempt immediate reconnect
+          debugPrint('🌐 Network restored, attempting reconnection');
+          if (!isConnected) {
+            _attemptReconnection();
+          } else {
+            // Flush offline queue if already connected
+            _flushOfflineQueue();
+          }
+        } else if (wasOnline && !_isOnline) {
+          // Network lost
+          debugPrint('🔴 Network lost');
+        }
+      },
+    );
   }
 
   /// Setup WebSocket event handlers
@@ -182,6 +249,9 @@ class WebSocketService {
 
       // Send user online status
       _sendUserPresence(true);
+
+      // Phase 2 Day 13: Flush offline message queue
+      _flushOfflineQueue();
     });
 
     _socket!.onDisconnect((_) {
@@ -302,11 +372,23 @@ class WebSocketService {
     }
   }
 
-  /// Send a message through WebSocket
+  /// Send a message through WebSocket with Phase 2 Day 13 offline queue support
   Future<void> sendMessage(WebSocketMessage message) async {
+    return _sendMessage(message);
+  }
+
+  /// Internal method to send message with offline queue control
+  Future<void> _sendMessage(WebSocketMessage message,
+      {bool retryOffline = true}) async {
     if (!isConnected) {
-      debugPrint('🔴 WebSocket: Cannot send message - not connected');
-      throw Exception('WebSocket not connected');
+      if (retryOffline && !_isOnline) {
+        debugPrint('📥 WebSocket: Offline - queuing message');
+        _queueOfflineMessage(message);
+        return;
+      } else {
+        debugPrint('🔴 WebSocket: Cannot send message - not connected');
+        throw Exception('WebSocket not connected');
+      }
     }
 
     try {
@@ -316,6 +398,12 @@ class WebSocketService {
       _socket!.emit(eventName, message.toJson());
     } catch (e) {
       debugPrint('🔴 WebSocket: Error sending message: $e');
+
+      if (retryOffline) {
+        // Queue message for retry when connection is restored
+        _queueOfflineMessage(message);
+      }
+
       rethrow;
     }
   }
@@ -593,29 +681,98 @@ class WebSocketService {
     _heartbeatTimer = null;
   }
 
-  /// Schedule reconnection attempt
-  void _scheduleReconnect() {
+  /// Phase 2 Day 13: Enhanced reconnection with exponential backoff and jitter
+  void _scheduleEnhancedReconnect() {
     if (_reconnectAttempts >= _maxReconnectAttempts) {
-      debugPrint('🔴 WebSocket: Max reconnection attempts reached');
+      debugPrint(
+          '🔴 WebSocket: Max reconnection attempts reached ($_reconnectAttempts/$_maxReconnectAttempts)');
       _updateConnectionState(WebSocketConnectionState.error);
+      // Reset attempts to prevent further reconnection tries
+      _reconnectAttempts = 0;
       return;
     }
 
-    _reconnectTimer?.cancel();
-    _reconnectTimer = Timer(_reconnectDelay, () {
-      if (_connectionState != WebSocketConnectionState.connected) {
-        _reconnectAttempts++;
-        debugPrint('🔄 WebSocket: Reconnection attempt $_reconnectAttempts');
-        _updateConnectionState(WebSocketConnectionState.reconnecting);
+    if (!_isOnline) {
+      debugPrint('🔴 WebSocket: Offline, skipping reconnection attempt');
+      return;
+    }
 
-        if (_currentUserId != null && _userRole != null) {
-          connect(
-            userId: _currentUserId!,
-            userRole: _userRole!,
-          );
-        }
-      }
+    // Cancel any existing reconnection timer
+    _reconnectTimer?.cancel();
+
+    final backoffDelay = _calculateBackoffDelay();
+
+    debugPrint(
+        '🔄 WebSocket: Scheduling reconnection attempt ${_reconnectAttempts + 1} '
+        'in ${backoffDelay.inSeconds}s');
+
+    _reconnectTimer = Timer(backoffDelay, () {
+      _attemptReconnection();
     });
+  }
+
+  /// Phase 2 Day 13: Attempt reconnection
+  void _attemptReconnection() {
+    if (_connectionState == WebSocketConnectionState.connected) {
+      return; // Already connected
+    }
+
+    // Check if we've reached max attempts before incrementing
+    if (_reconnectAttempts >= _maxReconnectAttempts) {
+      debugPrint(
+          '🔴 WebSocket: Max reconnection attempts already reached, stopping');
+      return;
+    }
+
+    _reconnectAttempts++;
+    debugPrint('🔄 WebSocket: Reconnection attempt $_reconnectAttempts');
+    _updateConnectionState(WebSocketConnectionState.reconnecting);
+
+    if (_currentUserId != null && _userRole != null) {
+      connect(
+        userId: _currentUserId!,
+        userRole: _userRole!,
+      );
+    } else {
+      debugPrint('🔴 WebSocket: Cannot reconnect - missing user credentials');
+    }
+  }
+
+  /// Legacy reconnect method - now uses enhanced version
+  void _scheduleReconnect() {
+    _scheduleEnhancedReconnect();
+  }
+
+  /// Phase 2 Day 13: Flush offline message queue
+  void _flushOfflineQueue() {
+    if (_offlineMessageQueue.isEmpty || !isConnected) {
+      return;
+    }
+
+    debugPrint(
+        '📤 WebSocket: Flushing ${_offlineMessageQueue.length} offline messages');
+
+    final messagesToSend = List<WebSocketMessage>.from(_offlineMessageQueue);
+    _offlineMessageQueue.clear();
+
+    for (final message in messagesToSend) {
+      _sendMessage(message, retryOffline: false);
+    }
+
+    debugPrint('✅ WebSocket: Offline queue flushed');
+  }
+
+  /// Phase 2 Day 13: Queue message for offline sending
+  void _queueOfflineMessage(WebSocketMessage message) {
+    if (_offlineMessageQueue.length >= _maxOfflineQueueSize) {
+      // Remove oldest message to make room
+      _offlineMessageQueue.removeAt(0);
+      debugPrint('⚠️ WebSocket: Offline queue full, removed oldest message');
+    }
+
+    _offlineMessageQueue.add(message);
+    debugPrint(
+        '📥 WebSocket: Queued message for offline sending (${_offlineMessageQueue.length} in queue)');
   }
 
   /// Update connection state
@@ -631,7 +788,9 @@ class WebSocketService {
   String _getDefaultServerUrl() {
     // In production, this should come from environment config
     if (kDebugMode) {
-      return 'http://localhost:3000'; // Local development server
+      // For development mode, use the local WebSocket server
+      // This WebSocket service is for general app messaging, not WebRTC signaling
+      return 'http://localhost:3000'; // Use the same server as signaling
     } else {
       return 'wss://your-production-server.com'; // Production server
     }
@@ -647,6 +806,10 @@ class WebSocketService {
     _heartbeatTimer?.cancel();
     _reconnectTimer?.cancel();
 
+    // Phase 2 Day 13: Cancel network monitoring
+    _connectivitySubscription?.cancel();
+    _connectivitySubscription = null;
+
     _socket?.disconnect();
     _socket?.dispose();
     _socket = null;
@@ -656,6 +819,9 @@ class WebSocketService {
     _currentUserId = null;
     _userRole = null;
     _reconnectAttempts = 0;
+
+    // Clear offline queue on disconnect
+    _offlineMessageQueue.clear();
   }
 
   /// Dispose service
@@ -663,6 +829,7 @@ class WebSocketService {
     disconnect();
     _connectionStateController.close();
     _messageController.close();
+    _connectivitySubscription?.cancel();
   }
 }
 

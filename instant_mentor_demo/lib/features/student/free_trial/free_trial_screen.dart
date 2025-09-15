@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../core/providers/user_provider.dart';
+// Removed unused user_provider import
 
 // Free trial state providers
 final hasUsedFreeTrialProvider = StateProvider<bool>((ref) => false);
@@ -107,9 +107,9 @@ class _FreeTrialSessionScreenState extends ConsumerState<FreeTrialSessionScreen>
         // Progress Indicator
         Container(
           padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
+          decoration: const BoxDecoration(
             color: Colors.green,
-            borderRadius: const BorderRadius.only(
+            borderRadius: BorderRadius.only(
               bottomLeft: Radius.circular(24),
               bottomRight: Radius.circular(24),
             ),
@@ -187,17 +187,17 @@ class _FreeTrialSessionScreenState extends ConsumerState<FreeTrialSessionScreen>
             const SizedBox(height: 32),
             
             // Benefits List
-            Card(
+            const Card(
               child: Padding(
-                padding: const EdgeInsets.all(20),
+                padding: EdgeInsets.all(20),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
+                    Text(
                       'What you get:',
                       style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                     ),
-                    const SizedBox(height: 16),
+                    SizedBox(height: 16),
                     _BenefitItem(icon: Icons.timer, text: '30 minutes of personalized tutoring'),
                     _BenefitItem(icon: Icons.person_outline, text: 'Choose from 50+ expert mentors'),
                     _BenefitItem(icon: Icons.video_call, text: 'HD video call with screen sharing'),
@@ -699,7 +699,7 @@ class _FreeTrialSessionScreenState extends ConsumerState<FreeTrialSessionScreen>
           children: [
             Text('Subject: $selectedSubject'),
             Text('Mentor: ${selectedMentor!['name']}'),
-            Text('Date: ${selectedDate!.day}/${selectedDate!.month}/${selectedDate!.year}'),
+            Text('Date: ${selectedDate!.day}/${selectedDate.month}/${selectedDate.year}'),
             Text('Time: ${selectedTime!.format(context)}'),
             const SizedBox(height: 16),
             Container(

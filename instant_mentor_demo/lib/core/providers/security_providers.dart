@@ -1,13 +1,15 @@
 import 'dart:async';
 import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import '../security/encryption_service.dart';
-import '../security/biometric_auth_service.dart';
+import '../security/biometric_auth_service.dart' as bio;
 import '../security/key_manager.dart';
 
 part 'security_providers.g.dart';
+
+// Local type aliases so generated code can refer to unprefixed names
+typedef BiometricAuthService = bio.BiometricAuthService;
 
 // Core Security Services
 
@@ -17,8 +19,8 @@ AdvancedEncryptionService encryptionService(EncryptionServiceRef ref) {
 }
 
 @Riverpod(keepAlive: true)
-BiometricAuthService biometricAuthService(BiometricAuthServiceRef ref) {
-  return BiometricAuthService.instance;
+bio.BiometricAuthService biometricAuthService(BiometricAuthServiceRef ref) {
+  return bio.BiometricAuthService.instance;
 }
 
 @Riverpod(keepAlive: true)
@@ -34,7 +36,7 @@ class BiometricCapability extends _$BiometricCapability {
   @override
   Future<BiometricCapabilityState> build() async {
     final service = ref.watch(biometricAuthServiceProvider);
-    
+
     try {
       final capability = await service.checkCapabilities();
       return BiometricCapabilityState(
@@ -91,14 +93,14 @@ class BiometricSession extends _$BiometricSession {
   }
 
   /// Authenticate and create session
-  Future<BiometricAuthResult> authenticate({
+  Future<bio.BiometricAuthResult> authenticate({
     String? reason,
     bool strongAuth = false,
     Map<String, dynamic>? metadata,
   }) async {
     final service = ref.read(biometricAuthServiceProvider);
-    
-    BiometricAuthResult result;
+
+    bio.BiometricAuthResult result;
     if (strongAuth) {
       result = await service.strongAuth(
         reason: reason ?? 'Strong authentication required',
@@ -126,7 +128,7 @@ class BiometricSession extends _$BiometricSession {
   }
 
   /// Update authentication policy
-  Future<void> updatePolicy(AuthenticationPolicy policy) async {
+  Future<void> updatePolicy(bio.AuthenticationPolicy policy) async {
     final service = ref.read(biometricAuthServiceProvider);
     await service.updatePolicy(policy);
     await _updateSessionState();
@@ -142,7 +144,7 @@ class BiometricSession extends _$BiometricSession {
   Future<void> _updateSessionState() async {
     final service = ref.read(biometricAuthServiceProvider);
     final session = service.getCurrentSession();
-    
+
     state = BiometricSessionState(
       session: session,
       isValid: session != null && session.isValid,
@@ -157,11 +159,11 @@ class KeyManagement extends _$KeyManagement {
   @override
   Future<KeyManagementState> build() async {
     final keyManager = ref.watch(secureKeyManagerProvider);
-    
+
     try {
       await keyManager.initialize();
       final keys = await keyManager.listKeys(includeExpired: false);
-      
+
       return KeyManagementState(
         keys: keys,
         totalKeys: keys.length,
@@ -190,7 +192,7 @@ class KeyManagement extends _$KeyManagement {
     Map<String, dynamic>? metadata,
   }) async {
     final keyManager = ref.read(secureKeyManagerProvider);
-    
+
     final keyId = await keyManager.generateKey(
       usage: usage,
       algorithm: algorithm,
@@ -207,7 +209,8 @@ class KeyManagement extends _$KeyManagement {
   /// Rotate a key
   Future<String> rotateKey(String keyId, {bool retainOldVersion = true}) async {
     final keyManager = ref.read(secureKeyManagerProvider);
-    final newKeyId = await keyManager.rotateKey(keyId, retainOldVersion: retainOldVersion);
+    final newKeyId =
+        await keyManager.rotateKey(keyId, retainOldVersion: retainOldVersion);
     await refresh();
     return newKeyId;
   }
@@ -232,7 +235,7 @@ class KeyManagement extends _$KeyManagement {
     state = await AsyncValue.guard(() async {
       final keyManager = ref.read(secureKeyManagerProvider);
       final keys = await keyManager.listKeys(includeExpired: false);
-      
+
       return KeyManagementState(
         keys: keys,
         totalKeys: keys.length,
@@ -261,7 +264,7 @@ class EncryptionOperations extends _$EncryptionOperations {
   Future<EncryptionResult> encryptAESGCM(List<int> data, String keyId) async {
     final encryptionService = ref.read(encryptionServiceProvider);
     final keyManager = ref.read(secureKeyManagerProvider);
-    
+
     final key = await keyManager.getKey(keyId);
     if (key == null) {
       throw Exception('Key not found: $keyId');
@@ -280,7 +283,7 @@ class EncryptionOperations extends _$EncryptionOperations {
   Future<Uint8List> decryptAESGCM(EncryptionResult result, String keyId) async {
     final encryptionService = ref.read(encryptionServiceProvider);
     final keyManager = ref.read(secureKeyManagerProvider);
-    
+
     final key = await keyManager.getKey(keyId);
     if (key == null) {
       throw Exception('Key not found: $keyId');
@@ -295,7 +298,7 @@ class EncryptionOperations extends _$EncryptionOperations {
   Future<EncryptionResult> encryptRSA(List<int> data, String keyId) async {
     final encryptionService = ref.read(encryptionServiceProvider);
     final keyManager = ref.read(secureKeyManagerProvider);
-    
+
     final keyMetadata = await keyManager.getKeyMetadata(keyId);
     if (keyMetadata == null) {
       throw Exception('Key not found: $keyId');
@@ -317,10 +320,11 @@ class EncryptionOperations extends _$EncryptionOperations {
   }
 
   /// Generate HMAC
-  Future<Uint8List> generateHMAC(List<int> data, String keyId, {String algorithm = 'SHA-256'}) async {
+  Future<Uint8List> generateHMAC(List<int> data, String keyId,
+      {String algorithm = 'SHA-256'}) async {
     final encryptionService = ref.read(encryptionServiceProvider);
     final keyManager = ref.read(secureKeyManagerProvider);
-    
+
     final key = await keyManager.getKey(keyId);
     if (key == null) {
       throw Exception('Key not found: $keyId');
@@ -340,11 +344,11 @@ class EncryptionOperations extends _$EncryptionOperations {
     final currentState = state;
     state = currentState.copyWith(
       operationsCount: currentState.operationsCount + 1,
-      encryptionCount: isEncryption 
-          ? currentState.encryptionCount + 1 
+      encryptionCount: isEncryption
+          ? currentState.encryptionCount + 1
           : currentState.encryptionCount,
-      decryptionCount: !isEncryption 
-          ? currentState.decryptionCount + 1 
+      decryptionCount: !isEncryption
+          ? currentState.decryptionCount + 1
           : currentState.decryptionCount,
       lastOperation: DateTime.now(),
     );
@@ -385,18 +389,20 @@ class SecurityAudit extends _$SecurityAudit {
     try {
       final biometricService = ref.read(biometricAuthServiceProvider);
       final capabilities = await biometricService.checkCapabilities();
-      
+
       if (!capabilities.isAvailable) {
-        issues.add(SecurityIssue(
+        issues.add(const SecurityIssue(
           severity: SecuritySeverity.medium,
           category: 'Authentication',
           description: 'Biometric authentication not available',
-          recommendation: 'Enable biometric authentication for enhanced security',
+          recommendation:
+              'Enable biometric authentication for enhanced security',
         ));
-        recommendations.add('Set up biometric authentication (fingerprint/face recognition)');
+        recommendations.add(
+            'Set up biometric authentication (fingerprint/face recognition)');
       }
     } catch (e) {
-      issues.add(SecurityIssue(
+      issues.add(const SecurityIssue(
         severity: SecuritySeverity.low,
         category: 'System',
         description: 'Unable to check biometric capabilities',
@@ -408,7 +414,7 @@ class SecurityAudit extends _$SecurityAudit {
     try {
       final keyManager = ref.read(secureKeyManagerProvider);
       final keys = await keyManager.listKeys(includeExpired: true);
-      
+
       final expiredKeys = keys.where((k) => k.isExpired).length;
       if (expiredKeys > 0) {
         issues.add(SecurityIssue(
@@ -420,7 +426,8 @@ class SecurityAudit extends _$SecurityAudit {
         recommendations.add('Clean up expired encryption keys');
       }
 
-      final deprecatedKeys = keys.where((k) => k.status == KeyStatus.deprecated).length;
+      final deprecatedKeys =
+          keys.where((k) => k.status == KeyStatus.deprecated).length;
       if (deprecatedKeys > 5) {
         issues.add(SecurityIssue(
           severity: SecuritySeverity.medium,
@@ -431,7 +438,7 @@ class SecurityAudit extends _$SecurityAudit {
         recommendations.add('Archive or delete old key versions');
       }
     } catch (e) {
-      issues.add(SecurityIssue(
+      issues.add(const SecurityIssue(
         severity: SecuritySeverity.medium,
         category: 'Key Management',
         description: 'Unable to audit key management',
@@ -441,8 +448,10 @@ class SecurityAudit extends _$SecurityAudit {
 
     // General security recommendations
     if (issues.isEmpty) {
-      recommendations.add('Enable automatic key rotation for enhanced security');
-      recommendations.add('Review and update authentication policies regularly');
+      recommendations
+          .add('Enable automatic key rotation for enhanced security');
+      recommendations
+          .add('Review and update authentication policies regularly');
       recommendations.add('Monitor security audit logs');
     }
 
@@ -456,7 +465,7 @@ class SecurityAudit extends _$SecurityAudit {
 
   double _calculateSecurityScore(List<SecurityIssue> issues) {
     if (issues.isEmpty) return 100.0;
-    
+
     double score = 100.0;
     for (final issue in issues) {
       switch (issue.severity) {
@@ -474,7 +483,7 @@ class SecurityAudit extends _$SecurityAudit {
           break;
       }
     }
-    
+
     return score.clamp(0.0, 100.0);
   }
 }
@@ -482,7 +491,7 @@ class SecurityAudit extends _$SecurityAudit {
 // State Classes
 
 class BiometricCapabilityState {
-  final BiometricCapability? capability;
+  final bio.BiometricCapability? capability;
   final DateTime lastChecked;
   final String? error;
 
@@ -493,11 +502,12 @@ class BiometricCapabilityState {
   });
 
   bool get isAvailable => capability?.isAvailable ?? false;
-  List<BiometricType> get availableTypes => capability?.availableTypes ?? [];
+  List<bio.BiometricType> get availableTypes =>
+      capability?.availableTypes ?? [];
 }
 
 class BiometricSessionState {
-  final BiometricSession? session;
+  final bio.BiometricSession? session;
   final bool isValid;
   final DateTime? lastAuthenticated;
 
@@ -530,8 +540,9 @@ class KeyManagementState {
   });
 
   int get expiredKeys => keys.where((k) => k.isExpired).length;
-  int get deprecatedKeys => keys.where((k) => k.status == KeyStatus.deprecated).length;
-  
+  int get deprecatedKeys =>
+      keys.where((k) => k.status == KeyStatus.deprecated).length;
+
   List<SecureKeyMetadata> getKeysByUsage(KeyUsage usage) {
     return keys.where((k) => k.usage == usage).toList();
   }
@@ -578,11 +589,15 @@ class SecurityAuditState {
     required this.overallScore,
   });
 
-  int get criticalIssues => issues.where((i) => i.severity == SecuritySeverity.critical).length;
-  int get highIssues => issues.where((i) => i.severity == SecuritySeverity.high).length;
-  int get mediumIssues => issues.where((i) => i.severity == SecuritySeverity.medium).length;
-  int get lowIssues => issues.where((i) => i.severity == SecuritySeverity.low).length;
-  
+  int get criticalIssues =>
+      issues.where((i) => i.severity == SecuritySeverity.critical).length;
+  int get highIssues =>
+      issues.where((i) => i.severity == SecuritySeverity.high).length;
+  int get mediumIssues =>
+      issues.where((i) => i.severity == SecuritySeverity.medium).length;
+  int get lowIssues =>
+      issues.where((i) => i.severity == SecuritySeverity.low).length;
+
   String get scoreGrade {
     if (overallScore >= 90) return 'A';
     if (overallScore >= 80) return 'B';

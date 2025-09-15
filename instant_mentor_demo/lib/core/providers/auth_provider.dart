@@ -273,13 +273,47 @@ class AuthNotifier extends StateNotifier<AuthState> {
     }
   }
 
+  /// Set new password for the currently authenticated user
+  Future<void> setNewPassword(String newPassword) async {
+    state = state.copyWith(isLoading: true, error: null);
+
+    try {
+      // Supabase updates password for current session user
+      await _supabaseService.client.auth.updateUser(
+        UserAttributes(password: newPassword),
+      );
+      state = state.copyWith(isLoading: false);
+    } on AuthException catch (e) {
+      state = state.copyWith(isLoading: false, error: e.message);
+    } catch (e) {
+      state = state.copyWith(isLoading: false, error: e.toString());
+    }
+  }
+
   /// Send email OTP for verification
-  Future<void> sendEmailOTP(String email) async {
+  Future<void> sendEmailOTP(String email,
+      {bool shouldCreateUser = true}) async {
     state = state.copyWith(isLoading: true, error: null);
 
     try {
       await _supabaseService.sendEmailOTP(email);
       state = state.copyWith(isLoading: false);
+    } on AuthApiException catch (e) {
+      // Gracefully degrade to informing the UI when OTP is disabled
+      final msg = e.message.toLowerCase();
+      if (msg.contains('otp_disabled') ||
+          msg.contains('signups not allowed for otp')) {
+        state = state.copyWith(
+          isLoading: false,
+          error:
+              'Email OTP is disabled for this project. Use password sign-in instead.',
+        );
+        return;
+      }
+      state = state.copyWith(
+        isLoading: false,
+        error: e.message,
+      );
     } catch (e) {
       state = state.copyWith(
         isLoading: false,

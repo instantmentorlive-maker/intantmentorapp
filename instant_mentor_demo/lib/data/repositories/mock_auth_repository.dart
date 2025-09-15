@@ -13,6 +13,27 @@ class MockAuthRepository implements AuthRepository {
 
   /// Mock user database with predefined credentials
   static final Map<String, Map<String, dynamic>> _mockUsers = {
+    // Emails expected by tests
+    'student@student.com': {
+      'password': 'password123',
+      'name': 'Student User',
+      'role': UserRole.student,
+      'id': 'user_100001',
+    },
+    'mentor@mentor.com': {
+      'password': 'password123',
+      'name': 'Mentor User',
+      'role': UserRole.mentor,
+      'id': 'user_100002',
+    },
+    // Existing email used by tests to trigger duplicate sign up
+    'test@student.com': {
+      'password': 'password123',
+      'name': 'Test User',
+      'role': UserRole.student,
+      'id': 'user_100003',
+    },
+    // Legacy demo users retained
     'student@test.com': {
       'password': 'password123',
       'name': 'Test Student',
@@ -72,6 +93,14 @@ class MockAuthRepository implements AuthRepository {
       if (!emailLower.contains('@') || !emailLower.contains('.')) {
         return Failure(
             ValidationError.invalidFormat('Email', 'valid email address'));
+      }
+
+      // Enforce allowed domains for mock environment (aligns with tests)
+      final allowedDomains = {'student.com', 'mentor.com', 'test.com'};
+      final domain = emailLower.split('@').last;
+      if (!allowedDomains.contains(domain)) {
+        return Failure(ValidationError.invalidFormat(
+            'Email', 'a supported domain (student.com or mentor.com)'));
       }
 
       // Validate password
@@ -154,6 +183,17 @@ class MockAuthRepository implements AuthRepository {
       if (!emailLower.contains('@') || !emailLower.contains('.')) {
         return Failure(
             ValidationError.invalidFormat('Email', 'valid email address'));
+      }
+
+      // Role-based domain validation to match tests
+      final domain = emailLower.split('@').last;
+      if (data.role == UserRole.student && domain != 'student.com') {
+        return Failure(ValidationError.invalidFormat(
+            'Email', 'student.com domain for student accounts'));
+      }
+      if (data.role == UserRole.mentor && domain != 'mentor.com') {
+        return Failure(ValidationError.invalidFormat(
+            'Email', 'mentor.com domain for mentor accounts'));
       }
 
       // Check if email already exists in mock database
