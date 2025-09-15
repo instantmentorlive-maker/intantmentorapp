@@ -70,7 +70,9 @@ class WhatsAppVideoCallScreen extends ConsumerWidget {
                     )
                   : state.inCall
                       ? _buildVideoGrid(context, state, controller)
-                      : _buildIncomingCall(context, state, controller),
+                      : state.isIncomingCall
+                          ? _buildIncomingCall(context, state, controller)
+                          : _buildOutgoingCall(context, state, controller),
             ),
           ),
 
@@ -135,6 +137,76 @@ class WhatsAppVideoCallScreen extends ConsumerWidget {
                         size: 40,
                       ),
                     ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildOutgoingCall(
+      BuildContext context, CallState state, CallController controller) {
+    final receiver = state.participants.firstWhere(
+      (p) => !p.isLocal,
+      orElse: () =>
+          Participant(id: 'unknown', displayName: 'Calling...', isLocal: false),
+    );
+
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        // Receiver avatar
+        CircleAvatar(
+          radius: 80,
+          backgroundColor: Colors.grey.shade700,
+          child: Text(
+            receiver.displayName.isNotEmpty
+                ? receiver.displayName[0].toUpperCase()
+                : 'C',
+            style: const TextStyle(fontSize: 60, color: Colors.white),
+          ),
+        ),
+        const SizedBox(height: 32),
+
+        // Receiver name
+        Text(
+          receiver.displayName,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 28,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        const SizedBox(height: 8),
+
+        // Call status
+        const Text(
+          'Calling...',
+          style: TextStyle(
+            color: Colors.white70,
+            fontSize: 16,
+          ),
+        ),
+        const SizedBox(height: 40),
+
+        // Loading indicator
+        const CircularProgressIndicator(color: Colors.white),
+        const SizedBox(height: 40),
+
+        // Only end call button for outgoing calls
+        GestureDetector(
+          onTap: () => controller.endCall(reason: 'cancelled'),
+          child: Container(
+            width: 70,
+            height: 70,
+            decoration: const BoxDecoration(
+              color: Colors.red,
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(
+              Icons.call_end,
+              color: Colors.white,
+              size: 30,
             ),
           ),
         ),

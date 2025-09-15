@@ -21,6 +21,7 @@ class CallState {
   final bool inCall;
   final String? activeCallId;
   final String? error;
+  final bool isIncomingCall; // true = incoming call, false = outgoing call
 
   const CallState({
     this.session,
@@ -32,6 +33,7 @@ class CallState {
     this.inCall = false,
     this.activeCallId,
     this.error,
+    this.isIncomingCall = false,
   });
 
   // Legacy flag referenced by UI; currently always false (auto retry not implemented).
@@ -47,6 +49,7 @@ class CallState {
     bool? inCall,
     String? activeCallId,
     String? error,
+    bool? isIncomingCall,
   }) {
     return CallState(
       session: session ?? this.session,
@@ -58,6 +61,7 @@ class CallState {
       inCall: inCall ?? this.inCall,
       activeCallId: activeCallId ?? this.activeCallId,
       error: error,
+      isIncomingCall: isIncomingCall ?? this.isIncomingCall,
     );
   }
 }
@@ -135,6 +139,7 @@ class CallController extends StateNotifier<CallState> {
       connecting: true,
       activeCallId: provisionalId,
       participants: parts,
+      isIncomingCall: false, // This is an outgoing call
     );
     signaling.initiateCall(
       receiverId: receiverId,
@@ -180,6 +185,7 @@ class CallController extends StateNotifier<CallState> {
       activeCallId: callId,
       participants: parts,
       connecting: false,
+      isIncomingCall: true, // This is an incoming call
     );
     history.logCallStarted(
         callId: callId, callerId: callerId, receiverId: localUserId);
@@ -436,8 +442,8 @@ class CallController extends StateNotifier<CallState> {
 // Providers
 final signalingServiceProvider = Provider.family<SignalingService,
     ({String userId, String role, String baseUrl})>((ref, params) {
-  // TEMPORARILY FORCE DEMO MODE OFF FOR DEBUGGING
-  const demoMode = false; // Force off to test real connections
+  // ENABLE DEMO MODE TO SHOW VIDEO CALL FUNCTIONALITY
+  const demoMode = true; // Enable demo mode to show immediate video call
 
   // Enable demo mode only for specific demo ports (3001) or when explicitly configured
   // Regular localhost:3000 should use real WebRTC connections with our WebSocket server
@@ -455,7 +461,6 @@ final signalingServiceProvider = Provider.family<SignalingService,
     baseUrl: params.baseUrl,
     userId: params.userId,
     role: params.role,
-    demoMode: demoMode,
   );
 });
 

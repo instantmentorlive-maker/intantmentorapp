@@ -146,33 +146,33 @@ class SignalingService {
   }) {
     if (demoMode) {
       if (kDebugMode) {
-        debugPrint('[signaling] Demo mode: Simulating call initiation');
+        debugPrint('[signaling] Demo mode: Simulating outgoing call to $receiverId');
       }
       final demoCallId = 'demo-call-${DateTime.now().millisecondsSinceEpoch}';
-      // In demo mode, simulate the complete call flow:
-      // 1. First emit call_initiated (as if we received an incoming call)
-      // 2. Then auto-accept after a short delay
-      Future.delayed(const Duration(milliseconds: 100), () {
-        _incomingCallController.add({
+      
+      // For outgoing calls in demo mode, simulate immediate call acceptance
+      // This shows the video call interface right away
+      Future.delayed(const Duration(milliseconds: 800), () {
+        _callAcceptedController.add({
           'callId': demoCallId,
-          'callerId': receiverId, // Simulate receiving call from the target
-          'receiverId': userId,
-          'callerName': callerName ?? receiverId,
+          'callerId': userId, // We are the caller
+          'receiverId': receiverId,
           'callType': callType,
           'timestamp': DateTime.now().toIso8601String(),
         });
       });
 
-      // Auto-accept the call after another short delay
-      Future.delayed(const Duration(milliseconds: 500), () {
-        _callAcceptedController.add({
+      // Simulate WebRTC offer exchange after acceptance
+      Future.delayed(const Duration(milliseconds: 1200), () {
+        _webrtcOfferController.add({
           'callId': demoCallId,
-          'callerId': receiverId,
-          'receiverId': userId,
-          'callType': callType,
-          'timestamp': DateTime.now().toIso8601String(),
+          'payload': {
+            'type': 'offer',
+            'sdp': 'demo-offer-sdp-${DateTime.now().millisecondsSinceEpoch}',
+          },
         });
       });
+      
       return;
     }
     _socket?.emit('initiate_call', {

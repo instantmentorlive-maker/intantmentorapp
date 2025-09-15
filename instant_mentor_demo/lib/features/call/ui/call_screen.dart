@@ -1,7 +1,8 @@
-import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
+
 import '../../call/controller/call_controller.dart';
 import '../models/participant.dart';
 import 'stats_sheet.dart';
@@ -76,7 +77,6 @@ class CallScreen extends ConsumerWidget {
               onPressed: () {
                 showModalBottomSheet(
                   context: context,
-                  isScrollControlled: false,
                   backgroundColor: Colors.grey.shade900,
                   builder: (_) => CallStatsSheet(controller: controller),
                 );
@@ -97,7 +97,12 @@ class CallScreen extends ConsumerWidget {
     }
 
     if (!state.inCall && state.activeCallId != null) {
-      return _buildIncoming(context, state, controller);
+      // Check if this is an incoming or outgoing call
+      if (state.isIncomingCall) {
+        return _buildIncoming(context, state, controller);
+      } else {
+        return _buildOutgoing(context, state, controller);
+      }
     }
 
     return _buildInCall(context, state, controller);
@@ -186,6 +191,42 @@ class CallScreen extends ConsumerWidget {
     );
   }
 
+  Widget _buildOutgoing(
+      BuildContext context, CallState state, CallController controller) {
+    final receiver = state.participants.firstWhere((p) => !p.isLocal,
+        orElse: () => Participant(
+            id: 'unknown', displayName: 'Calling...', isLocal: false));
+    return Center(
+      child: Card(
+        margin: const EdgeInsets.all(32),
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              CircleAvatar(
+                  radius: 36, child: Text(_initials(receiver.displayName))),
+              const SizedBox(height: 16),
+              Text('Calling ${receiver.displayName}...',
+                  style: const TextStyle(
+                      fontSize: 18, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 24),
+              // Show loading indicator for outgoing call
+              const CircularProgressIndicator(),
+              const SizedBox(height: 24),
+              // Only show end call button for outgoing calls
+              OutlinedButton.icon(
+                onPressed: () => controller.endCall(reason: 'cancelled'),
+                icon: const Icon(Icons.call_end, color: Colors.red),
+                label: const Text('Cancel'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildIncoming(
       BuildContext context, CallState state, CallController controller) {
     final caller = state.participants.firstWhere((p) => !p.isLocal,
@@ -270,9 +311,9 @@ class CallScreen extends ConsumerWidget {
                 Positioned.fill(
                   child: Container(
                     color: Colors.black.withOpacity(0.6),
-                    child: Column(
+                    child: const Column(
                       mainAxisAlignment: MainAxisAlignment.center,
-                      children: const [
+                      children: [
                         SizedBox(
                           width: 48,
                           height: 48,
