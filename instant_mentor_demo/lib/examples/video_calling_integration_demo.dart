@@ -1,15 +1,7 @@
-import 'dart:async';
-
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:agora_rtc_engine/agora_rtc_engine.dart';
-
-import '../core/services/video_calling_service.dart';
-import '../core/services/call_quality_monitoring_service.dart';
-import '../core/services/call_recording_service.dart';
 
 /// Phase 2 Days 19-21: Complete video calling integration example
-/// Demonstrates the integration of all video calling services
+/// Video calling features have been removed
 class VideoCallingIntegrationDemo extends StatefulWidget {
   const VideoCallingIntegrationDemo({super.key});
 
@@ -20,20 +12,13 @@ class VideoCallingIntegrationDemo extends StatefulWidget {
 
 class _VideoCallingIntegrationDemoState
     extends State<VideoCallingIntegrationDemo> {
-  // Services
-  late VideoCallingService _videoService;
-  late CallQualityMonitoringService _qualityService;
-  late CallRecordingService _recordingService;
-
-  // UI State
-  bool _isInitialized = false;
-  bool _isInCall = false;
-  bool _isVideoEnabled = true;
+  // UI State - simplified
   bool _isAudioEnabled = true;
   bool _isRecording = false;
 
   // Call data
-  String _channelName = 'demo-channel-${DateTime.now().millisecondsSinceEpoch}';
+  final String _channelName =
+      'demo-channel-${DateTime.now().millisecondsSinceEpoch}';
   final int _userId = 12345; // In production, this would be dynamic
 
   // Quality monitoring
@@ -211,7 +196,6 @@ class _VideoCallingIntegrationDemoState
             backgroundColor: alert.severity == AlertSeverity.warning
                 ? Colors.orange
                 : Colors.red,
-            duration: const Duration(seconds: 4),
           ),
         );
       }
@@ -414,7 +398,6 @@ class _VideoCallingIntegrationDemoState
                 // Quality monitoring panel
                 if (_isInCall)
                   Expanded(
-                    flex: 1,
                     child: _buildQualityPanel(),
                   ),
 

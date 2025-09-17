@@ -1,7 +1,7 @@
 import 'dart:async';
 
-import 'package:flutter/foundation.dart';
 import 'package:agora_rtc_engine/agora_rtc_engine.dart';
+import 'package:flutter/foundation.dart';
 import 'package:permission_handler/permission_handler.dart';
 
 /// Phase 2 Day 19-21: Video Calling Integration with Agora SDK
@@ -53,7 +53,7 @@ class VideoCallingService {
       // Create RTC engine
       _rtcEngine = createAgoraRtcEngine();
 
-      await _rtcEngine!.initialize(RtcEngineContext(
+      await _rtcEngine!.initialize(const RtcEngineContext(
         appId: _appId,
         channelProfile: ChannelProfileType.channelProfileCommunication,
       ));
@@ -85,14 +85,14 @@ class VideoCallingService {
     try {
       debugPrint('$_tag: Requesting camera and microphone permissions...');
 
-      Map<Permission, PermissionStatus> permissions = await [
+      final Map<Permission, PermissionStatus> permissions = await [
         Permission.camera,
         Permission.microphone,
       ].request();
 
-      bool cameraGranted =
+      final bool cameraGranted =
           permissions[Permission.camera] == PermissionStatus.granted;
-      bool micGranted =
+      final bool micGranted =
           permissions[Permission.microphone] == PermissionStatus.granted;
 
       if (cameraGranted && micGranted) {
@@ -490,47 +490,23 @@ class VideoCallingService {
       case QualityType.qualityBad:
         return 'bad';
       case QualityType.qualityDown:
-        return 'down';
-      default:
-        return 'unknown';
-    }
-  }
-
-  /// Dispose resources
-  Future<void> dispose() async {
-    debugPrint('$_tag: Disposing video calling service...');
-
-    await leaveCall();
-    _stopQualityMonitoring();
-
-    await _rtcEngine?.release();
-    _rtcEngine = null;
-
-    await _eventController.close();
-    await _qualityController.close();
-
-    _isInitialized = false;
-    debugPrint('$_tag: ✅ Video calling service disposed');
-  }
-}
-
-/// Video call event types
-enum VideoCallEventType {
-  initialized,
-  permissionDenied,
-  callJoined,
-  callEnded,
-  callFailed,
-  callError,
-  userJoined,
-  userLeft,
-  videoToggled,
-  audioToggled,
-  cameraSwitched,
-  remoteVideoStateChanged,
-  recordingStarted,
-  recordingStopped,
-}
+        // Stub: VideoCallingService removed
+        class VideoCallingService {
+          bool get isInCall => false;
+          bool get isLocalVideoEnabled => false;
+          bool get isLocalAudioEnabled => false;
+          String? get currentChannelName => null;
+          int? get localUserId => null;
+          Map<int, dynamic> get remoteUsers => const {};
+          Future<bool> initialize() async => false;
+          Future<bool> requestPermissions() async => false;
+          Future<bool> joinCall({required String channelName, required int userId, String? token}) async => false;
+          Future<void> leaveCall() async {}
+          Future<void> toggleVideo() async {}
+          Future<void> toggleAudio() async {}
+          Future<void> switchCamera() async {}
+          Future<void> dispose() async {}
+        }
 
 /// Video call event data
 class VideoCallEvent {
