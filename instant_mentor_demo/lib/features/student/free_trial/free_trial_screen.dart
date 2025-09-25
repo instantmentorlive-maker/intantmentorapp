@@ -4,7 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 // Free trial state providers
 final hasUsedFreeTrialProvider = StateProvider<bool>((ref) => false);
-final selectedMentorProvider = StateProvider<Map<String, dynamic>?>((ref) => null);
+final selectedMentorProvider =
+    StateProvider<Map<String, dynamic>?>((ref) => null);
 final selectedSubjectProvider = StateProvider<String>((ref) => 'Mathematics');
 final selectedDateProvider = StateProvider<DateTime?>((ref) => null);
 final selectedTimeProvider = StateProvider<TimeOfDay?>((ref) => null);
@@ -13,7 +14,8 @@ class FreeTrialSessionScreen extends ConsumerStatefulWidget {
   const FreeTrialSessionScreen({super.key});
 
   @override
-  ConsumerState<FreeTrialSessionScreen> createState() => _FreeTrialSessionScreenState();
+  ConsumerState<FreeTrialSessionScreen> createState() =>
+      _FreeTrialSessionScreenState();
 }
 
 class _FreeTrialSessionScreenState extends ConsumerState<FreeTrialSessionScreen>
@@ -39,7 +41,7 @@ class _FreeTrialSessionScreenState extends ConsumerState<FreeTrialSessionScreen>
   @override
   Widget build(BuildContext context) {
     final hasUsedTrial = ref.watch(hasUsedFreeTrialProvider);
-    
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Free Trial Session'),
@@ -92,7 +94,8 @@ class _FreeTrialSessionScreenState extends ConsumerState<FreeTrialSessionScreen>
                   padding: const EdgeInsets.all(16),
                 ),
                 icon: const Icon(Icons.book_online, color: Colors.white),
-                label: const Text('Book Paid Session', style: TextStyle(color: Colors.white)),
+                label: const Text('Book Paid Session',
+                    style: TextStyle(color: Colors.white)),
               ),
             ),
           ],
@@ -119,22 +122,31 @@ class _FreeTrialSessionScreenState extends ConsumerState<FreeTrialSessionScreen>
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  _StepIndicator(isActive: _currentStep >= 0, isCompleted: _currentStep > 0),
+                  _StepIndicator(
+                      isActive: _currentStep >= 0,
+                      isCompleted: _currentStep > 0),
                   _StepConnector(),
-                  _StepIndicator(isActive: _currentStep >= 1, isCompleted: _currentStep > 1),
+                  _StepIndicator(
+                      isActive: _currentStep >= 1,
+                      isCompleted: _currentStep > 1),
                   _StepConnector(),
-                  _StepIndicator(isActive: _currentStep >= 2, isCompleted: _currentStep > 2),
+                  _StepIndicator(
+                      isActive: _currentStep >= 2,
+                      isCompleted: _currentStep > 2),
                 ],
               ),
               const SizedBox(height: 16),
               Text(
                 _getStepTitle(),
-                style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+                style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold),
               ),
             ],
           ),
         ),
-        
+
         // Content
         Expanded(
           child: PageView(
@@ -160,71 +172,82 @@ class _FreeTrialSessionScreenState extends ConsumerState<FreeTrialSessionScreen>
           child: Column(
             children: [
               const SizedBox(height: 40),
-            Container(
-              padding: const EdgeInsets.all(32),
-              decoration: BoxDecoration(
-                color: Colors.green.withOpacity(0.1),
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(
-                Icons.school,
-                size: 80,
-                color: Colors.green,
-              ),
-            ),
-            const SizedBox(height: 32),
-            const Text(
-              'Welcome to Your Free Trial!',
-              style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 16),
-            const Text(
-              'Get a 30-minute session with our expert mentors absolutely free. No credit card required!',
-              style: TextStyle(fontSize: 16, color: Colors.grey),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 32),
-            
-            // Benefits List
-            const Card(
-              child: Padding(
-                padding: EdgeInsets.all(20),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'What you get:',
-                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                    ),
-                    SizedBox(height: 16),
-                    _BenefitItem(icon: Icons.timer, text: '30 minutes of personalized tutoring'),
-                    _BenefitItem(icon: Icons.person_outline, text: 'Choose from 50+ expert mentors'),
-                    _BenefitItem(icon: Icons.video_call, text: 'HD video call with screen sharing'),
-                    _BenefitItem(icon: Icons.note, text: 'Session recording & notes'),
-                    _BenefitItem(icon: Icons.quiz, text: 'Personalized learning assessment'),
-                  ],
+              Container(
+                padding: const EdgeInsets.all(32),
+                decoration: BoxDecoration(
+                  color: Colors.green.withOpacity(0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.school,
+                  size: 80,
+                  color: Colors.green,
                 ),
               ),
-            ),
-            
-            const SizedBox(height: 40),
-            
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton.icon(
-                onPressed: _nextStep,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.green,
-                  padding: const EdgeInsets.all(16),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+              const SizedBox(height: 32),
+              const Text(
+                'Welcome to Your Free Trial!',
+                style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'Get a 30-minute session with our expert mentors absolutely free. No credit card required!',
+                style: TextStyle(fontSize: 16, color: Colors.grey),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 32),
+
+              // Benefits List
+              const Card(
+                child: Padding(
+                  padding: EdgeInsets.all(20),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'What you get:',
+                        style: TextStyle(
+                            fontSize: 18, fontWeight: FontWeight.bold),
+                      ),
+                      SizedBox(height: 16),
+                      _BenefitItem(
+                          icon: Icons.timer,
+                          text: '30 minutes of personalized tutoring'),
+                      _BenefitItem(
+                          icon: Icons.person_outline,
+                          text: 'Choose from 50+ expert mentors'),
+                      _BenefitItem(
+                          icon: Icons.video_call,
+                          text: 'HD video call with screen sharing'),
+                      _BenefitItem(
+                          icon: Icons.note, text: 'Session recording & notes'),
+                      _BenefitItem(
+                          icon: Icons.quiz,
+                          text: 'Personalized learning assessment'),
+                    ],
                   ),
                 ),
-                icon: const Icon(Icons.arrow_forward, color: Colors.white),
-                label: const Text('Get Started', style: TextStyle(fontSize: 16, color: Colors.white)),
               ),
-            ),
+
+              const SizedBox(height: 40),
+
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: _nextStep,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.green,
+                    padding: const EdgeInsets.all(16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  icon: const Icon(Icons.arrow_forward, color: Colors.white),
+                  label: const Text('Get Started',
+                      style: TextStyle(fontSize: 16, color: Colors.white)),
+                ),
+              ),
             ],
           ),
         ),
@@ -236,7 +259,7 @@ class _FreeTrialSessionScreenState extends ConsumerState<FreeTrialSessionScreen>
     final availableMentors = _getAvailableMentors();
     final selectedMentor = ref.watch(selectedMentorProvider);
     final selectedSubject = ref.watch(selectedSubjectProvider);
-    
+
     return Padding(
       padding: const EdgeInsets.all(24),
       child: Column(
@@ -252,9 +275,10 @@ class _FreeTrialSessionScreenState extends ConsumerState<FreeTrialSessionScreen>
             style: TextStyle(color: Colors.grey),
           ),
           const SizedBox(height: 24),
-          
+
           // Subject Selection
-          const Text('Subject', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+          const Text('Subject',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
           const SizedBox(height: 8),
           Container(
             width: double.infinity,
@@ -267,46 +291,58 @@ class _FreeTrialSessionScreenState extends ConsumerState<FreeTrialSessionScreen>
               child: DropdownButton<String>(
                 value: selectedSubject,
                 isExpanded: true,
-                items: ['Mathematics', 'Physics', 'Chemistry', 'Biology', 'English', 'Computer Science']
+                items: [
+                  'Mathematics',
+                  'Physics',
+                  'Chemistry',
+                  'Biology',
+                  'English',
+                  'Computer Science'
+                ]
                     .map((subject) => DropdownMenuItem(
-                      value: subject,
-                      child: Text(subject),
-                    ))
+                          value: subject,
+                          child: Text(subject),
+                        ))
                     .toList(),
                 onChanged: (value) {
                   if (value != null) {
                     ref.read(selectedSubjectProvider.notifier).state = value;
-                    ref.read(selectedMentorProvider.notifier).state = null; // Reset mentor selection
+                    ref.read(selectedMentorProvider.notifier).state =
+                        null; // Reset mentor selection
                   }
                 },
               ),
             ),
           ),
-          
+
           const SizedBox(height: 24),
-          
+
           // Mentor Selection
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text('Available Mentors', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-              Text('${availableMentors.length} mentors', style: const TextStyle(color: Colors.grey)),
+              const Text('Available Mentors',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              Text('${availableMentors.length} mentors',
+                  style: const TextStyle(color: Colors.grey)),
             ],
           ),
           const SizedBox(height: 12),
-          
+
           Expanded(
             child: ListView.builder(
               itemCount: availableMentors.length,
               itemBuilder: (context, index) {
                 final mentor = availableMentors[index];
                 final isSelected = selectedMentor?['id'] == mentor['id'];
-                
+
                 return Card(
                   margin: const EdgeInsets.only(bottom: 12),
                   color: isSelected ? Colors.green.withOpacity(0.1) : null,
                   child: InkWell(
-                    onTap: () => ref.read(selectedMentorProvider.notifier).state = mentor,
+                    onTap: () => ref
+                        .read(selectedMentorProvider.notifier)
+                        .state = mentor,
                     borderRadius: BorderRadius.circular(12),
                     child: Padding(
                       padding: const EdgeInsets.all(16),
@@ -318,8 +354,13 @@ class _FreeTrialSessionScreenState extends ConsumerState<FreeTrialSessionScreen>
                                 radius: 30,
                                 backgroundColor: Colors.green.withOpacity(0.2),
                                 child: Text(
-                                  mentor['name'].toString().split(' ').map((n) => n[0]).join(),
-                                  style: const TextStyle(fontWeight: FontWeight.bold),
+                                  mentor['name']
+                                      .toString()
+                                      .split(' ')
+                                      .map((n) => n[0])
+                                      .join(),
+                                  style: const TextStyle(
+                                      fontWeight: FontWeight.bold),
                                 ),
                               ),
                               if (isSelected)
@@ -332,7 +373,8 @@ class _FreeTrialSessionScreenState extends ConsumerState<FreeTrialSessionScreen>
                                       color: Colors.green,
                                       shape: BoxShape.circle,
                                     ),
-                                    child: const Icon(Icons.check, size: 16, color: Colors.white),
+                                    child: const Icon(Icons.check,
+                                        size: 16, color: Colors.white),
                                   ),
                                 ),
                             ],
@@ -344,24 +386,30 @@ class _FreeTrialSessionScreenState extends ConsumerState<FreeTrialSessionScreen>
                               children: [
                                 Text(
                                   mentor['name'].toString(),
-                                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                                  style: const TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.bold),
                                 ),
                                 Text(
                                   mentor['qualification'].toString(),
-                                  style: TextStyle(color: Colors.grey[600], fontSize: 12),
+                                  style: TextStyle(
+                                      color: Colors.grey[600], fontSize: 12),
                                 ),
                                 const SizedBox(height: 4),
                                 Row(
                                   children: [
-                                    Icon(Icons.star, color: Colors.amber[600], size: 16),
+                                    Icon(Icons.star,
+                                        color: Colors.amber[600], size: 16),
                                     const SizedBox(width: 4),
-                                    Text('${mentor['rating']} • ${mentor['experience']}'),
+                                    Text(
+                                        '${mentor['rating']} • ${mentor['experience']}'),
                                   ],
                                 ),
                                 const SizedBox(height: 4),
                                 Text(
                                   mentor['expertise'].toString(),
-                                  style: const TextStyle(fontSize: 12, color: Colors.grey),
+                                  style: const TextStyle(
+                                      fontSize: 12, color: Colors.grey),
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                 ),
@@ -369,14 +417,16 @@ class _FreeTrialSessionScreenState extends ConsumerState<FreeTrialSessionScreen>
                             ),
                           ),
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 4),
                             decoration: BoxDecoration(
                               color: Colors.green.withOpacity(0.1),
                               borderRadius: BorderRadius.circular(8),
                             ),
                             child: const Text(
                               'Available',
-                              style: TextStyle(color: Colors.green, fontSize: 12),
+                              style:
+                                  TextStyle(color: Colors.green, fontSize: 12),
                             ),
                           ),
                         ],
@@ -387,9 +437,9 @@ class _FreeTrialSessionScreenState extends ConsumerState<FreeTrialSessionScreen>
               },
             ),
           ),
-          
+
           const SizedBox(height: 16),
-          
+
           Row(
             children: [
               Expanded(
@@ -402,8 +452,10 @@ class _FreeTrialSessionScreenState extends ConsumerState<FreeTrialSessionScreen>
               Expanded(
                 child: ElevatedButton(
                   onPressed: selectedMentor != null ? _nextStep : null,
-                  style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
-                  child: const Text('Continue', style: TextStyle(color: Colors.white)),
+                  style:
+                      ElevatedButton.styleFrom(backgroundColor: Colors.green),
+                  child: const Text('Continue',
+                      style: TextStyle(color: Colors.white)),
                 ),
               ),
             ],
@@ -417,179 +469,204 @@ class _FreeTrialSessionScreenState extends ConsumerState<FreeTrialSessionScreen>
     final selectedMentor = ref.watch(selectedMentorProvider);
     final selectedDate = ref.watch(selectedDateProvider);
     final selectedTime = ref.watch(selectedTimeProvider);
-    
-    return Padding(
-      padding: const EdgeInsets.all(24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Schedule Your Session',
-            style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 8),
-          const Text(
-            'Choose a convenient time for your free trial session',
-            style: TextStyle(color: Colors.grey),
-          ),
-          const SizedBox(height: 24),
-          
-          // Selected Mentor Summary
-          if (selectedMentor != null) ...[
-            Card(
-              color: Colors.green.withOpacity(0.1),
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Row(
-                  children: [
-                    CircleAvatar(
-                      backgroundColor: Colors.green.withOpacity(0.2),
-                      child: Text(selectedMentor['name'].toString().split(' ').map((n) => n[0]).join()),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            selectedMentor['name'].toString(),
-                            style: const TextStyle(fontWeight: FontWeight.bold),
-                          ),
-                          Text(
-                            '${ref.watch(selectedSubjectProvider)} • ${selectedMentor['experience']}',
-                            style: TextStyle(color: Colors.grey[600]),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const Icon(Icons.check_circle, color: Colors.green),
-                  ],
-                ),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Schedule Your Session',
+                style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
               ),
-            ),
-            const SizedBox(height: 24),
-          ],
-          
-          // Date Selection
-          const Text('Select Date', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 12),
-          
-          SizedBox(
-            height: 60,
-            child: ListView.builder(
-              scrollDirection: Axis.horizontal,
-              itemCount: 7,
-              itemBuilder: (context, index) {
-                final date = DateTime.now().add(Duration(days: index));
-                final isSelected = selectedDate?.day == date.day;
-                
-                return GestureDetector(
-                  onTap: () => ref.read(selectedDateProvider.notifier).state = date,
-                  child: Container(
-                    width: 70,
-                    margin: const EdgeInsets.only(right: 8),
-                    decoration: BoxDecoration(
-                      color: isSelected ? Colors.green : Colors.grey.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
+              const SizedBox(height: 8),
+              const Text(
+                'Choose a convenient time for your free trial session',
+                style: TextStyle(color: Colors.grey),
+              ),
+              const SizedBox(height: 24),
+
+              // Selected Mentor Summary
+              if (selectedMentor != null) ...[
+                Card(
+                  color: Colors.green.withOpacity(0.1),
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Row(
                       children: [
-                        Text(
-                          _getDayName(date),
-                          style: TextStyle(
-                            color: isSelected ? Colors.white : Colors.grey,
-                            fontSize: 12,
+                        CircleAvatar(
+                          backgroundColor: Colors.green.withOpacity(0.2),
+                          child: Text(selectedMentor['name']
+                              .toString()
+                              .split(' ')
+                              .map((n) => n[0])
+                              .join()),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                selectedMentor['name'].toString(),
+                                style: const TextStyle(
+                                    fontWeight: FontWeight.bold),
+                              ),
+                              Text(
+                                '${ref.watch(selectedSubjectProvider)} • ${selectedMentor['experience']}',
+                                style: TextStyle(color: Colors.grey[600]),
+                              ),
+                            ],
                           ),
                         ),
-                        Text(
-                          date.day.toString(),
-                          style: TextStyle(
-                            color: isSelected ? Colors.white : Colors.black,
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
+                        const Icon(Icons.check_circle, color: Colors.green),
                       ],
                     ),
                   ),
-                );
-              },
-            ),
-          ),
-          
-          const SizedBox(height: 24),
-          
-          // Time Selection
-          const Text('Select Time', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 12),
-          
-          Expanded(
-            child: GridView.builder(
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 3,
-                childAspectRatio: 2.5,
-                crossAxisSpacing: 8,
-                mainAxisSpacing: 8,
-              ),
-              itemCount: _getAvailableTimeSlots().length,
-              itemBuilder: (context, index) {
-                final timeSlot = _getAvailableTimeSlots()[index];
-                final isSelected = selectedTime?.hour == timeSlot.hour && selectedTime?.minute == timeSlot.minute;
-                
-                return GestureDetector(
-                  onTap: () => ref.read(selectedTimeProvider.notifier).state = timeSlot,
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: isSelected ? Colors.green : Colors.grey.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Center(
-                      child: Text(
-                        timeSlot.format(context),
-                        style: TextStyle(
-                          color: isSelected ? Colors.white : Colors.black,
-                          fontWeight: FontWeight.bold,
+                ),
+                const SizedBox(height: 24),
+              ],
+
+              // Date Selection
+              const Text('Select Date',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 12),
+
+              SizedBox(
+                height: 60,
+                child: ListView.builder(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: 7,
+                  itemBuilder: (context, index) {
+                    final date = DateTime.now().add(Duration(days: index));
+                    final isSelected = selectedDate?.day == date.day;
+
+                    return GestureDetector(
+                      onTap: () =>
+                          ref.read(selectedDateProvider.notifier).state = date,
+                      child: Container(
+                        width: 70,
+                        margin: const EdgeInsets.only(right: 8),
+                        decoration: BoxDecoration(
+                          color: isSelected
+                              ? Colors.green
+                              : Colors.grey.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              _getDayName(date),
+                              style: TextStyle(
+                                color: isSelected ? Colors.white : Colors.grey,
+                                fontSize: 12,
+                              ),
+                            ),
+                            Text(
+                              date.day.toString(),
+                              style: TextStyle(
+                                color: isSelected ? Colors.white : Colors.black,
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                    ),
-                  ),
-                );
-              },
-            ),
-          ),
-          
-          const SizedBox(height: 24),
-          
-          Row(
-            children: [
-              Expanded(
-                child: OutlinedButton(
-                  onPressed: _previousStep,
-                  child: const Text('Back'),
+                    );
+                  },
                 ),
               ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: ElevatedButton(
-                  onPressed: (selectedDate != null && selectedTime != null) ? _bookTrialSession : null,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.green,
-                    padding: const EdgeInsets.all(16),
-                  ),
-                  child: const Text('Book Free Session', style: TextStyle(color: Colors.white)),
+
+              const SizedBox(height: 24),
+
+              // Time Selection (scrollable section to avoid overflow)
+              const Text('Select Time',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 12),
+              ConstrainedBox(
+                constraints: BoxConstraints(
+                  // leave room for buttons at bottom
+                  maxHeight: constraints.maxHeight * 0.40,
                 ),
+                child: Scrollbar(
+                  thumbVisibility: true,
+                  child: GridView.builder(
+                    gridDelegate:
+                        const SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: 3,
+                      childAspectRatio: 2.5,
+                      crossAxisSpacing: 8,
+                      mainAxisSpacing: 8,
+                    ),
+                    itemCount: _getAvailableTimeSlots().length,
+                    itemBuilder: (context, index) {
+                      final timeSlot = _getAvailableTimeSlots()[index];
+                      final isSelected = selectedTime?.hour == timeSlot.hour &&
+                          selectedTime?.minute == timeSlot.minute;
+                      return GestureDetector(
+                        onTap: () => ref
+                            .read(selectedTimeProvider.notifier)
+                            .state = timeSlot,
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: isSelected
+                                ? Colors.green
+                                : Colors.grey.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Center(
+                            child: Text(
+                              timeSlot.format(context),
+                              style: TextStyle(
+                                color: isSelected ? Colors.white : Colors.black,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ),
+              const SizedBox(height: 24),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: _previousStep,
+                      child: const Text('Back'),
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: (selectedDate != null && selectedTime != null)
+                          ? _bookTrialSession
+                          : null,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.green,
+                        padding: const EdgeInsets.all(16),
+                      ),
+                      child: const Text('Book Free Session',
+                          style: TextStyle(color: Colors.white)),
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 
   List<Map<String, dynamic>> _getAvailableMentors() {
     final selectedSubject = ref.watch(selectedSubjectProvider);
-    
+
     return [
       {
         'id': '1',
@@ -627,7 +704,10 @@ class _FreeTrialSessionScreenState extends ConsumerState<FreeTrialSessionScreen>
         'expertise': 'Literature, Grammar, Creative Writing',
         'subjects': ['English', 'Literature'],
       },
-    ].where((mentor) => (mentor['subjects'] as List).contains(selectedSubject)).toList();
+    ]
+        .where(
+            (mentor) => (mentor['subjects'] as List).contains(selectedSubject))
+        .toList();
   }
 
   List<TimeOfDay> _getAvailableTimeSlots() {
@@ -687,7 +767,7 @@ class _FreeTrialSessionScreenState extends ConsumerState<FreeTrialSessionScreen>
     final selectedDate = ref.read(selectedDateProvider);
     final selectedTime = ref.read(selectedTimeProvider);
     final selectedSubject = ref.read(selectedSubjectProvider);
-    
+
     // Show confirmation dialog
     showDialog(
       context: context,
@@ -699,7 +779,8 @@ class _FreeTrialSessionScreenState extends ConsumerState<FreeTrialSessionScreen>
           children: [
             Text('Subject: $selectedSubject'),
             Text('Mentor: ${selectedMentor!['name']}'),
-            Text('Date: ${selectedDate!.day}/${selectedDate.month}/${selectedDate.year}'),
+            Text(
+                'Date: ${selectedDate!.day}/${selectedDate.month}/${selectedDate.year}'),
             Text('Time: ${selectedTime!.format(context)}'),
             const SizedBox(height: 16),
             Container(
@@ -732,12 +813,13 @@ class _FreeTrialSessionScreenState extends ConsumerState<FreeTrialSessionScreen>
             onPressed: () {
               // Mark trial as used
               ref.read(hasUsedFreeTrialProvider.notifier).state = true;
-              
+
               Navigator.pop(context);
               _showSuccessDialog();
             },
             style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
-            child: const Text('Confirm Booking', style: TextStyle(color: Colors.white)),
+            child: const Text('Confirm Booking',
+                style: TextStyle(color: Colors.white)),
           ),
         ],
       ),
@@ -781,7 +863,8 @@ class _FreeTrialSessionScreenState extends ConsumerState<FreeTrialSessionScreen>
                   Navigator.pop(context);
                 },
                 style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
-                child: const Text('Done', style: TextStyle(color: Colors.white)),
+                child:
+                    const Text('Done', style: TextStyle(color: Colors.white)),
               ),
             ),
           ],
@@ -811,12 +894,16 @@ class _StepIndicator extends StatelessWidget {
       width: 32,
       height: 32,
       decoration: BoxDecoration(
-        color: isCompleted ? Colors.white : (isActive ? Colors.white : Colors.white.withOpacity(0.3)),
+        color: isCompleted
+            ? Colors.white
+            : (isActive ? Colors.white : Colors.white.withOpacity(0.3)),
         shape: BoxShape.circle,
       ),
       child: Icon(
         isCompleted ? Icons.check : Icons.circle,
-        color: isCompleted ? Colors.green : (isActive ? Colors.green : Colors.white.withOpacity(0.5)),
+        color: isCompleted
+            ? Colors.green
+            : (isActive ? Colors.green : Colors.white.withOpacity(0.5)),
         size: 16,
       ),
     );

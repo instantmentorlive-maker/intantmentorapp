@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import '../../../core/providers/session_requests_provider.dart';
+
 import '../../../core/models/session_request.dart';
+import '../../../core/providers/session_requests_provider.dart';
 import '../../../core/routing/routing.dart';
 
 class SessionRequestsScreen extends ConsumerWidget {

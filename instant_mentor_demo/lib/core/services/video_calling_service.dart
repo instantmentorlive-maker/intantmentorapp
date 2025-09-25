@@ -1,520 +1,128 @@
 import 'dart:async';
 
-import 'package:agora_rtc_engine/agora_rtc_engine.dart';
-import 'package:flutter/foundation.dart';
-import 'package:permission_handler/permission_handler.dart';
-
-/// Phase 2 Day 19-21: Video Calling Integration with Agora SDK
-/// Comprehensive video calling service with quality monitoring and recording
+/// Minimal, clean stub for video calling. All Agora-specific code removed.
+/// Provides just enough structure for the rest of the app to compile & run.
 class VideoCallingService {
-  static const String _tag = 'VideoCallingService';
-
-  // Agora configuration
-  static const String _appId = 'your-agora-app-id'; // TODO: Move to env
-  static const String _tempToken = ''; // TODO: Implement token server
-
-  RtcEngine? _rtcEngine;
   bool _isInitialized = false;
   bool _isInCall = false;
   bool _isLocalVideoEnabled = true;
   bool _isLocalAudioEnabled = true;
   String? _currentChannelName;
   int? _localUserId;
-
-  // Call quality monitoring (Day 20)
-  final Map<String, dynamic> _callQualityMetrics = {};
   Timer? _qualityTimer;
 
-  // Event streams
-  final StreamController<VideoCallEvent> _eventController =
-      StreamController<VideoCallEvent>.broadcast();
-  final StreamController<CallQualityData> _qualityController =
-      StreamController<CallQualityData>.broadcast();
+  final _eventController = StreamController<VideoCallEvent>.broadcast();
+  final _qualityController = StreamController<SimpleQualitySample>.broadcast();
 
-  // Remote users tracking
-  final Map<int, RemoteUserInfo> _remoteUsers = {};
-
+  // Streams
   Stream<VideoCallEvent> get eventStream => _eventController.stream;
-  Stream<CallQualityData> get qualityStream => _qualityController.stream;
+  Stream<SimpleQualitySample> get qualityStream => _qualityController.stream;
 
+  // Getters
   bool get isInCall => _isInCall;
   bool get isLocalVideoEnabled => _isLocalVideoEnabled;
   bool get isLocalAudioEnabled => _isLocalAudioEnabled;
   String? get currentChannelName => _currentChannelName;
   int? get localUserId => _localUserId;
-  RtcEngine? get rtcEngine => _rtcEngine;
-  Map<int, RemoteUserInfo> get remoteUsers => Map.unmodifiable(_remoteUsers);
 
-  /// Initialize the video calling service
   Future<bool> initialize() async {
-    try {
-      debugPrint('$_tag: Initializing Agora RTC Engine...');
-
-      // Create RTC engine
-      _rtcEngine = createAgoraRtcEngine();
-
-      await _rtcEngine!.initialize(const RtcEngineContext(
-        appId: _appId,
-        channelProfile: ChannelProfileType.channelProfileCommunication,
-      ));
-
-      // Set up event handlers
-      await _setupEventHandlers();
-
-      // Enable video
-      await _rtcEngine!.enableVideo();
-      await _rtcEngine!.enableAudio();
-
-      _isInitialized = true;
-      debugPrint('$_tag: ✅ Agora RTC Engine initialized successfully');
-
-      _eventController.add(VideoCallEvent(
-        type: VideoCallEventType.initialized,
-        message: 'Video calling service initialized',
-      ));
-
-      return true;
-    } catch (e) {
-      debugPrint('$_tag: ❌ Failed to initialize: $e');
-      return false;
-    }
+    if (_isInitialized) return true;
+    _isInitialized = true;
+    _emit(VideoCallEventType.initialized, 'Video service initialized');
+    return true;
   }
 
-  /// Phase 2 Day 19: Request camera and microphone permissions
-  Future<bool> requestPermissions() async {
-    try {
-      debugPrint('$_tag: Requesting camera and microphone permissions...');
+  Future<bool> requestPermissions() async => true; // No-op in stub
 
-      final Map<Permission, PermissionStatus> permissions = await [
-        Permission.camera,
-        Permission.microphone,
-      ].request();
-
-      final bool cameraGranted =
-          permissions[Permission.camera] == PermissionStatus.granted;
-      final bool micGranted =
-          permissions[Permission.microphone] == PermissionStatus.granted;
-
-      if (cameraGranted && micGranted) {
-        debugPrint('$_tag: ✅ All permissions granted');
-        return true;
-      } else {
-        debugPrint(
-            '$_tag: ❌ Permissions denied - Camera: $cameraGranted, Mic: $micGranted');
-
-        _eventController.add(VideoCallEvent(
-          type: VideoCallEventType.permissionDenied,
-          message: 'Camera or microphone permission required for video calls',
-          data: {
-            'cameraGranted': cameraGranted,
-            'microphoneGranted': micGranted,
-          },
-        ));
-
-        return false;
-      }
-    } catch (e) {
-      debugPrint('$_tag: ❌ Error requesting permissions: $e');
-      return false;
-    }
+  Future<bool> joinCall(
+      {required String channelName, required int userId, String? token}) async {
+    if (!_isInitialized) await initialize();
+    _isInCall = true;
+    _currentChannelName = channelName;
+    _localUserId = userId;
+    _emit(VideoCallEventType.callJoined, 'Joined channel $channelName', data: {
+      'channel': channelName,
+      'userId': userId,
+    });
+    _startQualityFeed();
+    return true;
   }
 
-  /// Phase 2 Day 19: Join a video call channel
-  Future<bool> joinCall({
-    required String channelName,
-    required int userId,
-    String? token,
-  }) async {
-    if (!_isInitialized) {
-      debugPrint('$_tag: ❌ Service not initialized');
-      return false;
-    }
-
-    try {
-      debugPrint('$_tag: Joining call - Channel: $channelName, User: $userId');
-
-      // Request permissions first
-      if (!await requestPermissions()) {
-        return false;
-      }
-
-      // Set channel profile for video calling
-      await _rtcEngine!
-          .setChannelProfile(ChannelProfileType.channelProfileCommunication);
-      await _rtcEngine!
-          .setClientRole(role: ClientRoleType.clientRoleBroadcaster);
-
-      // Enable local video preview
-      await _rtcEngine!.enableLocalVideo(true);
-      await _rtcEngine!.enableLocalAudio(true);
-
-      // Join channel
-      await _rtcEngine!.joinChannel(
-        token: token ?? _tempToken,
-        channelId: channelName,
-        uid: userId,
-        options: const ChannelMediaOptions(),
-      );
-
-      _currentChannelName = channelName;
-      _localUserId = userId;
-      _isInCall = true;
-
-      // Start quality monitoring (Day 20)
-      _startQualityMonitoring();
-
-      _eventController.add(VideoCallEvent(
-        type: VideoCallEventType.callJoined,
-        message: 'Successfully joined call',
-        data: {
-          'channelName': channelName,
-          'userId': userId,
-        },
-      ));
-
-      debugPrint('$_tag: ✅ Successfully joined call');
-      return true;
-    } catch (e) {
-      debugPrint('$_tag: ❌ Failed to join call: $e');
-
-      _eventController.add(VideoCallEvent(
-        type: VideoCallEventType.callFailed,
-        message: 'Failed to join call: $e',
-      ));
-
-      return false;
-    }
-  }
-
-  /// Phase 2 Day 19: Leave the current video call
   Future<void> leaveCall() async {
-    try {
-      debugPrint('$_tag: Leaving call...');
-
-      if (_rtcEngine != null && _isInCall) {
-        await _rtcEngine!.leaveChannel();
-
-        // Stop quality monitoring
-        _stopQualityMonitoring();
-
-        _isInCall = false;
-        _currentChannelName = null;
-        _localUserId = null;
-        _remoteUsers.clear();
-
-        _eventController.add(VideoCallEvent(
-          type: VideoCallEventType.callEnded,
-          message: 'Call ended successfully',
-        ));
-
-        debugPrint('$_tag: ✅ Successfully left call');
-      }
-    } catch (e) {
-      debugPrint('$_tag: ❌ Error leaving call: $e');
-    }
+    if (!_isInCall) return;
+    _isInCall = false;
+    _emit(VideoCallEventType.callEnded,
+        'Left channel ${_currentChannelName ?? ''}');
+    _currentChannelName = null;
+    _qualityTimer?.cancel();
   }
 
-  /// Phase 2 Day 19: Toggle local video on/off
-  Future<void> toggleVideo({bool? enabled}) async {
-    try {
-      final shouldEnable = enabled ?? !_isLocalVideoEnabled;
-
-      await _rtcEngine?.enableLocalVideo(shouldEnable);
-      _isLocalVideoEnabled = shouldEnable;
-
-      _eventController.add(VideoCallEvent(
-        type: VideoCallEventType.videoToggled,
-        message: 'Video ${shouldEnable ? 'enabled' : 'disabled'}',
-        data: {'enabled': shouldEnable},
-      ));
-
-      debugPrint('$_tag: Video ${shouldEnable ? 'enabled' : 'disabled'}');
-    } catch (e) {
-      debugPrint('$_tag: ❌ Error toggling video: $e');
-    }
+  Future<void> toggleVideo() async {
+    _isLocalVideoEnabled = !_isLocalVideoEnabled;
+    _emit(VideoCallEventType.videoToggled,
+        'Video ${_isLocalVideoEnabled ? 'enabled' : 'disabled'}',
+        data: {
+          'enabled': _isLocalVideoEnabled,
+        });
   }
 
-  /// Phase 2 Day 19: Toggle local audio on/off
-  Future<void> toggleAudio({bool? enabled}) async {
-    try {
-      final shouldEnable = enabled ?? !_isLocalAudioEnabled;
-
-      await _rtcEngine?.enableLocalAudio(shouldEnable);
-      _isLocalAudioEnabled = shouldEnable;
-
-      _eventController.add(VideoCallEvent(
-        type: VideoCallEventType.audioToggled,
-        message: 'Audio ${shouldEnable ? 'enabled' : 'disabled'}',
-        data: {'enabled': shouldEnable},
-      ));
-
-      debugPrint('$_tag: Audio ${shouldEnable ? 'enabled' : 'disabled'}');
-    } catch (e) {
-      debugPrint('$_tag: ❌ Error toggling audio: $e');
-    }
+  Future<void> toggleAudio() async {
+    _isLocalAudioEnabled = !_isLocalAudioEnabled;
+    _emit(VideoCallEventType.audioToggled,
+        'Audio ${_isLocalAudioEnabled ? 'unmuted' : 'muted'}',
+        data: {
+          'enabled': _isLocalAudioEnabled,
+        });
   }
 
-  /// Phase 2 Day 19: Switch camera (front/back)
   Future<void> switchCamera() async {
-    try {
-      await _rtcEngine?.switchCamera();
+    _emit(VideoCallEventType.cameraSwitched, 'Camera switched (stub)');
+  }
 
-      _eventController.add(VideoCallEvent(
-        type: VideoCallEventType.cameraSwitched,
-        message: 'Camera switched',
+  Future<bool> startCallRecording() async {
+    _emit(VideoCallEventType.recordingStarted, 'Recording started (stub)');
+    return true;
+  }
+
+  Future<bool> stopCallRecording() async {
+    _emit(VideoCallEventType.recordingStopped, 'Recording stopped (stub)');
+    return true;
+  }
+
+  void handleCallError(String message) =>
+      _emit(VideoCallEventType.callError, message);
+
+  void _startQualityFeed() {
+    _qualityTimer?.cancel();
+    _qualityTimer = Timer.periodic(const Duration(seconds: 5), (_) {
+      if (!_isInCall) return;
+      _qualityController.add(SimpleQualitySample(
+        timestamp: DateTime.now(),
+        latencyMs: 60 + DateTime.now().second % 40,
+        jitterMs: 5 + DateTime.now().second % 8,
+        packetLossPct: (DateTime.now().millisecond % 3).toDouble(),
       ));
-
-      debugPrint('$_tag: Camera switched');
-    } catch (e) {
-      debugPrint('$_tag: ❌ Error switching camera: $e');
-    }
-  }
-
-  /// Phase 2 Day 20: Enable bandwidth adaptation
-  Future<void> enableBandwidthAdaptation() async {
-    try {
-      // Configure video encoder settings for adaptive streaming
-      const VideoEncoderConfiguration config = VideoEncoderConfiguration(
-        dimensions: VideoDimensions(width: 640, height: 360),
-        frameRate: 15,
-        bitrate: 400,
-        orientationMode: OrientationMode.orientationModeAdaptive,
-        degradationPreference: DegradationPreference.maintainBalanced,
-      );
-
-      await _rtcEngine?.setVideoEncoderConfiguration(config);
-
-      debugPrint('$_tag: ✅ Bandwidth adaptation enabled');
-    } catch (e) {
-      debugPrint('$_tag: ❌ Error enabling bandwidth adaptation: $e');
-    }
-  }
-
-  /// Phase 2 Day 20: Start quality monitoring
-  void _startQualityMonitoring() {
-    _qualityTimer = Timer.periodic(const Duration(seconds: 2), (_) async {
-      await _collectQualityMetrics();
     });
   }
 
-  /// Phase 2 Day 20: Stop quality monitoring
-  void _stopQualityMonitoring() {
-    _qualityTimer?.cancel();
-    _qualityTimer = null;
+  void _emit(VideoCallEventType type, String msg,
+      {Map<String, dynamic>? data}) {
+    _eventController.add(VideoCallEvent(type: type, message: msg, data: data));
   }
 
-  /// Phase 2 Day 20: Collect call quality metrics
-  Future<void> _collectQualityMetrics() async {
-    try {
-      // Get local network quality
-      // Note: This would be called from the onNetworkQuality callback
-
-      final qualityData = CallQualityData(
-        timestamp: DateTime.now(),
-        networkQuality: _callQualityMetrics['networkQuality'] ?? 'unknown',
-        audioQuality: _callQualityMetrics['audioQuality'] ?? 'good',
-        videoQuality: _callQualityMetrics['videoQuality'] ?? 'good',
-        latency: _callQualityMetrics['latency'] ?? 0,
-        packetLoss: _callQualityMetrics['packetLoss'] ?? 0.0,
-      );
-
-      _qualityController.add(qualityData);
-    } catch (e) {
-      debugPrint('$_tag: ❌ Error collecting quality metrics: $e');
-    }
+  Future<void> dispose() async {
+    await leaveCall();
+    await _eventController.close();
+    await _qualityController.close();
+    _isInitialized = false;
   }
+}
 
-  /// Phase 2 Day 21: Start call recording (server-side)
-  Future<bool> startCallRecording() async {
-    try {
-      debugPrint('$_tag: Starting call recording...');
-
-      // TODO: Implement server-side recording token flow
-      // This would typically involve:
-      // 1. Request recording token from your server
-      // 2. Server calls Agora Cloud Recording API
-      // 3. Return recording ID to client
-
-      _eventController.add(VideoCallEvent(
-        type: VideoCallEventType.recordingStarted,
-        message: 'Call recording started',
-        data: {'recordingId': 'placeholder-recording-id'},
-      ));
-
-      debugPrint('$_tag: ✅ Call recording started (placeholder)');
-      return true;
-    } catch (e) {
-      debugPrint('$_tag: ❌ Error starting recording: $e');
-      return false;
-    }
-  }
-
-  /// Phase 2 Day 21: Stop call recording
-  Future<bool> stopCallRecording() async {
-    try {
-      debugPrint('$_tag: Stopping call recording...');
-
-      // TODO: Implement server-side recording stop
-
-      _eventController.add(VideoCallEvent(
-        type: VideoCallEventType.recordingStopped,
-        message: 'Call recording stopped',
-      ));
-
-      debugPrint('$_tag: ✅ Call recording stopped');
-      return true;
-    } catch (e) {
-      debugPrint('$_tag: ❌ Error stopping recording: $e');
-      return false;
-    }
-  }
-
-  /// Phase 2 Day 21: Handle call errors and retry join
-  Future<void> handleCallError(String error) async {
-    debugPrint('$_tag: Handling call error: $error');
-
-    _eventController.add(VideoCallEvent(
-      type: VideoCallEventType.callError,
-      message: error,
-    ));
-
-    // Auto-retry logic for common errors
-    if (error.contains('network') || error.contains('timeout')) {
-      debugPrint('$_tag: Attempting to reconnect...');
-
-      await Future.delayed(const Duration(seconds: 2));
-
-      if (_currentChannelName != null && _localUserId != null) {
-        await leaveCall();
-        await Future.delayed(const Duration(seconds: 1));
-        await joinCall(
-          channelName: _currentChannelName!,
-          userId: _localUserId!,
-        );
-      }
-    }
-  }
-
-  /// Set up Agora event handlers
-  Future<void> _setupEventHandlers() async {
-    _rtcEngine!.registerEventHandler(RtcEngineEventHandler(
-      onJoinChannelSuccess: (RtcConnection connection, int elapsed) {
-        debugPrint('$_tag: 🎉 Joined channel: ${connection.channelId}');
-      },
-      onUserJoined: (RtcConnection connection, int remoteUid, int elapsed) {
-        debugPrint('$_tag: 👤 User joined: $remoteUid');
-
-        _remoteUsers[remoteUid] = RemoteUserInfo(
-          userId: remoteUid,
-          isVideoEnabled: true,
-          isAudioEnabled: true,
-          joinedAt: DateTime.now(),
-        );
-
-        _eventController.add(VideoCallEvent(
-          type: VideoCallEventType.userJoined,
-          message: 'User joined call',
-          data: {'userId': remoteUid},
-        ));
-      },
-      onUserOffline: (RtcConnection connection, int remoteUid,
-          UserOfflineReasonType reason) {
-        debugPrint('$_tag: 👋 User left: $remoteUid (reason: $reason)');
-
-        _remoteUsers.remove(remoteUid);
-
-        _eventController.add(VideoCallEvent(
-          type: VideoCallEventType.userLeft,
-          message: 'User left call',
-          data: {'userId': remoteUid, 'reason': reason.toString()},
-        ));
-      },
-      onRemoteVideoStateChanged: (RtcConnection connection, int remoteUid,
-          RemoteVideoState state, RemoteVideoStateReason reason, int elapsed) {
-        debugPrint(
-            '$_tag: 📹 Remote video state changed - User: $remoteUid, State: $state');
-
-        if (_remoteUsers.containsKey(remoteUid)) {
-          _remoteUsers[remoteUid] = _remoteUsers[remoteUid]!.copyWith(
-            isVideoEnabled:
-                state == RemoteVideoState.remoteVideoStateStarting ||
-                    state == RemoteVideoState.remoteVideoStateDecoding,
-          );
-        }
-
-        _eventController.add(VideoCallEvent(
-          type: VideoCallEventType.remoteVideoStateChanged,
-          message: 'Remote video state changed',
-          data: {
-            'userId': remoteUid,
-            'state': state.toString(),
-            'reason': reason.toString(),
-          },
-        ));
-      },
-      onRemoteAudioStateChanged: (RtcConnection connection, int remoteUid,
-          RemoteAudioState state, RemoteAudioStateReason reason, int elapsed) {
-        debugPrint(
-            '$_tag: 🎤 Remote audio state changed - User: $remoteUid, State: $state');
-
-        if (_remoteUsers.containsKey(remoteUid)) {
-          _remoteUsers[remoteUid] = _remoteUsers[remoteUid]!.copyWith(
-            isAudioEnabled:
-                state == RemoteAudioState.remoteAudioStateStarting ||
-                    state == RemoteAudioState.remoteAudioStateDecoding,
-          );
-        }
-      },
-      onError: (ErrorCodeType err, String msg) {
-        debugPrint('$_tag: ❌ Agora Error: $err - $msg');
-        handleCallError('$err: $msg');
-      },
-      onNetworkQuality: (RtcConnection connection, int remoteUid,
-          QualityType txQuality, QualityType rxQuality) {
-        // Update quality metrics for monitoring (Day 20)
-        _callQualityMetrics['networkQuality'] = _qualityToString(rxQuality);
-        _callQualityMetrics['txQuality'] = _qualityToString(txQuality);
-      },
-    ));
-  }
-
-  /// Convert quality enum to string
-  String _qualityToString(QualityType quality) {
-    switch (quality) {
-      case QualityType.qualityExcellent:
-        return 'excellent';
-      case QualityType.qualityGood:
-        return 'good';
-      case QualityType.qualityPoor:
-        return 'poor';
-      case QualityType.qualityBad:
-        return 'bad';
-      case QualityType.qualityDown:
-        // Stub: VideoCallingService removed
-        class VideoCallingService {
-          bool get isInCall => false;
-          bool get isLocalVideoEnabled => false;
-          bool get isLocalAudioEnabled => false;
-          String? get currentChannelName => null;
-          int? get localUserId => null;
-          Map<int, dynamic> get remoteUsers => const {};
-          Future<bool> initialize() async => false;
-          Future<bool> requestPermissions() async => false;
-          Future<bool> joinCall({required String channelName, required int userId, String? token}) async => false;
-          Future<void> leaveCall() async {}
-          Future<void> toggleVideo() async {}
-          Future<void> toggleAudio() async {}
-          Future<void> switchCamera() async {}
-          Future<void> dispose() async {}
-        }
-
-/// Video call event data
 class VideoCallEvent {
   final VideoCallEventType type;
   final String message;
   final Map<String, dynamic>? data;
   final DateTime timestamp;
-
   VideoCallEvent({
     required this.type,
     required this.message,
@@ -522,59 +130,37 @@ class VideoCallEvent {
   }) : timestamp = DateTime.now();
 }
 
-/// Remote user information
-class RemoteUserInfo {
-  final int userId;
-  final bool isVideoEnabled;
-  final bool isAudioEnabled;
-  final DateTime joinedAt;
-
-  const RemoteUserInfo({
-    required this.userId,
-    required this.isVideoEnabled,
-    required this.isAudioEnabled,
-    required this.joinedAt,
-  });
-
-  RemoteUserInfo copyWith({
-    int? userId,
-    bool? isVideoEnabled,
-    bool? isAudioEnabled,
-    DateTime? joinedAt,
-  }) {
-    return RemoteUserInfo(
-      userId: userId ?? this.userId,
-      isVideoEnabled: isVideoEnabled ?? this.isVideoEnabled,
-      isAudioEnabled: isAudioEnabled ?? this.isAudioEnabled,
-      joinedAt: joinedAt ?? this.joinedAt,
-    );
-  }
+// Consolidated enum containing all variants referenced across the codebase
+enum VideoCallEventType {
+  initialized,
+  permissionDenied,
+  callJoined,
+  callEnded,
+  callFailed,
+  callError,
+  userJoined,
+  userLeft,
+  remoteVideoStateChanged,
+  remoteAudioStateChanged,
+  videoToggled,
+  audioToggled,
+  cameraSwitched,
+  recordingStarted,
+  recordingStopped,
+  error, // legacy / generic
 }
 
-/// Call quality monitoring data (Day 20)
-class CallQualityData {
+// Very lightweight quality sample for simple UI display
+class SimpleQualitySample {
   final DateTime timestamp;
-  final String networkQuality;
-  final String audioQuality;
-  final String videoQuality;
-  final int latency;
-  final double packetLoss;
+  final int latencyMs;
+  final int jitterMs;
+  final double packetLossPct;
 
-  const CallQualityData({
+  SimpleQualitySample({
     required this.timestamp,
-    required this.networkQuality,
-    required this.audioQuality,
-    required this.videoQuality,
-    required this.latency,
-    required this.packetLoss,
+    required this.latencyMs,
+    required this.jitterMs,
+    required this.packetLossPct,
   });
-
-  Map<String, dynamic> toJson() => {
-        'timestamp': timestamp.toIso8601String(),
-        'networkQuality': networkQuality,
-        'audioQuality': audioQuality,
-        'videoQuality': videoQuality,
-        'latency': latency,
-        'packetLoss': packetLoss,
-      };
 }

@@ -1,6 +1,8 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'dart:math' as math;
+
 import 'session_video_player.dart';
 
 // Note model
@@ -535,7 +537,7 @@ class SessionNotesScreen extends ConsumerWidget {
                     labelText: 'Select Mentor',
                     border: OutlineInputBorder(),
                   ),
-                  value: selectedMentor,
+                  initialValue: selectedMentor,
                   items: [
                     'Dr. Sarah Smith',
                     'Prof. Raj Kumar',
@@ -558,7 +560,7 @@ class SessionNotesScreen extends ConsumerWidget {
                     labelText: 'Select Subject',
                     border: OutlineInputBorder(),
                   ),
-                  value: selectedSubject,
+                  initialValue: selectedSubject,
                   items: ['Mathematics', 'Physics', 'Chemistry', 'English']
                       .map((subject) => DropdownMenuItem(
                           value: subject, child: Text(subject)))
@@ -797,7 +799,7 @@ class _FilterNotesDialogState extends ConsumerState<_FilterNotesDialog> {
                 style: TextStyle(fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
             DropdownButtonFormField<String>(
-              value: _tempFilter.selectedSubject,
+              initialValue: _tempFilter.selectedSubject,
               decoration: const InputDecoration(
                 hintText: 'All Subjects',
                 border: OutlineInputBorder(),
@@ -805,7 +807,6 @@ class _FilterNotesDialogState extends ConsumerState<_FilterNotesDialog> {
               ),
               items: [
                 const DropdownMenuItem<String>(
-                  value: null,
                   child: Text('All Subjects'),
                 ),
                 ...subjects.map((subject) => DropdownMenuItem<String>(
@@ -827,7 +828,7 @@ class _FilterNotesDialogState extends ConsumerState<_FilterNotesDialog> {
                 style: TextStyle(fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
             DropdownButtonFormField<String>(
-              value: _tempFilter.selectedMentor,
+              initialValue: _tempFilter.selectedMentor,
               decoration: const InputDecoration(
                 hintText: 'All Mentors',
                 border: OutlineInputBorder(),
@@ -835,7 +836,6 @@ class _FilterNotesDialogState extends ConsumerState<_FilterNotesDialog> {
               ),
               items: [
                 const DropdownMenuItem<String>(
-                  value: null,
                   child: Text('All Mentors'),
                 ),
                 ...mentors.map((mentor) => DropdownMenuItem<String>(
@@ -882,7 +882,7 @@ class _FilterNotesDialogState extends ConsumerState<_FilterNotesDialog> {
               TextButton(
                 onPressed: () {
                   setState(() {
-                    _tempFilter = _tempFilter.copyWith(dateRange: null);
+                    _tempFilter = _tempFilter.copyWith();
                   });
                 },
                 child: const Text('Clear Date Range'),

@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import '../../../core/error/app_error.dart';
 import '../../../core/models/user.dart';
-import '../../../data/repositories/base_repository.dart';
 import '../../../core/providers/repository_providers.dart';
-import '../../../core/utils/result.dart';
 import '../../../core/providers/user_provider.dart';
+import '../../../core/utils/result.dart';
+import '../../../data/repositories/base_repository.dart';
 
 enum AuthStatus { initial, loading, authenticated, unauthenticated, error }
 
@@ -125,7 +126,6 @@ class AuthNotifier extends StateNotifier<AuthState> {
         state = AuthState(
           status: AuthStatus.unauthenticated,
           errorMessage: appError.message,
-          isStudent: true,
         );
 
         throw appError;
@@ -138,7 +138,6 @@ class AuthNotifier extends StateNotifier<AuthState> {
         state = AuthState(
           status: AuthStatus.unauthenticated,
           errorMessage: appError.message,
-          isStudent: true,
         );
         throw appError;
       }
@@ -159,7 +158,6 @@ class AuthNotifier extends StateNotifier<AuthState> {
       // Set loading state
       state = state.copyWith(
         status: AuthStatus.loading,
-        errorMessage: null,
       );
 
       // Create login credentials
@@ -186,7 +184,6 @@ class AuthNotifier extends StateNotifier<AuthState> {
         state = AuthState(
           status: AuthStatus.authenticated,
           isStudent: session.user.role.isStudent,
-          errorMessage: null,
         );
 
         // Update user provider with the logged-in user
@@ -202,7 +199,6 @@ class AuthNotifier extends StateNotifier<AuthState> {
         state = AuthState(
           status: AuthStatus.error,
           errorMessage: error.message,
-          isStudent: true, // Default to student for error state
         );
 
         // Re-throw the error for UI handling
@@ -216,7 +212,6 @@ class AuthNotifier extends StateNotifier<AuthState> {
         state = AuthState(
           status: AuthStatus.error,
           errorMessage: appError.message,
-          isStudent: true,
         );
         throw appError;
       }

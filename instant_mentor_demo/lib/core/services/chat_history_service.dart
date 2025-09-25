@@ -223,7 +223,6 @@ class ChatHistoryService {
     final localMessages = await _localMessageService.getMessagesForChat(
       chatId,
       limit: limit,
-      offset: 0,
     );
 
     // If we have enough local messages, return them
@@ -294,7 +293,7 @@ class ChatHistoryService {
   }) async {
     final response = await _supabaseService.client
         .from('chat_messages')
-        .select('*')
+        .select()
         .eq('chat_id', chatId)
         .order('created_at', ascending: false)
         .range(offset, offset + limit - 1);

@@ -1,6 +1,8 @@
 import 'dart:io';
-import 'package:flutter/foundation.dart' show kIsWeb;
+
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
+
 import '../utils/logger.dart';
 
 /// HTTP connection pool configuration and management
@@ -32,7 +34,8 @@ class ConnectionPoolManager {
     }
 
     _config.maxConnections = maxConnections ?? _defaultMaxConnections;
-    _config.maxConnectionsPerHost = maxConnectionsPerHost ?? _defaultMaxConnectionsPerHost;
+    _config.maxConnectionsPerHost =
+        maxConnectionsPerHost ?? _defaultMaxConnectionsPerHost;
     _config.connectionTimeout = connectionTimeout ?? _defaultConnectionTimeout;
     _config.idleTimeout = idleTimeout ?? _defaultIdleTimeout;
     _config.keepAliveTimeout = keepAliveTimeout ?? _defaultKeepAliveTimeout;
@@ -42,7 +45,7 @@ class ConnectionPoolManager {
       _createHttpClient();
     }
     _isInitialized = true;
-    
+
     Logger.info('Connection pool initialized with config: $_config');
   }
 
@@ -60,20 +63,20 @@ class ConnectionPoolManager {
   /// Create and configure HTTP client
   static void _createHttpClient() {
     _httpClient = HttpClient();
-    
+
     // Configure connection limits
     _httpClient!.maxConnectionsPerHost = _config.maxConnectionsPerHost;
-    
+
     // Configure timeouts
     _httpClient!.connectionTimeout = _config.connectionTimeout;
     _httpClient!.idleTimeout = _config.idleTimeout;
-    
+
     // Configure keep-alive
     if (_config.enableKeepAlive) {
       // Keep-alive is enabled by default in HttpClient
       Logger.debug('Keep-alive connections enabled');
     }
-    
+
     // Configure automatic handling
     _httpClient!.autoUncompress = true;
 
@@ -104,17 +107,17 @@ class ConnectionPoolManager {
     // This is a basic implementation
     return ConnectionPoolStats(
       activeConnections: 0, // Would need custom implementation to track
-      idleConnections: 0,   // Would need custom implementation to track
+      idleConnections: 0, // Would need custom implementation to track
       maxConnections: _config.maxConnections,
       maxConnectionsPerHost: _config.maxConnectionsPerHost,
-      totalRequests: 0,     // Would need custom implementation to track
+      totalRequests: 0, // Would need custom implementation to track
       configuration: _config,
     );
   }
 
   /// Close all connections and cleanup
   static void dispose() {
-  if (_httpClient != null) {
+    if (_httpClient != null) {
       _httpClient!.close(force: true);
       _httpClient = null;
     }
@@ -195,29 +198,29 @@ class ConnectionPoolStats {
   }
 
   int get totalConnections => activeConnections + idleConnections;
-  
+
   double get utilizationPercentage {
     if (maxConnections == 0) return 0.0;
     return (totalConnections / maxConnections) * 100;
   }
 
   Map<String, dynamic> toJson() => {
-    'activeConnections': activeConnections,
-    'idleConnections': idleConnections,
-    'totalConnections': totalConnections,
-    'maxConnections': maxConnections,
-    'maxConnectionsPerHost': maxConnectionsPerHost,
-    'totalRequests': totalRequests,
-    'utilizationPercentage': utilizationPercentage,
-    'configuration': {
-      'maxConnections': configuration.maxConnections,
-      'maxConnectionsPerHost': configuration.maxConnectionsPerHost,
-      'connectionTimeout': configuration.connectionTimeout.inSeconds,
-      'idleTimeout': configuration.idleTimeout.inSeconds,
-      'keepAliveTimeout': configuration.keepAliveTimeout.inSeconds,
-      'enableKeepAlive': configuration.enableKeepAlive,
-    },
-  };
+        'activeConnections': activeConnections,
+        'idleConnections': idleConnections,
+        'totalConnections': totalConnections,
+        'maxConnections': maxConnections,
+        'maxConnectionsPerHost': maxConnectionsPerHost,
+        'totalRequests': totalRequests,
+        'utilizationPercentage': utilizationPercentage,
+        'configuration': {
+          'maxConnections': configuration.maxConnections,
+          'maxConnectionsPerHost': configuration.maxConnectionsPerHost,
+          'connectionTimeout': configuration.connectionTimeout.inSeconds,
+          'idleTimeout': configuration.idleTimeout.inSeconds,
+          'keepAliveTimeout': configuration.keepAliveTimeout.inSeconds,
+          'enableKeepAlive': configuration.enableKeepAlive,
+        },
+      };
 
   @override
   String toString() {

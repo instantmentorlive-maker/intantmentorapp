@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../core/services/websocket_service.dart';
+
 import '../../../core/providers/auth_provider.dart';
+import '../../../core/services/websocket_service.dart';
 
 /// Provider for WebSocket service
 final webSocketServiceProvider = Provider<WebSocketService>((ref) {

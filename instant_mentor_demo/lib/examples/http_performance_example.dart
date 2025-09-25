@@ -1,6 +1,7 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:dio/dio.dart';
+
 import '../core/network/http_retry.dart';
 import '../core/network/offline_manager.dart';
 import '../core/providers/network_providers.dart';
@@ -45,8 +46,8 @@ class HttpPerformanceExample extends ConsumerWidget {
                     Text(
                       'HTTP Performance Features',
                       style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
+                            fontWeight: FontWeight.bold,
+                          ),
                     ),
                     const SizedBox(height: 12),
                     _buildFeatureList(),
@@ -58,8 +59,8 @@ class HttpPerformanceExample extends ConsumerWidget {
             Text(
               'Test Operations',
               style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
+                    fontWeight: FontWeight.bold,
+                  ),
             ),
             const SizedBox(height: 12),
             Expanded(
@@ -166,23 +167,23 @@ class HttpPerformanceExample extends ConsumerWidget {
   Future<void> _testHttpCaching(BuildContext context, WidgetRef ref) async {
     try {
       _showProgressDialog(context, 'Testing HTTP Caching...');
-      
+
       final client = ref.read(enhancedHttpClientProvider);
-      
+
       // First request - should hit the server
       final response1 = await client.get('/test-endpoint');
-      
+
       // Second request - should use cache
       final response2 = await client.get('/test-endpoint');
-      
+
       Navigator.pop(context); // Close progress dialog
-      
+
       _showResultDialog(
         context,
         'HTTP Caching Test',
         'First request: ${response1.statusMessage}\n'
-        'Second request: ${response2.statusMessage}\n'
-        'Cache likely used for second request!',
+            'Second request: ${response2.statusMessage}\n'
+            'Cache likely used for second request!',
       );
     } catch (e) {
       Navigator.pop(context); // Close progress dialog
@@ -193,23 +194,23 @@ class HttpPerformanceExample extends ConsumerWidget {
   Future<void> _testRequestRetry(BuildContext context, WidgetRef ref) async {
     try {
       _showProgressDialog(context, 'Testing Request Retry...');
-      
+
       final client = ref.read(enhancedHttpClientProvider);
-      
+
       // Configure request with retry options
       final options = RequestOptions(path: '/failing-endpoint')
         ..setRetryConfig(RetryPolicies.aggressive);
-      
+
       final response = await client.fetch(options);
-      
+
       Navigator.pop(context); // Close progress dialog
-      
+
       _showResultDialog(
         context,
         'Request Retry Test',
         'Request completed after potential retries!\n'
-        'Status: ${response.statusCode}\n'
-        'Retry attempts: ${options.retryAttempt}',
+            'Status: ${response.statusCode}\n'
+            'Retry attempts: ${options.retryAttempt}',
       );
     } catch (e) {
       Navigator.pop(context); // Close progress dialog
@@ -217,7 +218,7 @@ class HttpPerformanceExample extends ConsumerWidget {
         context,
         'Request Retry Test',
         'Request failed after retries: $e\n'
-        'This demonstrates the retry mechanism working!',
+            'This demonstrates the retry mechanism working!',
       );
     }
   }
@@ -225,13 +226,15 @@ class HttpPerformanceExample extends ConsumerWidget {
   Future<void> _testOfflineSupport(BuildContext context, WidgetRef ref) async {
     try {
       _showProgressDialog(context, 'Testing Offline Support...');
-      
+
       final client = ref.read(enhancedHttpClientProvider);
-      final connectivityNotifier = ref.read(networkConnectivityProvider.notifier);
-      
+      final connectivityNotifier =
+          ref.read(networkConnectivityProvider.notifier);
+
       // Get current offline queue size
-      final initialQueueSize = ref.read(networkConnectivityProvider).queuedRequestsCount;
-      
+      final initialQueueSize =
+          ref.read(networkConnectivityProvider).queuedRequestsCount;
+
       // Make a request that might be queued if offline
       final options = RequestOptions(
         path: '/offline-test',
@@ -240,21 +243,22 @@ class HttpPerformanceExample extends ConsumerWidget {
       )
         ..setOfflinePriority(1)
         ..setOfflineMetadata({'test': true});
-      
+
       await client.fetch(options);
-      
+
       // Check if queue size changed
       await connectivityNotifier.checkConnectivity();
-      final finalQueueSize = ref.read(networkConnectivityProvider).queuedRequestsCount;
-      
+      final finalQueueSize =
+          ref.read(networkConnectivityProvider).queuedRequestsCount;
+
       Navigator.pop(context); // Close progress dialog
-      
+
       _showResultDialog(
         context,
         'Offline Support Test',
         'Initial queue size: $initialQueueSize\n'
-        'Final queue size: $finalQueueSize\n'
-        'Request handling completed!',
+            'Final queue size: $finalQueueSize\n'
+            'Request handling completed!',
       );
     } catch (e) {
       Navigator.pop(context); // Close progress dialog
@@ -262,27 +266,27 @@ class HttpPerformanceExample extends ConsumerWidget {
     }
   }
 
-  Future<void> _testConnectionPooling(BuildContext context, WidgetRef ref) async {
+  Future<void> _testConnectionPooling(
+      BuildContext context, WidgetRef ref) async {
     try {
       _showProgressDialog(context, 'Testing Connection Pooling...');
-      
+
       final client = ref.read(enhancedHttpClientProvider);
-      
+
       // Make multiple concurrent requests
-      final futures = List.generate(5, (index) => 
-        client.get('/test-endpoint?request=$index')
-      );
-      
+      final futures = List.generate(
+          5, (index) => client.get('/test-endpoint?request=$index'));
+
       final responses = await Future.wait(futures);
-      
+
       Navigator.pop(context); // Close progress dialog
-      
+
       _showResultDialog(
         context,
         'Connection Pooling Test',
         'Completed ${responses.length} concurrent requests!\n'
-        'Connection pooling optimizes reuse of TCP connections.\n'
-        'Check performance dashboard for detailed metrics.',
+            'Connection pooling optimizes reuse of TCP connections.\n'
+            'Check performance dashboard for detailed metrics.',
       );
     } catch (e) {
       Navigator.pop(context); // Close progress dialog

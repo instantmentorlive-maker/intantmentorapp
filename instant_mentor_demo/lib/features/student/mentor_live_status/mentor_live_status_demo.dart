@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../common/widgets/mentor_presence_widgets.dart';
+
+import '../../../core/models/user.dart';
 import '../../../core/providers/mentor_presence_provider.dart';
 import '../../../core/providers/mentor_provider.dart';
-import '../../../core/models/user.dart';
+import '../../../core/services/payment_service.dart';
+import '../../common/widgets/mentor_presence_widgets.dart';
+import '../../payments/payment_checkout_sheet.dart';
 
 /// Enhanced demo screen showing mentor live status features
 class MentorLiveStatusDemo extends ConsumerStatefulWidget {
@@ -493,8 +496,7 @@ void _showMentorDetails(
                     children: [
                       Row(
                         children: [
-                          MentorPresenceIndicator(
-                              mentorId: mentor.id, size: 16),
+                          MentorPresenceIndicator(mentorId: mentor.id),
                           const SizedBox(width: 8),
                           Text(
                             presence.displayStatus,
@@ -528,7 +530,7 @@ void _showMentorDetails(
                   Expanded(
                     child: ElevatedButton.icon(
                       onPressed: presence?.isAvailable == true
-                          ? () {
+                          ? () async {
                               Navigator.pop(context);
                               _showQuickConnectDialog(context, mentor);
                             }
@@ -610,14 +612,60 @@ void _showQuickConnectDialog(BuildContext context, Mentor mentor) {
           child: const Text('Cancel'),
         ),
         ElevatedButton(
-          onPressed: () {
+          onPressed: () async {
             Navigator.pop(context);
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('Starting session with ${mentor.name}...'),
-                backgroundColor: Colors.green,
+            final confirmed = await showModalBottomSheet<bool>(
+              context: context,
+              isScrollControlled: true,
+              builder: (ctx) => PaymentCheckoutSheet(
+                mentorName: mentor.name,
+                hourlyRate: mentor.hourlyRate.toDouble(),
+                minutes: 15,
+                amount: mentor.hourlyRate / 4, // 15 minute cost example
+                onConfirm: () {},
               ),
             );
+            if (confirmed != true) return;
+
+            final sessionId = 'live_${DateTime.now().millisecondsSinceEpoch}';
+            final ok = await PaymentService.instance.setupPaymentSheet(
+              sessionId: sessionId,
+              amount: mentor.hourlyRate / 4,
+            );
+            if (!ok) {
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Payment setup failed'),
+                    backgroundColor: Colors.red,
+                  ),
+                );
+              }
+              return;
+            }
+            final result =
+                await PaymentService.instance.presentPaymentSheet(sessionId);
+            if (!result.isSuccess) {
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(result.isCancelled
+                        ? 'Payment cancelled'
+                        : 'Payment failed: ${result.error ?? ''}'),
+                    backgroundColor: Colors.red,
+                  ),
+                );
+              }
+              return;
+            }
+            if (context.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('Starting session with ${mentor.name}...'),
+                  backgroundColor: Colors.green,
+                ),
+              );
+            }
           },
           child: const Text('Connect Now'),
         ),

@@ -176,8 +176,9 @@ class NetworkErrorHandler {
     if (error is NetworkError) return true;
     if (error is AuthError && error.code == 'SESSION_EXPIRED') return false;
     if (error is ValidationError) return false;
-    if (error is AppGeneralError && error.code == 'PERMISSION_DENIED')
+    if (error is AppGeneralError && error.code == 'PERMISSION_DENIED') {
       return false;
+    }
     return false;
   }
 

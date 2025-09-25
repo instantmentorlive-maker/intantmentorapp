@@ -1,5 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../config/feature_flags.dart';
 import '../providers/auth_provider.dart';
 import '../services/websocket_service.dart';
 
@@ -209,25 +211,49 @@ final webSocketManagerProvider = Provider<WebSocketManager>((ref) {
 final webSocketConnectionManagerProvider = Provider<void>((ref) {
   final webSocketManager = ref.watch(webSocketManagerProvider);
 
-  // Listen to auth state changes
+  // Listen to auth state changes with delay to prevent race conditions
   ref.listen(authProvider, (previous, next) async {
+    // Add a small delay to prevent race conditions during initialization
+    await Future.delayed(const Duration(milliseconds: 500));
+
+    // Debug auth state transitions
+    debugPrint(
+        '🌐 WebSocket: Auth state changed - Previous: ${previous?.isAuthenticated}, Next: ${next.isAuthenticated}');
+
     if (next.isAuthenticated && next.user != null) {
-      // User logged in - initialize WebSocket connection
-      try {
-        final userId = next.user!.id;
-        final userRole = next.user!.userMetadata?['role'] ?? 'student';
+      // Only connect if we weren't already authenticated
+      if (previous?.isAuthenticated != true) {
+        // Respect feature flags before attempting connection
+        if (!FeatureFlags.realtimeEnabled) {
+          debugPrint('🌐 WebSocket: Realtime disabled (skipping auto-connect)');
+          return;
+        }
+        if (FeatureFlags.demoMode) {
+          debugPrint(
+              '🌐 WebSocket: Demo mode active (skipping real auto-connect)');
+          return;
+        }
+        try {
+          final userId = next.user!.id;
+          final userRole = next.user!.userMetadata?['role'] ?? 'student';
 
-        await webSocketManager.initializeConnection(
-          userId: userId,
-          userRole: userRole,
-        );
+          await webSocketManager.initializeConnection(
+            userId: userId,
+            userRole: userRole,
+          );
 
-        debugPrint('🌐 WebSocket: Auto-connected for user $userId');
-      } catch (e) {
-        debugPrint('🔴 WebSocket: Auto-connection failed: $e');
+          if (webSocketManager.isConnected) {
+            debugPrint('🌐 WebSocket: Auto-connected for user $userId');
+          } else {
+            debugPrint(
+                '🌐 WebSocket: Auto-connect attempted but not connected');
+          }
+        } catch (e) {
+          debugPrint('🔴 WebSocket: Auto-connection failed: $e');
+        }
       }
-    } else if (!next.isAuthenticated) {
-      // User logged out - disconnect WebSocket
+    } else if (!next.isAuthenticated && previous?.isAuthenticated == true) {
+      // Only disconnect if we were previously authenticated (explicit logout)
       await webSocketManager.disconnectConnection();
       debugPrint('🌐 WebSocket: Auto-disconnected on logout');
     }

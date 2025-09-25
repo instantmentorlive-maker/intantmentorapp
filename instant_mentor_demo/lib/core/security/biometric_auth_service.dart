@@ -1,12 +1,13 @@
 import 'dart:convert';
 import 'dart:developer' as developer;
+
+import 'package:crypto/crypto.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:local_auth/error_codes.dart' as auth_error;
 import 'package:local_auth/local_auth.dart' as la;
 import 'package:local_auth_android/local_auth_android.dart';
 import 'package:local_auth_darwin/local_auth_darwin.dart';
-import 'package:local_auth/error_codes.dart' as auth_error;
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import 'package:crypto/crypto.dart';
 
 /// Biometric authentication types available
 enum BiometricType {
@@ -209,7 +210,6 @@ class BiometricAuthService {
   final FlutterSecureStorage _secureStorage = const FlutterSecureStorage(
     aOptions: AndroidOptions(
       encryptedSharedPreferences: true,
-      keyCipherAlgorithm: KeyCipherAlgorithm.RSA_ECB_PKCS1Padding,
       storageCipherAlgorithm: StorageCipherAlgorithm.AES_GCM_NoPadding,
     ),
     iOptions: IOSOptions(
@@ -363,9 +363,7 @@ class BiometricAuthService {
           ),
         ],
         options: const la.AuthenticationOptions(
-          biometricOnly: false,
           stickyAuth: true,
-          useErrorDialogs: true,
         ),
       );
 
@@ -448,7 +446,6 @@ class BiometricAuthService {
 
     return authenticate(
       signInTitle: reason,
-      biometricOnly: false,
       stickyAuth: false,
       metadata: metadata,
     );
@@ -465,7 +462,6 @@ class BiometricAuthService {
     return authenticate(
       signInTitle: reason,
       biometricOnly: true,
-      stickyAuth: true,
       metadata: metadata,
     );
   }

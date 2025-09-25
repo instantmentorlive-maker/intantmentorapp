@@ -18,9 +18,9 @@ class ChatErrorBoundary extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     return ErrorBoundary(
       feature: 'Chat',
-      child: child,
       errorMessage: errorMessage,
       onRetry: onRetry,
+      child: child,
     );
   }
 }
@@ -42,9 +42,9 @@ class CallErrorBoundary extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     return ErrorBoundary(
       feature: 'Video Calling',
-      child: child,
       errorMessage: errorMessage,
       onRetry: onRetry,
+      child: child,
     );
   }
 }
@@ -66,9 +66,9 @@ class PaymentErrorBoundary extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     return ErrorBoundary(
       feature: 'Payments',
-      child: child,
       errorMessage: errorMessage,
       onRetry: onRetry,
+      child: child,
     );
   }
 }

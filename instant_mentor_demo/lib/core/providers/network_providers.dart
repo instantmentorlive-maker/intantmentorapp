@@ -1,9 +1,11 @@
 import 'dart:async';
+
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import '../network/enhanced_network_client.dart';
-import '../network/http_performance.dart';
 import '../network/http_cache.dart';
+import '../network/http_performance.dart';
 import '../network/offline_manager.dart';
 import '../utils/logger.dart';
 
@@ -18,7 +20,8 @@ final httpPerformanceStatsProvider = Provider<PerformanceStats>((ref) {
 });
 
 /// Provider for HTTP cache statistics
-final httpCacheStatsProvider = FutureProvider<Map<String, dynamic>>((ref) async {
+final httpCacheStatsProvider =
+    FutureProvider<Map<String, dynamic>>((ref) async {
   return HttpCache.getStats();
 });
 
@@ -33,7 +36,8 @@ final networkStatsProvider = Provider<Map<String, dynamic>>((ref) {
 });
 
 /// Provider for network connectivity status
-final networkConnectivityProvider = StateNotifierProvider<NetworkConnectivityNotifier, NetworkConnectivityState>((ref) {
+final networkConnectivityProvider = StateNotifierProvider<
+    NetworkConnectivityNotifier, NetworkConnectivityState>((ref) {
   return NetworkConnectivityNotifier();
 });
 
@@ -74,12 +78,14 @@ class NetworkConnectivityState {
 }
 
 /// Network connectivity state notifier
-class NetworkConnectivityNotifier extends StateNotifier<NetworkConnectivityState> {
-  NetworkConnectivityNotifier() : super(NetworkConnectivityState(
-    isOnline: true,
-    lastChecked: DateTime.now(),
-    queuedRequestsCount: 0,
-  )) {
+class NetworkConnectivityNotifier
+    extends StateNotifier<NetworkConnectivityState> {
+  NetworkConnectivityNotifier()
+      : super(NetworkConnectivityState(
+          isOnline: true,
+          lastChecked: DateTime.now(),
+          queuedRequestsCount: 0,
+        )) {
     _startPeriodicCheck();
   }
 
@@ -100,14 +106,15 @@ class NetworkConnectivityNotifier extends StateNotifier<NetworkConnectivityState
     try {
       final isOnline = await EnhancedNetworkClient.hasConnection();
       final queuedCount = OfflineManager.queueSize;
-      
+
       state = state.copyWith(
         isOnline: isOnline,
         lastChecked: DateTime.now(),
         queuedRequestsCount: queuedCount,
       );
-      
-      Logger.debug('Connectivity check: ${isOnline ? "online" : "offline"}, queued: $queuedCount');
+
+      Logger.debug(
+          'Connectivity check: ${isOnline ? "online" : "offline"}, queued: $queuedCount');
     } catch (e) {
       Logger.error('Failed to check connectivity: $e');
     }
@@ -137,7 +144,9 @@ class NetworkConnectivityNotifier extends StateNotifier<NetworkConnectivityState
 }
 
 /// Provider for network performance monitoring
-final networkPerformanceProvider = StateNotifierProvider<NetworkPerformanceNotifier, NetworkPerformanceState>((ref) {
+final networkPerformanceProvider =
+    StateNotifierProvider<NetworkPerformanceNotifier, NetworkPerformanceState>(
+        (ref) {
   return NetworkPerformanceNotifier();
 });
 
@@ -167,12 +176,14 @@ class NetworkPerformanceState {
 }
 
 /// Network performance state notifier
-class NetworkPerformanceNotifier extends StateNotifier<NetworkPerformanceState> {
-  NetworkPerformanceNotifier() : super(NetworkPerformanceState(
-    isMonitoring: HttpPerformanceMonitor.isEnabled,
-    stats: HttpPerformanceMonitor.getStats(),
-    lastUpdated: DateTime.now(),
-  )) {
+class NetworkPerformanceNotifier
+    extends StateNotifier<NetworkPerformanceState> {
+  NetworkPerformanceNotifier()
+      : super(NetworkPerformanceState(
+          isMonitoring: HttpPerformanceMonitor.isEnabled,
+          stats: HttpPerformanceMonitor.getStats(),
+          lastUpdated: DateTime.now(),
+        )) {
     _startPeriodicUpdate();
   }
 
@@ -224,7 +235,8 @@ class NetworkPerformanceNotifier extends StateNotifier<NetworkPerformanceState> 
 }
 
 /// HTTP cache management provider
-final httpCacheProvider = StateNotifierProvider<HttpCacheNotifier, HttpCacheState>((ref) {
+final httpCacheProvider =
+    StateNotifierProvider<HttpCacheNotifier, HttpCacheState>((ref) {
   return HttpCacheNotifier();
 });
 
@@ -255,11 +267,12 @@ class HttpCacheState {
 
 /// HTTP cache state notifier
 class HttpCacheNotifier extends StateNotifier<HttpCacheState> {
-  HttpCacheNotifier() : super(HttpCacheState(
-    isEnabled: true,
-    stats: {},
-    lastUpdated: DateTime.now(),
-  )) {
+  HttpCacheNotifier()
+      : super(HttpCacheState(
+          isEnabled: true,
+          stats: {},
+          lastUpdated: DateTime.now(),
+        )) {
     _updateStats();
   }
 

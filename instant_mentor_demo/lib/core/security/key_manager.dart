@@ -1,9 +1,11 @@
 import 'dart:convert';
+import 'dart:developer' as developer;
 import 'dart:math';
 import 'dart:typed_data';
-import 'dart:developer' as developer;
+
 import 'package:crypto/crypto.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+
 import 'encryption_service.dart';
 
 /// Key rotation policy
@@ -261,7 +263,6 @@ class SecureKeyManager {
   final FlutterSecureStorage _secureStorage = const FlutterSecureStorage(
     aOptions: AndroidOptions(
       encryptedSharedPreferences: true,
-      keyCipherAlgorithm: KeyCipherAlgorithm.RSA_ECB_PKCS1Padding,
       storageCipherAlgorithm: StorageCipherAlgorithm.AES_GCM_NoPadding,
     ),
     iOptions: IOSOptions(
@@ -310,8 +311,7 @@ class SecureKeyManager {
         actualKeySize = 256;
         break;
       case 'RSA-2048':
-        final keyPair =
-            await _encryptionService.generateRSAKeyPair(keySize: 2048);
+        final keyPair = await _encryptionService.generateRSAKeyPair();
         keyData = keyPair.privateKey;
         actualKeySize = 2048;
         break;

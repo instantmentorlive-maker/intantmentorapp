@@ -1,21 +1,24 @@
-enum UserRole { 
-  student('student'), 
-  mentor('mentor');
+enum UserRole {
+  student('student'),
+  mentor('mentor'),
+  admin('admin');
 
   const UserRole(this.name);
-  
+
   final String name;
 
   static UserRole fromString(String role) {
     return switch (role.toLowerCase()) {
       'student' => UserRole.student,
       'mentor' => UserRole.mentor,
+      'admin' => UserRole.admin,
       _ => throw ArgumentError('Invalid user role: $role'),
     };
   }
 
   bool get isStudent => this == UserRole.student;
   bool get isMentor => this == UserRole.mentor;
+  bool get isAdmin => this == UserRole.admin;
 }
 
 class User {
@@ -82,7 +85,7 @@ class User {
       role: UserRole.fromString(json['role'] as String),
       profileImage: json['profileImage'] as String?,
       createdAt: DateTime.parse(json['createdAt'] as String),
-      lastLoginAt: json['lastLoginAt'] != null 
+      lastLoginAt: json['lastLoginAt'] != null
           ? DateTime.parse(json['lastLoginAt'] as String)
           : null,
       isActive: json['isActive'] as bool? ?? true,
@@ -172,13 +175,13 @@ class Mentor {
   }
 
   User toUser() => User(
-    id: id,
-    name: name,
-    email: email,
-    role: UserRole.mentor,
-    profileImage: profileImage,
-    createdAt: createdAt,
-  );
+        id: id,
+        name: name,
+        email: email,
+        role: UserRole.mentor,
+        profileImage: profileImage,
+        createdAt: createdAt,
+      );
 }
 
 /// Authentication credentials for login
@@ -236,8 +239,8 @@ class AuthToken {
   });
 
   bool get isExpired => DateTime.now().isAfter(expiresAt);
-  
-  bool get isNearExpiry => 
+
+  bool get isNearExpiry =>
       DateTime.now().add(const Duration(minutes: 5)).isAfter(expiresAt);
 
   Map<String, dynamic> toJson() {
@@ -268,7 +271,7 @@ class Session {
   });
 
   bool get isValid => !token.isExpired && user.isActive;
-  
+
   Session copyWith({
     User? user,
     AuthToken? token,
@@ -278,7 +281,7 @@ class Session {
       token: token ?? this.token,
     );
   }
-  
+
   Map<String, dynamic> toJson() {
     return {
       'user': user.toJson(),

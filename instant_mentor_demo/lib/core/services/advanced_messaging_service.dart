@@ -367,7 +367,6 @@ class AdvancedMessagingService {
         type: 'study_group',
         creatorId: creatorId,
         description: 'Chat for $name study group',
-        isPrivate: false,
       );
 
       if (channelId != null) {

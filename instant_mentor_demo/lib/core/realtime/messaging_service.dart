@@ -131,12 +131,10 @@ class RealtimeMessage {
         orElse: () => MessagePriority.normal,
       ),
       timestamp: DateTime.parse(json['timestamp']),
-      deliveredAt: json['deliveredAt'] != null 
-          ? DateTime.parse(json['deliveredAt']) 
+      deliveredAt: json['deliveredAt'] != null
+          ? DateTime.parse(json['deliveredAt'])
           : null,
-      readAt: json['readAt'] != null 
-          ? DateTime.parse(json['readAt']) 
-          : null,
+      readAt: json['readAt'] != null ? DateTime.parse(json['readAt']) : null,
     );
   }
 }
@@ -221,8 +219,9 @@ class UserPresence {
 /// Real-time messaging service
 class RealtimeMessagingService {
   static RealtimeMessagingService? _instance;
-  static RealtimeMessagingService get instance => _instance ??= RealtimeMessagingService._();
-  
+  static RealtimeMessagingService get instance =>
+      _instance ??= RealtimeMessagingService._();
+
   RealtimeMessagingService._();
 
   final SocketIOClient _socketClient = SocketIOClient.instance;
@@ -232,11 +231,11 @@ class RealtimeMessagingService {
   final Map<String, TypingIndicator> _typingUsers = {};
 
   // Message streams
-  final StreamController<RealtimeMessage> _messageController = 
+  final StreamController<RealtimeMessage> _messageController =
       StreamController<RealtimeMessage>.broadcast();
-  final StreamController<TypingIndicator> _typingController = 
+  final StreamController<TypingIndicator> _typingController =
       StreamController<TypingIndicator>.broadcast();
-  final StreamController<UserPresence> _presenceController = 
+  final StreamController<UserPresence> _presenceController =
       StreamController<UserPresence>.broadcast();
 
   // Message cache for offline handling
@@ -269,13 +268,13 @@ class RealtimeMessagingService {
     // Connect to Socket.IO server
     final config = SocketConfig(
       auth: auth ?? {},
-      enableReconnection: true,
       reconnectionAttempts: 10,
     );
 
     final connected = await _socketClient.connect(serverUrl, config: config);
     if (!connected) {
-      developer.log('Failed to connect to messaging server', name: 'RealtimeMessagingService');
+      developer.log('Failed to connect to messaging server',
+          name: 'RealtimeMessagingService');
       return false;
     }
 
@@ -285,7 +284,8 @@ class RealtimeMessagingService {
     // Register user
     _socketClient.emit('user:register', {'userId': userId});
 
-    developer.log('Messaging service initialized for user: $userId', name: 'RealtimeMessagingService');
+    developer.log('Messaging service initialized for user: $userId',
+        name: 'RealtimeMessagingService');
     return true;
   }
 
@@ -321,10 +321,12 @@ class RealtimeMessagingService {
     // Emit to server
     try {
       _socketClient.emit('message:send', message.toJson());
-      developer.log('Message sent: ${message.id}', name: 'RealtimeMessagingService');
+      developer.log('Message sent: ${message.id}',
+          name: 'RealtimeMessagingService');
     } catch (e) {
-      developer.log('Failed to send message: $e', name: 'RealtimeMessagingService');
-      
+      developer.log('Failed to send message: $e',
+          name: 'RealtimeMessagingService');
+
       // Update message status to failed
       final failedMessage = message.copyWith(status: MessageStatus.failed);
       _messageCache[message.id] = failedMessage;
@@ -395,9 +397,11 @@ class RealtimeMessagingService {
       try {
         final message = RealtimeMessage.fromJson(data);
         _messageController.add(message);
-        developer.log('Message received: ${message.id}', name: 'RealtimeMessagingService');
+        developer.log('Message received: ${message.id}',
+            name: 'RealtimeMessagingService');
       } catch (e) {
-        developer.log('Error parsing received message: $e', name: 'RealtimeMessagingService');
+        developer.log('Error parsing received message: $e',
+            name: 'RealtimeMessagingService');
       }
     });
 
@@ -413,7 +417,8 @@ class RealtimeMessagingService {
           _messageController.add(message);
         }
       } catch (e) {
-        developer.log('Error processing message delivery: $e', name: 'RealtimeMessagingService');
+        developer.log('Error processing message delivery: $e',
+            name: 'RealtimeMessagingService');
       }
     });
 
@@ -429,7 +434,8 @@ class RealtimeMessagingService {
           _messageController.add(message);
         }
       } catch (e) {
-        developer.log('Error processing message read: $e', name: 'RealtimeMessagingService');
+        developer.log('Error processing message read: $e',
+            name: 'RealtimeMessagingService');
       }
     });
 
@@ -442,7 +448,8 @@ class RealtimeMessagingService {
           _typingController.add(typing);
         }
       } catch (e) {
-        developer.log('Error processing typing start: $e', name: 'RealtimeMessagingService');
+        developer.log('Error processing typing start: $e',
+            name: 'RealtimeMessagingService');
       }
     });
 
@@ -453,7 +460,8 @@ class RealtimeMessagingService {
           _typingUsers.remove(userId);
         }
       } catch (e) {
-        developer.log('Error processing typing stop: $e', name: 'RealtimeMessagingService');
+        developer.log('Error processing typing stop: $e',
+            name: 'RealtimeMessagingService');
       }
     });
 
@@ -463,10 +471,12 @@ class RealtimeMessagingService {
         final presence = UserPresence.fromJson(data);
         _userPresences[presence.userId] = presence;
         _presenceController.add(presence);
-        developer.log('Presence updated: ${presence.userId} - ${presence.status.name}', 
-                      name: 'RealtimeMessagingService');
+        developer.log(
+            'Presence updated: ${presence.userId} - ${presence.status.name}',
+            name: 'RealtimeMessagingService');
       } catch (e) {
-        developer.log('Error processing presence update: $e', name: 'RealtimeMessagingService');
+        developer.log('Error processing presence update: $e',
+            name: 'RealtimeMessagingService');
       }
     });
 
@@ -476,10 +486,11 @@ class RealtimeMessagingService {
         final roomId = data['roomId'];
         final members = List<String>.from(data['members']);
         _roomMembers[roomId] = members;
-        developer.log('Joined room: $roomId with ${members.length} members', 
-                      name: 'RealtimeMessagingService');
+        developer.log('Joined room: $roomId with ${members.length} members',
+            name: 'RealtimeMessagingService');
       } catch (e) {
-        developer.log('Error processing room join: $e', name: 'RealtimeMessagingService');
+        developer.log('Error processing room join: $e',
+            name: 'RealtimeMessagingService');
       }
     });
 
@@ -490,10 +501,11 @@ class RealtimeMessagingService {
         if (_roomMembers.containsKey(roomId)) {
           _roomMembers[roomId]!.add(userId);
         }
-        developer.log('Member joined room: $userId -> $roomId', 
-                      name: 'RealtimeMessagingService');
+        developer.log('Member joined room: $userId -> $roomId',
+            name: 'RealtimeMessagingService');
       } catch (e) {
-        developer.log('Error processing member join: $e', name: 'RealtimeMessagingService');
+        developer.log('Error processing member join: $e',
+            name: 'RealtimeMessagingService');
       }
     });
 
@@ -504,10 +516,11 @@ class RealtimeMessagingService {
         if (_roomMembers.containsKey(roomId)) {
           _roomMembers[roomId]!.remove(userId);
         }
-        developer.log('Member left room: $userId <- $roomId', 
-                      name: 'RealtimeMessagingService');
+        developer.log('Member left room: $userId <- $roomId',
+            name: 'RealtimeMessagingService');
       } catch (e) {
-        developer.log('Error processing member leave: $e', name: 'RealtimeMessagingService');
+        developer.log('Error processing member leave: $e',
+            name: 'RealtimeMessagingService');
       }
     });
 
@@ -540,6 +553,7 @@ class RealtimeMessagingService {
     await _messageController.close();
     await _typingController.close();
     await _presenceController.close();
-    developer.log('Messaging service disposed', name: 'RealtimeMessagingService');
+    developer.log('Messaging service disposed',
+        name: 'RealtimeMessagingService');
   }
 }

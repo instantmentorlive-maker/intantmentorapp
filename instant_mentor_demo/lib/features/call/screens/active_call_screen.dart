@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_webrtc/flutter_webrtc.dart';
+// Conditional import: use real flutter_webrtc except on web where we fall back to stub
+// ignore: uri_does_not_exist
+import 'package:flutter_webrtc/flutter_webrtc.dart'
+    if (dart.library.html) 'package:instant_mentor_demo/features/shared/live_session/webrtc_stub.dart';
+
 import '../controllers/simple_call_controller.dart';
-import '../models/call_state.dart';
 import '../models/call_data.dart';
+import '../models/call_state.dart';
 
 /// Screen displayed during an active video/audio call
 class ActiveCallScreen extends ConsumerStatefulWidget {
@@ -116,7 +120,7 @@ class _ActiveCallScreenState extends ConsumerState<ActiveCallScreen> {
                 Positioned.fill(
                   child: remoteStream.when(
                     data: (stream) => stream != null
-                        ? RTCVideoView(_remoteRenderer, mirror: false)
+                        ? RTCVideoView(_remoteRenderer)
                         : _buildNoVideoPlaceholder(
                             callData.getOtherParticipantName('')),
                     loading: () => _buildConnectingPlaceholder(),

@@ -1,14 +1,19 @@
 import 'dart:async';
 import 'dart:math' as math;
+
 import 'package:flutter/foundation.dart';
-import 'package:flutter_webrtc/flutter_webrtc.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../models/call_state.dart';
+// Conditional import to prevent flutter_webrtc usage on web (stub instead)
+// ignore: uri_does_not_exist
+import 'package:flutter_webrtc/flutter_webrtc.dart'
+    if (dart.library.html) 'package:instant_mentor_demo/features/shared/live_session/webrtc_stub.dart';
+
+import '../../../core/data/repositories/call_history_repository.dart';
 import '../models/call_data.dart';
 import '../models/call_history.dart';
+import '../models/call_state.dart';
 import '../models/signaling_message.dart';
 import '../services/signaling_service.dart';
-import '../../../core/data/repositories/call_history_repository.dart';
 
 /// Exception thrown by the call controller
 class CallException implements Exception {
@@ -305,31 +310,31 @@ class CallController extends StateNotifier<CallData?> {
   }
 
   /// Handle incoming signaling messages
-  void _handleSignalingMessage(signaling_message) async {
+  void _handleSignalingMessage(signalingMessage) async {
     try {
       debugPrint(
-          '📡 Handling signaling message: ${signaling_message.type.name}');
+          '📡 Handling signaling message: ${signalingMessage.type.name}');
 
-      switch (signaling_message.type) {
+      switch (signalingMessage.type) {
         case SignalingMessageType.callOffer:
-          await _handleCallOffer(signaling_message);
+          await _handleCallOffer(signalingMessage);
           break;
         case SignalingMessageType.callAnswer:
-          await _handleCallAnswer(signaling_message);
+          await _handleCallAnswer(signalingMessage);
           break;
         case SignalingMessageType.iceCandidate:
-          await _handleIceCandidate(signaling_message);
+          await _handleIceCandidate(signalingMessage);
           break;
         case SignalingMessageType.callReject:
-          await _handleCallReject(signaling_message);
+          await _handleCallReject(signalingMessage);
           break;
         case SignalingMessageType.callEnd:
         case SignalingMessageType.callCancel:
-          await _handleCallEnd(signaling_message);
+          await _handleCallEnd(signalingMessage);
           break;
         default:
           debugPrint(
-              '🤷 Unhandled signaling message type: ${signaling_message.type}');
+              '🤷 Unhandled signaling message type: ${signalingMessage.type}');
       }
     } catch (e) {
       debugPrint('❌ Error handling signaling message: $e');
@@ -337,21 +342,21 @@ class CallController extends StateNotifier<CallData?> {
   }
 
   /// Handle incoming call offer
-  Future<void> _handleCallOffer(signaling_message) async {
+  Future<void> _handleCallOffer(signalingMessage) async {
     if (hasActiveCall) {
       // Reject if already in a call
       await signalingService.sendCallReject(
-          toUserId: signaling_message.fromUserId);
+          toUserId: signalingMessage.fromUserId);
       return;
     }
 
     // Create incoming call data
     final callData = CallData.incoming(
-      callId: signaling_message.callId,
-      callerId: signaling_message.fromUserId,
-      callerName: signaling_message.data?['callerName'] ?? 'Unknown',
-      receiverId: signaling_message.toUserId,
-      isVideoCall: signaling_message.data?['sdp']?['type'] == 'offer',
+      callId: signalingMessage.callId,
+      callerId: signalingMessage.fromUserId,
+      callerName: signalingMessage.data?['callerName'] ?? 'Unknown',
+      receiverId: signalingMessage.toUserId,
+      isVideoCall: signalingMessage.data?['sdp']?['type'] == 'offer',
     );
 
     state = callData;
@@ -361,8 +366,8 @@ class CallController extends StateNotifier<CallData?> {
 
     // Set remote description
     final offer = RTCSessionDescription(
-      signaling_message.data!['sdp']['sdp'],
-      signaling_message.data!['sdp']['type'],
+      signalingMessage.data!['sdp']['sdp'],
+      signalingMessage.data!['sdp']['type'],
     );
     await _peerConnection!.setRemoteDescription(offer);
 
@@ -370,13 +375,13 @@ class CallController extends StateNotifier<CallData?> {
   }
 
   /// Handle call answer
-  Future<void> _handleCallAnswer(signaling_message) async {
+  Future<void> _handleCallAnswer(signalingMessage) async {
     if (_peerConnection == null) return;
 
     try {
       final answer = RTCSessionDescription(
-        signaling_message.data!['sdp']['sdp'],
-        signaling_message.data!['sdp']['type'],
+        signalingMessage.data!['sdp']['sdp'],
+        signalingMessage.data!['sdp']['type'],
       );
       await _peerConnection!.setRemoteDescription(answer);
 
@@ -390,11 +395,11 @@ class CallController extends StateNotifier<CallData?> {
   }
 
   /// Handle ICE candidate
-  Future<void> _handleIceCandidate(signaling_message) async {
+  Future<void> _handleIceCandidate(signalingMessage) async {
     if (_peerConnection == null) return;
 
     try {
-      final candidateData = signaling_message.data!['candidate'];
+      final candidateData = signalingMessage.data!['candidate'];
       final candidate = RTCIceCandidate(
         candidateData['candidate'],
         candidateData['sdpMid'],
@@ -409,15 +414,15 @@ class CallController extends StateNotifier<CallData?> {
   }
 
   /// Handle call rejection
-  Future<void> _handleCallReject(signaling_message) async {
-    final reason = signaling_message.data?['reason'] ?? 'Call rejected';
+  Future<void> _handleCallReject(signalingMessage) async {
+    final reason = signalingMessage.data?['reason'] ?? 'Call rejected';
     await _endCall(reason: reason);
     debugPrint('📞 Call rejected: $reason');
   }
 
   /// Handle call end
-  Future<void> _handleCallEnd(signaling_message) async {
-    final reason = signaling_message.data?['reason'] ?? 'Call ended by peer';
+  Future<void> _handleCallEnd(signalingMessage) async {
+    final reason = signalingMessage.data?['reason'] ?? 'Call ended by peer';
     await _endCall(reason: reason);
     debugPrint('📞 Call ended: $reason');
   }

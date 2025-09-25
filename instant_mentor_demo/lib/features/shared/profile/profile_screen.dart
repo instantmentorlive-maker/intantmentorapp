@@ -3,8 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 
-import '../../../core/providers/user_provider.dart';
 import '../../../core/providers/auth_provider.dart';
+import '../../../core/providers/user_provider.dart';
+import '../../../core/services/supabase_service.dart';
 
 class ProfileScreen extends ConsumerStatefulWidget {
   const ProfileScreen({super.key});
@@ -20,6 +21,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   final _phoneController = TextEditingController();
   final _bioController = TextEditingController();
 
+  // Static cache to persist profile data across navigation
+  static Map<String, dynamic>? _profileCache;
+  static bool _isCacheValid = false;
+
   String _selectedGrade = '12th Grade';
   List<String> _selectedSubjects = [];
   String _selectedExam = 'JEE';
@@ -27,20 +32,142 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   Uint8List? _profileImageBytes;
   final ImagePicker _picker = ImagePicker();
 
+  // Preference toggles (locally editable, persisted via Supabase preferences JSONB column)
+  bool _emailNotifications = true;
+  bool _pushNotifications = true;
+  bool _studyReminders = false; // student only
+  bool _sessionReminders = true;
+
+  bool _loadingInitial = true;
+  bool _isSaving = false;
+
+  Map<String, dynamic> get _currentPreferencePatch => {
+        'email_notifications': _emailNotifications,
+        'push_notifications': _pushNotifications,
+        'study_reminders': _studyReminders,
+        'session_reminders': _sessionReminders,
+      };
+
   @override
   void initState() {
     super.initState();
-    _loadUserData();
+
+    // Add listeners to update cache when user makes changes
+    _nameController.addListener(_saveToCache);
+    _emailController.addListener(_saveToCache);
+    _phoneController.addListener(_saveToCache);
+    _bioController.addListener(_saveToCache);
+
+    // Check if we have valid cached data
+    if (_isCacheValid && _profileCache != null) {
+      _loadFromCache();
+      setState(() => _loadingInitial = false);
+    } else {
+      _loadUserData();
+    }
   }
 
-  void _loadUserData() {
-    // Simulate loading user data
-    _nameController.text = 'Alex Johnson';
-    _emailController.text = 'alex.johnson@example.com';
-    _phoneController.text = '+1 234-567-8900';
-    _bioController.text =
-        'Passionate student preparing for competitive exams. Love mathematics and physics!';
-    _selectedSubjects = ['Mathematics', 'Physics'];
+  void _loadFromCache() {
+    if (_profileCache != null) {
+      _nameController.text = _profileCache!['name'] ?? '';
+      _emailController.text = _profileCache!['email'] ?? '';
+      _phoneController.text = _profileCache!['phone'] ?? '';
+      _bioController.text = _profileCache!['bio'] ?? '';
+      _selectedGrade = _profileCache!['grade'] ?? '12th Grade';
+      _selectedExam = _profileCache!['exam'] ?? 'JEE';
+      _selectedSubjects = List<String>.from(_profileCache!['subjects'] ?? []);
+      _emailNotifications = _profileCache!['emailNotifications'] ?? true;
+      _pushNotifications = _profileCache!['pushNotifications'] ?? true;
+      _studyReminders = _profileCache!['studyReminders'] ?? false;
+      _sessionReminders = _profileCache!['sessionReminders'] ?? true;
+    }
+  }
+
+  void _saveToCache() {
+    _profileCache = {
+      'name': _nameController.text,
+      'email': _emailController.text,
+      'phone': _phoneController.text,
+      'bio': _bioController.text,
+      'grade': _selectedGrade,
+      'exam': _selectedExam,
+      'subjects': _selectedSubjects,
+      'emailNotifications': _emailNotifications,
+      'pushNotifications': _pushNotifications,
+      'studyReminders': _studyReminders,
+      'sessionReminders': _sessionReminders,
+    };
+    _isCacheValid = true;
+  }
+
+  Future<void> _loadUserData() async {
+    try {
+      setState(() => _loadingInitial = true);
+
+      // Load actual user profile data from Supabase
+      final profile = await SupabaseService.instance.getUserProfile();
+
+      if (profile != null && mounted) {
+        setState(() {
+          // Load profile data with fallbacks
+          _nameController.text = profile['full_name'] ?? '';
+          _emailController.text = profile['email'] ?? '';
+          _phoneController.text = profile['phone'] ?? '';
+          _bioController.text = profile['bio'] ?? '';
+
+          // Load additional profile fields
+          _selectedGrade = profile['grade'] ?? '12th Grade';
+          _selectedExam = profile['exam_target'] ?? 'JEE';
+
+          if (profile['subjects'] is List) {
+            _selectedSubjects = List<String>.from(profile['subjects']);
+          }
+        });
+      }
+
+      // Load preferences
+      await _loadPreferences();
+
+      // Save loaded data to cache
+      _saveToCache();
+    } catch (e) {
+      debugPrint('⚠️ ProfileScreen: Failed loading user data: $e');
+      // Set default values only if loading fails
+      if (mounted) {
+        setState(() {
+          _nameController.text =
+              _nameController.text.isEmpty ? 'User' : _nameController.text;
+          _emailController.text = _emailController.text.isEmpty
+              ? 'user@example.com'
+              : _emailController.text;
+        });
+        // Save default values to cache
+        _saveToCache();
+      }
+    } finally {
+      if (mounted) setState(() => _loadingInitial = false);
+    }
+  }
+
+  Future<void> _loadPreferences() async {
+    try {
+      final profile = await SupabaseService.instance.getUserProfile();
+      final prefsRaw = profile?['preferences'];
+      if (prefsRaw is Map && mounted) {
+        setState(() {
+          _emailNotifications =
+              prefsRaw['email_notifications'] ?? _emailNotifications;
+          // Provide backward compatible keys
+          _pushNotifications =
+              prefsRaw['push_notifications'] ?? _pushNotifications;
+          _studyReminders = prefsRaw['study_reminders'] ?? _studyReminders;
+          _sessionReminders =
+              prefsRaw['session_reminders'] ?? _sessionReminders;
+        });
+      }
+    } catch (e) {
+      debugPrint('⚠️ ProfileScreen: Failed loading preferences: $e');
+    }
   }
 
   @override
@@ -54,8 +181,17 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         foregroundColor: Theme.of(context).colorScheme.onPrimary,
         actions: [
           TextButton(
-            onPressed: _saveProfile,
-            child: const Text('Save', style: TextStyle(color: Colors.white)),
+            onPressed: _isSaving ? null : _saveProfile,
+            child: _isSaving
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                    ),
+                  )
+                : const Text('Save', style: TextStyle(color: Colors.white)),
           ),
         ],
       ),
@@ -185,7 +321,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                       .map((grade) =>
                           DropdownMenuItem(value: grade, child: Text(grade)))
                       .toList(),
-                  onChanged: (value) => setState(() => _selectedGrade = value!),
+                  onChanged: (value) => setState(() {
+                    _selectedGrade = value!;
+                    _saveToCache();
+                  }),
                 ),
 
                 const SizedBox(height: 16),
@@ -200,7 +339,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                       .map((exam) =>
                           DropdownMenuItem(value: exam, child: Text(exam)))
                       .toList(),
-                  onChanged: (value) => setState(() => _selectedExam = value!),
+                  onChanged: (value) => setState(() {
+                    _selectedExam = value!;
+                    _saveToCache();
+                  }),
                 ),
 
                 const SizedBox(height: 16),
@@ -303,35 +445,61 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               const SizedBox(height: 16),
 
               Card(
-                child: Column(
-                  children: [
-                    SwitchListTile(
-                      title: const Text('Email Notifications'),
-                      subtitle: const Text('Receive updates via email'),
-                      value: true,
-                      onChanged: (value) {},
-                    ),
-                    SwitchListTile(
-                      title: const Text('Push Notifications'),
-                      subtitle: const Text('Receive push notifications'),
-                      value: true,
-                      onChanged: (value) {},
-                    ),
-                    if (isStudent)
-                      SwitchListTile(
-                        title: const Text('Study Reminders'),
-                        subtitle: const Text('Get reminded to study'),
-                        value: false,
-                        onChanged: (value) {},
+                child: _loadingInitial
+                    ? const Padding(
+                        padding: EdgeInsets.all(24.0),
+                        child: Center(child: CircularProgressIndicator()),
+                      )
+                    : Column(
+                        children: [
+                          SwitchListTile(
+                            title: const Text('Email Notifications'),
+                            subtitle: const Text('Receive updates via email'),
+                            value: _emailNotifications,
+                            onChanged: (value) {
+                              setState(() {
+                                _emailNotifications = value;
+                                _saveToCache();
+                              });
+                            },
+                          ),
+                          SwitchListTile(
+                            title: const Text('Push Notifications'),
+                            subtitle: const Text('Receive push notifications'),
+                            value: _pushNotifications,
+                            onChanged: (value) {
+                              setState(() {
+                                _pushNotifications = value;
+                                _saveToCache();
+                              });
+                            },
+                          ),
+                          if (isStudent)
+                            SwitchListTile(
+                              title: const Text('Study Reminders'),
+                              subtitle: const Text('Get reminded to study'),
+                              value: _studyReminders,
+                              onChanged: (value) {
+                                setState(() {
+                                  _studyReminders = value;
+                                  _saveToCache();
+                                });
+                              },
+                            ),
+                          SwitchListTile(
+                            title: const Text('Session Reminders'),
+                            subtitle:
+                                const Text('Get reminded before sessions'),
+                            value: _sessionReminders,
+                            onChanged: (value) {
+                              setState(() {
+                                _sessionReminders = value;
+                                _saveToCache();
+                              });
+                            },
+                          ),
+                        ],
                       ),
-                    SwitchListTile(
-                      title: const Text('Session Reminders'),
-                      subtitle: const Text('Get reminded before sessions'),
-                      value: true,
-                      onChanged: (value) {},
-                    ),
-                  ],
-                ),
               ),
 
               const SizedBox(height: 24),
@@ -437,7 +605,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('Profile picture updated from camera!'),
+              content: Text(
+                  'Profile picture selected! Remember to save your profile.'),
               backgroundColor: Colors.green,
             ),
           );
@@ -473,7 +642,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('Profile picture updated from gallery!'),
+              content: Text(
+                  'Profile picture selected! Remember to save your profile.'),
               backgroundColor: Colors.green,
             ),
           );
@@ -491,14 +661,130 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     }
   }
 
-  void _saveProfile() {
-    if (_formKey.currentState!.validate()) {
+  void _saveProfile() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    final auth = ref.read(authProvider);
+    if (auth.isLoading || _isSaving) return; // prevent duplicate taps
+
+    setState(() {
+      _isSaving = true;
+    });
+
+    try {
+      print('🔵 ProfileScreen: Starting profile save...');
+      String? avatarUrl;
+
+      // Upload profile image if one was selected
+      if (_profileImageBytes != null) {
+        print('🔵 ProfileScreen: Uploading profile image...');
+        final fileName = 'profile_${DateTime.now().millisecondsSinceEpoch}.jpg';
+        avatarUrl = await SupabaseService.instance.uploadProfileImage(
+          imageBytes: _profileImageBytes!,
+          fileName: fileName,
+        );
+        print('🟢 ProfileScreen: Image uploaded successfully: $avatarUrl');
+      }
+
+      // Build profile data with only fields that have values
+      final profileData = <String, dynamic>{
+        'full_name': _nameController.text.trim(),
+        'email': _emailController.text.trim(),
+        'bio': _bioController.text.trim(),
+      };
+
+      // Add optional fields only if they have values
+      if (_phoneController.text.trim().isNotEmpty) {
+        profileData['phone'] = _phoneController.text.trim();
+      }
+      if (_selectedGrade.isNotEmpty) {
+        profileData['grade'] = _selectedGrade;
+      }
+      if (_selectedSubjects.isNotEmpty) {
+        profileData['subjects'] = _selectedSubjects;
+      }
+      if (_selectedExam.isNotEmpty) {
+        profileData['exam_target'] = _selectedExam;
+      }
+
+      // Add avatar URL if we have one
+      if (avatarUrl != null) {
+        profileData['avatar_url'] = avatarUrl;
+      }
+
+      print('🔵 ProfileScreen: Updating profile with data: $profileData');
+      await ref.read(authProvider.notifier).updateProfile(profileData);
+
+      // Persist preferences separately (non-blocking if profile update fails earlier)
+      try {
+        print(
+            '🔵 ProfileScreen: Saving preferences patch: $_currentPreferencePatch');
+        await SupabaseService.instance
+            .updateUserPreferences(_currentPreferencePatch);
+        print('🟢 ProfileScreen: Preferences saved');
+      } catch (e) {
+        debugPrint('🔴 ProfileScreen: Failed saving preferences: $e');
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content:
+                  Text('Preferences save failed (will retry next save): $e'),
+              backgroundColor: Colors.orange,
+            ),
+          );
+        }
+      }
+
+      if (!mounted) return;
+
+      final err = ref.read(authProvider).error;
+      if (err != null) {
+        print('🔴 ProfileScreen: Save failed with error: $err');
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+              content: Text('Save failed: $err'), backgroundColor: Colors.red),
+        );
+      } else {
+        print('🟢 ProfileScreen: Profile saved successfully!');
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Profile saved successfully!'),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 2),
+          ),
+        );
+
+        // Update cache with saved data instead of invalidating it
+        // This prevents the form from being reset after save
+        _saveToCache();
+        _isCacheValid = true;
+
+        // Clear the profile image bytes since it's now uploaded
+        if (_profileImageBytes != null) {
+          setState(() {
+            _profileImageBytes = null;
+          });
+        }
+      }
+
+      setState(() {
+        _isSaving = false;
+      });
+    } catch (e) {
+      print('🔴 ProfileScreen: Exception during save: $e');
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Profile updated successfully!'),
-          backgroundColor: Colors.green,
+        SnackBar(
+          content: Text('Save failed: $e'),
+          backgroundColor: Colors.red,
         ),
       );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSaving = false;
+        });
+      }
     }
   }
 
@@ -618,6 +904,13 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
   @override
   void dispose() {
+    // Remove listeners before disposing
+    _nameController.removeListener(_saveToCache);
+    _emailController.removeListener(_saveToCache);
+    _phoneController.removeListener(_saveToCache);
+    _bioController.removeListener(_saveToCache);
+
+    // Dispose controllers
     _nameController.dispose();
     _emailController.dispose();
     _phoneController.dispose();

@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
-import 'http_cache.dart';
+
 import '../utils/logger.dart';
+import 'http_cache.dart';
 
 /// HTTP cache interceptor for automatic request/response caching
 class HttpCacheInterceptor extends Interceptor {
@@ -25,12 +26,12 @@ class HttpCacheInterceptor extends Interceptor {
 
     try {
       final cachedEntry = await HttpCache.get(options);
-      
+
       if (cachedEntry != null) {
         if (HttpCache.isValidForRequest(cachedEntry, options)) {
           // Return cached response
           Logger.debug('Returning cached response for ${options.path}');
-          
+
           final response = Response<dynamic>(
             data: cachedEntry.data,
             statusCode: 200,
@@ -38,18 +39,19 @@ class HttpCacheInterceptor extends Interceptor {
             headers: Headers.fromMap(_convertHeaders(cachedEntry.headers)),
             requestOptions: options,
           );
-          
+
           return handler.resolve(response);
-        } else if (cachedEntry.etag != null || cachedEntry.lastModified != null) {
+        } else if (cachedEntry.etag != null ||
+            cachedEntry.lastModified != null) {
           // Add conditional headers for validation
           if (cachedEntry.etag != null) {
             options.headers['If-None-Match'] = cachedEntry.etag;
           }
           if (cachedEntry.lastModified != null) {
-            options.headers['If-Modified-Since'] = 
+            options.headers['If-Modified-Since'] =
                 cachedEntry.lastModified!.toUtc().toIso8601String();
           }
-          
+
           Logger.debug('Adding conditional headers for ${options.path}');
         }
       }
@@ -73,7 +75,7 @@ class HttpCacheInterceptor extends Interceptor {
       // Handle 304 Not Modified responses
       if (response.statusCode == 304) {
         Logger.debug('Received 304 for ${response.requestOptions.path}');
-        
+
         final cachedEntry = await HttpCache.get(response.requestOptions);
         if (cachedEntry != null) {
           final cachedResponse = Response<dynamic>(
@@ -83,20 +85,21 @@ class HttpCacheInterceptor extends Interceptor {
             headers: Headers.fromMap(_convertHeaders(cachedEntry.headers)),
             requestOptions: response.requestOptions,
           );
-          
+
           return handler.resolve(cachedResponse);
         }
       }
 
       // Cache successful responses
-      if (response.statusCode != null && 
-          response.statusCode! >= 200 && 
+      if (response.statusCode != null &&
+          response.statusCode! >= 200 &&
           response.statusCode! < 300) {
         await HttpCache.put(response);
         Logger.debug('Cached response for ${response.requestOptions.path}');
       }
     } catch (e) {
-      Logger.error('Failed to cache response for ${response.requestOptions.path}: $e');
+      Logger.error(
+          'Failed to cache response for ${response.requestOptions.path}: $e');
     }
 
     handler.next(response);
@@ -115,10 +118,11 @@ class HttpCacheInterceptor extends Interceptor {
     if (_isNetworkError(err)) {
       try {
         final cachedEntry = await HttpCache.get(err.requestOptions);
-        
+
         if (cachedEntry != null) {
-          Logger.warning('Serving stale cache due to network error: ${err.message}');
-          
+          Logger.warning(
+              'Serving stale cache due to network error: ${err.message}');
+
           final response = Response<dynamic>(
             data: cachedEntry.data,
             statusCode: 200,
@@ -126,7 +130,7 @@ class HttpCacheInterceptor extends Interceptor {
             headers: Headers.fromMap(_convertHeaders(cachedEntry.headers)),
             requestOptions: err.requestOptions,
           );
-          
+
           return handler.resolve(response);
         }
       } catch (e) {
@@ -140,37 +144,38 @@ class HttpCacheInterceptor extends Interceptor {
   /// Check if request should be cached
   bool _shouldCheckCache(RequestOptions options) {
     final method = options.method.toUpperCase();
-    
+
     // Only cache specific methods
     if (!cacheableMethods.contains(method)) {
       return false;
     }
-    
+
     // Don't cache if explicitly disabled
-    final cacheControl = options.headers['cache-control']?.toString().toLowerCase();
+    final cacheControl =
+        options.headers['cache-control']?.toString().toLowerCase();
     if (cacheControl?.contains('no-cache') == true) {
       return false;
     }
-    
+
     return true;
   }
 
   /// Check if response should be cached
   bool _shouldCacheResponse(Response response) {
     final method = response.requestOptions.method.toUpperCase();
-    
+
     // Only cache specific methods
     if (!cacheableMethods.contains(method)) {
       return false;
     }
-    
+
     // Don't cache error responses (except 304)
-    if (response.statusCode != null && 
-        response.statusCode! >= 400 && 
+    if (response.statusCode != null &&
+        response.statusCode! >= 400 &&
         response.statusCode != 304) {
       return false;
     }
-    
+
     return true;
   }
 
@@ -190,7 +195,7 @@ class HttpCacheInterceptor extends Interceptor {
   /// Convert headers from cache format to Dio format
   Map<String, List<String>> _convertHeaders(Map<String, dynamic> headers) {
     final converted = <String, List<String>>{};
-    
+
     for (final entry in headers.entries) {
       if (entry.value is List) {
         converted[entry.key] = List<String>.from(entry.value);
@@ -200,7 +205,7 @@ class HttpCacheInterceptor extends Interceptor {
         converted[entry.key] = [entry.value.toString()];
       }
     }
-    
+
     return converted;
   }
 }
@@ -221,11 +226,11 @@ class CacheOptions {
 
   /// Convert to request extra data
   Map<String, dynamic> toExtra() => {
-    'cache_use': useCache,
-    'cache_max_age': maxAge?.inSeconds,
-    'cache_allow_stale': allowStale,
-    'cache_status_codes': cacheableStatusCodes,
-  };
+        'cache_use': useCache,
+        'cache_max_age': maxAge?.inSeconds,
+        'cache_allow_stale': allowStale,
+        'cache_status_codes': cacheableStatusCodes,
+      };
 }
 
 /// Extension to add cache options to request options
@@ -234,16 +239,17 @@ extension RequestCacheOptions on RequestOptions {
   void setCacheOptions(CacheOptions options) {
     extra.addAll(options.toExtra());
   }
-  
+
   /// Get cache configuration from request
   CacheOptions getCacheOptions() {
     return CacheOptions(
       useCache: extra['cache_use'] ?? true,
-      maxAge: extra['cache_max_age'] != null 
+      maxAge: extra['cache_max_age'] != null
           ? Duration(seconds: extra['cache_max_age'])
           : null,
       allowStale: extra['cache_allow_stale'] ?? false,
-      cacheableStatusCodes: extra['cache_status_codes'] ?? [200, 201, 202, 203, 300, 301, 410],
+      cacheableStatusCodes:
+          extra['cache_status_codes'] ?? [200, 201, 202, 203, 300, 301, 410],
     );
   }
 }

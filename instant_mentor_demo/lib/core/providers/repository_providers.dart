@@ -1,20 +1,21 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../models/user.dart';
-import '../config/app_config.dart';
+
 import '../../data/repositories/base_repository.dart';
-import '../../data/repositories/mock_auth_repository.dart';
 import '../../data/repositories/http_auth_repository.dart';
+import '../../data/repositories/mock_auth_repository.dart';
+import '../config/app_config.dart';
+import '../models/user.dart';
 
 /// Provider for the authentication repository
 /// Automatically switches between mock and HTTP implementation based on environment
 final authRepositoryProvider = Provider<AuthRepository>((ref) {
   final config = AppConfig.instance;
-  
+
   // Use mock implementation in development for testing
   if (config.isDevelopment) {
     return MockAuthRepository();
   }
-  
+
   // Use HTTP implementation for staging and production
   return HttpAuthRepository();
 });

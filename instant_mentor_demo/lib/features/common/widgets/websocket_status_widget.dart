@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../core/services/websocket_service.dart';
+
 import '../../../core/providers/websocket_provider.dart';
+import '../../../core/services/websocket_service.dart';
 
 class WebSocketStatusIndicator extends ConsumerWidget {
   final bool showText;

@@ -1,7 +1,8 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../services/supabase_service.dart';
+
 import '../models/user.dart';
+import '../services/supabase_service.dart';
 
 class MentorSearchParams {
   final String? query; // free text or exam tag
@@ -58,25 +59,23 @@ class MentorRepository {
   Future<List<Mentor>> searchMentors(MentorSearchParams p) async {
     try {
       // Prefer RPC if available
-      final res = await _supabase.client
-          .rpc('search_mentors', params: {
-            'p_query': p.query,
-            'p_exam': p.exam,
-            'p_subject': p.subject,
-            'p_min_rating': p.minRating,
-            'p_min_experience': p.minExperience,
-            'p_available': p.onlyAvailable,
-            'p_limit': p.limit,
-            'p_offset': p.offset,
-            'p_sort': p.sort,
-          })
-          .select();
+      final res = await _supabase.client.rpc('search_mentors', params: {
+        'p_query': p.query,
+        'p_exam': p.exam,
+        'p_subject': p.subject,
+        'p_min_rating': p.minRating,
+        'p_min_experience': p.minExperience,
+        'p_available': p.onlyAvailable,
+        'p_limit': p.limit,
+        'p_offset': p.offset,
+        'p_sort': p.sort,
+      }).select();
 
       return _mapRows(res);
     } catch (e) {
       // Fallback to direct table query if RPC missing
       debugPrint('search_mentors RPC failed, falling back to table query: $e');
-  dynamic query = _supabase.client.from('mentor_profiles').select('*');
+      dynamic query = _supabase.client.from('mentor_profiles').select();
 
       if (p.query != null && p.query!.isNotEmpty) {
         final q = p.query!;
@@ -102,16 +101,18 @@ class MentorRepository {
 
       switch (p.sort) {
         case 'experience_desc':
-      query = query.order('years_of_experience', ascending: false);
+          query = query.order('years_of_experience', ascending: false);
           break;
         case 'price_asc':
-      query = query.order('hourly_rate', ascending: true);
+          query = query.order('hourly_rate', ascending: true);
           break;
         default:
-      query = query.order('rating', ascending: false).order('rating_count', ascending: false);
+          query = query
+              .order('rating', ascending: false)
+              .order('rating_count', ascending: false);
       }
 
-    query = query.range(p.offset, p.offset + p.limit - 1);
+      query = query.range(p.offset, p.offset + p.limit - 1);
       final res = await query;
       return _mapRows(res);
     }
@@ -148,7 +149,8 @@ final mentorSearchParamsProvider = StateProvider<MentorSearchParams>((ref) {
   return const MentorSearchParams();
 });
 
-final mentorSearchResultsProvider = FutureProvider.autoDispose<List<Mentor>>((ref) async {
+final mentorSearchResultsProvider =
+    FutureProvider.autoDispose<List<Mentor>>((ref) async {
   final repo = ref.watch(mentorRepositoryProvider);
   final params = ref.watch(mentorSearchParamsProvider);
   return repo.searchMentors(params);

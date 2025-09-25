@@ -1,10 +1,12 @@
-import 'dart:io';
 import 'dart:convert';
+import 'dart:io';
+
 import 'package:crypto/crypto.dart';
 import 'package:package_info_plus/package_info_plus.dart';
+
+import '../error/app_error.dart';
 import '../utils/logger.dart';
 import '../utils/result.dart';
-import '../error/app_error.dart';
 
 /// Simplified device information class
 class DeviceInfo {
@@ -28,14 +30,14 @@ class DeviceInfo {
 
   /// Convert to JSON
   Map<String, dynamic> toJson() => {
-    'deviceId': deviceId,
-    'platform': platform,
-    'platformVersion': platformVersion,
-    'appVersion': appVersion,
-    'appBuildNumber': appBuildNumber,
-    'deviceModel': deviceModel,
-    'deviceBrand': deviceBrand,
-  };
+        'deviceId': deviceId,
+        'platform': platform,
+        'platformVersion': platformVersion,
+        'appVersion': appVersion,
+        'appBuildNumber': appBuildNumber,
+        'deviceModel': deviceModel,
+        'deviceBrand': deviceBrand,
+      };
 
   /// Create from JSON
   factory DeviceInfo.fromJson(Map<String, dynamic> json) {
@@ -51,7 +53,8 @@ class DeviceInfo {
   }
 
   @override
-  String toString() => 'DeviceInfo(platform: $platform, model: $deviceModel, brand: $deviceBrand)';
+  String toString() =>
+      'DeviceInfo(platform: $platform, model: $deviceModel, brand: $deviceBrand)';
 }
 
 /// Simplified device information service
@@ -65,7 +68,7 @@ class DeviceInfoService {
     try {
       final packageInfo = await PackageInfo.fromPlatform();
       final deviceId = await _generateSecureDeviceId();
-      
+
       final deviceInfo = DeviceInfo(
         deviceId: deviceId,
         platform: Platform.operatingSystem,
@@ -75,7 +78,7 @@ class DeviceInfoService {
         deviceModel: _getSimplifiedModel(),
         deviceBrand: _getSimplifiedBrand(),
       );
-      
+
       Logger.info('DeviceInfoService: Device info retrieved successfully');
       return Success(deviceInfo);
     } catch (e) {
@@ -91,17 +94,20 @@ class DeviceInfoService {
     try {
       // Create a unique identifier using platform info and app info
       final packageInfo = await PackageInfo.fromPlatform();
-      final platformInfo = '${Platform.operatingSystem}-${Platform.operatingSystemVersion}';
+      final platformInfo =
+          '${Platform.operatingSystem}-${Platform.operatingSystemVersion}';
       final appInfo = '${packageInfo.packageName}-${packageInfo.version}';
-      
+
       // Create a hash from available system information
-      final combinedInfo = '$platformInfo-$appInfo-${DateTime.now().millisecondsSinceEpoch}';
+      final combinedInfo =
+          '$platformInfo-$appInfo-${DateTime.now().millisecondsSinceEpoch}';
       final bytes = utf8.encode(combinedInfo);
       final digest = sha256.convert(bytes);
-      
+
       return digest.toString().substring(0, 32); // Use first 32 characters
     } catch (e) {
-      Logger.warning('DeviceInfoService: Error generating device ID, using fallback');
+      Logger.warning(
+          'DeviceInfoService: Error generating device ID, using fallback');
       return DateTime.now().millisecondsSinceEpoch.toString();
     }
   }

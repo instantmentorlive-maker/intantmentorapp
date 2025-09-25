@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/providers/auth_provider.dart';
 import '../../../core/providers/user_provider.dart';
+import '../../../core/services/supabase_service.dart';
 
 // Settings providers for state management
 final notificationsEnabledProvider = StateProvider<bool>((ref) => true);
@@ -93,10 +94,12 @@ class SettingsScreen extends ConsumerWidget {
                     subtitle:
                         const Text('Receive notifications on your device'),
                     value: ref.watch(pushNotificationsProvider),
-                    onChanged: (value) {
-                      ref.read(pushNotificationsProvider.notifier).state =
-                          value;
-                    },
+                    onChanged: (value) => _updateToggle(
+                        ref,
+                        'push_notifications',
+                        pushNotificationsProvider,
+                        value,
+                        context),
                   ),
                   const Divider(height: 1),
                   SwitchListTile(
@@ -104,10 +107,12 @@ class SettingsScreen extends ConsumerWidget {
                     title: const Text('Email Notifications'),
                     subtitle: const Text('Get updates via email'),
                     value: ref.watch(emailNotificationsProvider),
-                    onChanged: (value) {
-                      ref.read(emailNotificationsProvider.notifier).state =
-                          value;
-                    },
+                    onChanged: (value) => _updateToggle(
+                        ref,
+                        'email_notifications',
+                        emailNotificationsProvider,
+                        value,
+                        context),
                   ),
                   if (isStudent) ...[
                     const Divider(height: 1),
@@ -116,9 +121,12 @@ class SettingsScreen extends ConsumerWidget {
                       title: const Text('Study Reminders'),
                       subtitle: const Text('Daily study session reminders'),
                       value: ref.watch(studyRemindersProvider),
-                      onChanged: (value) {
-                        ref.read(studyRemindersProvider.notifier).state = value;
-                      },
+                      onChanged: (value) => _updateToggle(
+                          ref,
+                          'study_reminders',
+                          studyRemindersProvider,
+                          value,
+                          context),
                     ),
                   ],
                   const Divider(height: 1),
@@ -127,9 +135,12 @@ class SettingsScreen extends ConsumerWidget {
                     title: const Text('Session Reminders'),
                     subtitle: const Text('Upcoming session notifications'),
                     value: ref.watch(sessionRemindersProvider),
-                    onChanged: (value) {
-                      ref.read(sessionRemindersProvider.notifier).state = value;
-                    },
+                    onChanged: (value) => _updateToggle(
+                        ref,
+                        'session_reminders',
+                        sessionRemindersProvider,
+                        value,
+                        context),
                   ),
                   const Divider(height: 1),
                   ListTile(
@@ -430,6 +441,42 @@ class SettingsScreen extends ConsumerWidget {
     Navigator.pushNamed(context, '/profile');
   }
 
+  // Persist toggle with optimistic update
+  void _updateToggle<T>(WidgetRef ref, String key, StateProvider<bool> provider,
+      bool newValue, BuildContext context) async {
+    final previousValue = ref.read(provider);
+
+    print(
+        '🔵 SettingsScreen: Toggle "$key" changing from $previousValue to $newValue');
+
+    try {
+      print('🔵 SettingsScreen: Setting optimistic state for "$key"');
+      ref.read(provider.notifier).state = newValue; // optimistic update
+
+      print(
+          '🔵 SettingsScreen: Calling SupabaseService.updateUserPreferences for "$key"');
+      await SupabaseService.instance.updateUserPreferences({key: newValue});
+
+      print('🟢 SettingsScreen: Toggle "$key" saved successfully');
+      if (context.mounted) {
+        _showSnackBar(context, 'Setting "$key" saved successfully');
+      }
+    } catch (e) {
+      print('🔴 SettingsScreen: Toggle "$key" save failed: $e');
+      // revert on failure
+      ref.read(provider.notifier).state = previousValue;
+      print('🔴 SettingsScreen: Reverted "$key" back to $previousValue');
+
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+              content: Text('Failed to save "$key": $e'),
+              backgroundColor: Colors.red),
+        );
+      }
+    }
+  }
+
   void _showPrivacySettings(BuildContext context) {
     showDialog(
       context: context,
@@ -633,28 +680,50 @@ class SettingsScreen extends ConsumerWidget {
   }
 
   void _showChangePassword(BuildContext context) {
+    final currentCtrl = TextEditingController();
+    final newCtrl = TextEditingController();
+    final confirmCtrl = TextEditingController();
+    final formKey = GlobalKey<FormState>();
+
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Change Password'),
-        content: const Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              obscureText: true,
-              decoration: InputDecoration(labelText: 'Current Password'),
-            ),
-            SizedBox(height: 16),
-            TextField(
-              obscureText: true,
-              decoration: InputDecoration(labelText: 'New Password'),
-            ),
-            SizedBox(height: 16),
-            TextField(
-              obscureText: true,
-              decoration: InputDecoration(labelText: 'Confirm New Password'),
-            ),
-          ],
+        content: Form(
+          key: formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextFormField(
+                controller: currentCtrl,
+                obscureText: true,
+                decoration:
+                    const InputDecoration(labelText: 'Current Password'),
+                validator: (v) =>
+                    (v == null || v.isEmpty) ? 'Enter current password' : null,
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: newCtrl,
+                obscureText: true,
+                decoration: const InputDecoration(labelText: 'New Password'),
+                validator: (v) {
+                  if (v == null || v.isEmpty) return 'Enter new password';
+                  if (v.length < 8) return 'Min 8 characters';
+                  return null;
+                },
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: confirmCtrl,
+                obscureText: true,
+                decoration:
+                    const InputDecoration(labelText: 'Confirm New Password'),
+                validator: (v) =>
+                    v != newCtrl.text ? 'Passwords do not match' : null,
+              ),
+            ],
+          ),
         ),
         actions: [
           TextButton(
@@ -662,9 +731,31 @@ class SettingsScreen extends ConsumerWidget {
             child: const Text('Cancel'),
           ),
           ElevatedButton(
-            onPressed: () {
-              Navigator.pop(context);
-              _showSnackBar(context, 'Password changed successfully!');
+            onPressed: () async {
+              if (!formKey.currentState!.validate()) return;
+              Navigator.pop(context); // close dialog
+              // show progress
+              showDialog(
+                context: context,
+                barrierDismissible: false,
+                builder: (_) =>
+                    const Center(child: CircularProgressIndicator()),
+              );
+              try {
+                // Note: Supabase requires re-auth for true current password validation; here we just set new.
+                // Use Riverpod ref via Navigator ancestor context: wrap call in a ProviderScope consumer
+                // Since this method is inside ConsumerWidget, we can access a ProviderContainer through ProviderScope.containerOf
+                final container =
+                    ProviderScope.containerOf(context, listen: false);
+                await container
+                    .read(authProvider.notifier)
+                    .setNewPassword(newCtrl.text.trim());
+                Navigator.of(context).pop();
+                _showSnackBar(context, 'Password updated');
+              } catch (e) {
+                Navigator.of(context).pop();
+                _showSnackBar(context, 'Failed: $e');
+              }
             },
             child: const Text('Change'),
           ),

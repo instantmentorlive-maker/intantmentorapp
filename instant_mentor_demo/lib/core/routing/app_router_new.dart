@@ -1,24 +1,23 @@
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
-import '../../features/auth/signup/signup_screen.dart';
 import '../../features/auth/login/login_screen.dart';
 import '../../features/auth/models/auth_state.dart';
-
-import '../../features/student/home/student_home_screen.dart';
-import '../../features/student/booking/book_session_screen.dart';
-import '../../features/student/chat/student_chat_screen.dart';
-import '../../features/student/progress/progress_screen.dart';
-import '../../features/student/wallet/enhanced_wallet_screen.dart';
-import '../../features/mentor/home/mentor_home_screen.dart';
-import '../../features/mentor/requests/session_requests_screen.dart';
+import '../../features/auth/signup/signup_screen.dart';
+import '../../features/mentor/availability/availability_screen.dart';
 import '../../features/mentor/chat/mentor_chat_screen.dart';
 import '../../features/mentor/earnings/earnings_screen.dart';
-import '../../features/mentor/availability/availability_screen.dart';
+import '../../features/mentor/home/mentor_home_screen.dart';
+import '../../features/mentor/requests/session_requests_screen.dart';
 import '../../features/shared/live_session/live_session_screen.dart';
 import '../../features/shared/more/more_menu_screen.dart';
 import '../../features/shared/profile/mentor_profile_screen.dart';
+import '../../features/student/booking/book_session_screen.dart';
+import '../../features/student/chat/student_chat_screen.dart';
+import '../../features/student/home/student_home_screen.dart';
+import '../../features/student/progress/progress_screen.dart';
+import '../../features/student/wallet/enhanced_wallet_screen.dart';
 import '../../main_navigation.dart';
 
 final goRouterProvider = Provider<GoRouter>((ref) {

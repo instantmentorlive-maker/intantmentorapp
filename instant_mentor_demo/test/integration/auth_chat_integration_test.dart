@@ -1,11 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:integration_test/integration_test.dart';
-
-import 'package:instant_mentor_demo/main.dart' as app;
+import 'package:flutter_test/flutter_test.dart';
 import 'package:instant_mentor_demo/core/providers/auth_provider.dart';
 import 'package:instant_mentor_demo/core/providers/chat_providers.dart';
+import 'package:instant_mentor_demo/main.dart' as app;
+import 'package:integration_test/integration_test.dart';
 
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
@@ -120,8 +119,8 @@ void main() {
 
     testWidgets('Call permissions handling', (WidgetTester tester) async {
       await tester.pumpWidget(
-        ProviderScope(
-          child: const app.MyApp(),
+        const ProviderScope(
+          child: app.MyApp(),
         ),
       );
 

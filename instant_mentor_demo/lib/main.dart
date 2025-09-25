@@ -1,15 +1,18 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
-import 'package:go_router/go_router.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import 'core/config/app_config.dart';
+import 'core/logging/app_logger.dart';
+import 'core/debug/provider_observer.dart';
 import 'core/network/network_client.dart';
+import 'core/providers/websocket_provider.dart';
 import 'core/routing/routing.dart';
 import 'core/services/supabase_service.dart';
-import 'core/providers/websocket_provider.dart';
+import 'core/widgets/global_back_button_handler.dart';
+import 'examples/video_call_example.dart';
 import 'features/common/widgets/error_handler_widget.dart';
 import 'features/realtime/realtime_communication_overlay.dart';
-import 'core/debug/provider_observer.dart';
 
 void main() async {
   // Ensure Flutter binding is initialized
@@ -18,12 +21,16 @@ void main() async {
   // Initialize app configuration and network client
   await _initializeApp();
 
+  const bool kDisableObserversForWebDebug = true; // set false to restore
+
   runApp(
     ProviderScope(
-      observers: [
-        DebugProviderObserver(),
-        MemoryLeakObserver(),
-      ],
+      observers: kDisableObserversForWebDebug
+          ? const []
+          : [
+              DebugProviderObserver(),
+              MemoryLeakObserver(),
+            ],
       child: const MyApp(),
     ),
   );
@@ -45,10 +52,9 @@ Future<void> _initializeApp() async {
     NetworkClient.initialize();
 
     // Only show essential initialization message
-    debugPrint('✅ InstantMentor initialized successfully');
+    AppLogger.info('InstantMentor initialized successfully');
   } catch (e, stackTrace) {
-    debugPrint('❌ App initialization failed: $e');
-    debugPrint('StackTrace: $stackTrace');
+    AppLogger.error('App initialization failed', e, stackTrace);
     // Continue execution - app can still work with default settings
   }
 }
@@ -105,10 +111,12 @@ class MyApp extends ConsumerWidget {
       routerConfig: router,
       debugShowCheckedModeBanner: false,
       builder: (context, child) {
-        // Preserve existing global error + realtime overlays.
-        return ErrorHandlerWidget(
-          child: RealtimeCommunicationOverlay(
-            child: child ?? const SizedBox.shrink(),
+        // Wrap with GlobalBackButtonHandler to handle video call minimization
+        return GlobalBackButtonHandler(
+          child: ErrorHandlerWidget(
+            child: RealtimeCommunicationOverlay(
+              child: child ?? const SizedBox.shrink(),
+            ),
           ),
         );
       },
@@ -301,7 +309,6 @@ class _DemoScreenState extends State<DemoScreen> {
               children: [
                 _UpcomingSessionTile(
                   mentorName: 'Dr. Sarah Smith',
-                  mentorId: 'mentor_2',
                   subject: 'Mathematics',
                   time: 'Today, 3:00 PM',
                   duration: '60 min',
@@ -309,7 +316,6 @@ class _DemoScreenState extends State<DemoScreen> {
                 Divider(height: 1),
                 _UpcomingSessionTile(
                   mentorName: 'Prof. Raj Kumar',
-                  mentorId: 'mentor_1',
                   subject: 'Physics',
                   time: 'Tomorrow, 10:00 AM',
                   duration: '45 min',
@@ -1172,6 +1178,14 @@ class _DemoScreenState extends State<DemoScreen> {
                 _showComingSoon();
               },
             ),
+            ListTile(
+              leading: const Icon(Icons.video_call),
+              title: const Text('Video Call Demo'),
+              onTap: () {
+                Navigator.of(context).pop();
+                _navigateToVideoCallDemo();
+              },
+            ),
             if (_isStudent) ...[
               ListTile(
                 leading: const Icon(Icons.leaderboard),
@@ -1225,6 +1239,14 @@ class _DemoScreenState extends State<DemoScreen> {
         content: Text(
             'Coming soon! This feature will be available in the next update.'),
         duration: Duration(seconds: 2),
+      ),
+    );
+  }
+
+  void _navigateToVideoCallDemo() {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => const VideoCallExample(),
       ),
     );
   }
@@ -1510,14 +1532,12 @@ class _EarningsCard extends StatelessWidget {
 
 class _UpcomingSessionTile extends StatelessWidget {
   final String mentorName;
-  final String mentorId;
   final String subject;
   final String time;
   final String duration;
 
   const _UpcomingSessionTile({
     required this.mentorName,
-    required this.mentorId,
     required this.subject,
     required this.time,
     required this.duration,
@@ -1526,21 +1546,9 @@ class _UpcomingSessionTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListTile(
-      leading: GestureDetector(
-        onTap: () {
-          // Navigate to mentor profile using GoRouter
-          context.go('/mentor-profile/$mentorId');
-        },
-        child: CircleAvatar(
-          backgroundColor: Theme.of(context).colorScheme.primaryContainer,
-          child: Text(
-            mentorName.split(' ').map((n) => n[0]).join(),
-            style: TextStyle(
-              color: Theme.of(context).colorScheme.onPrimaryContainer,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-        ),
+      leading: CircleAvatar(
+        backgroundColor: Theme.of(context).colorScheme.primaryContainer,
+        child: Text(mentorName.split(' ').map((n) => n[0]).join()),
       ),
       title: Text('$subject with $mentorName'),
       subtitle: Text('$time • $duration'),

@@ -1,11 +1,12 @@
 import 'package:local_auth/local_auth.dart';
-import '../utils/logger.dart';
-import '../utils/result.dart';
+
+import '../../data/repositories/base_repository.dart';
+import '../auth/biometric_service.dart';
 import '../error/app_error.dart';
 import '../models/user.dart';
-import '../auth/biometric_service.dart';
 import '../session/session_manager_service.dart';
-import '../../data/repositories/base_repository.dart';
+import '../utils/logger.dart';
+import '../utils/result.dart';
 
 /// Advanced authentication service with biometric and multi-session support
 class AdvancedAuthService {
@@ -16,13 +17,13 @@ class AdvancedAuthService {
   final BiometricService _biometricService = BiometricService();
   final SessionManagerService _sessionManager = SessionManagerService();
   AuthRepository? _authRepository;
-  
+
   /// Initialize with auth repository
   void initialize(AuthRepository authRepository) {
     _authRepository = authRepository;
     Logger.info('AdvancedAuthService: Initialized');
   }
-  
+
   /// Sign in with credentials and optional biometric setup
   Future<Result<Session>> signIn(
     LoginCredentials credentials, {
@@ -35,39 +36,41 @@ class AdvancedAuthService {
         AppGeneralError.unknown('Authentication service not initialized'),
       );
     }
-    
+
     try {
       Logger.info('AdvancedAuthService: Signing in user ${credentials.email}');
-      
+
       // Perform sign in
       final signInResult = await _authRepository!.signIn(credentials);
       if (signInResult.isFailure) {
         return Failure(signInResult.error!);
       }
-      
+
       final session = signInResult.data!;
-      
+
       // Store session with enhanced features
       final storeResult = await _sessionManager.storeSession(session);
       if (storeResult.isFailure) {
-        Logger.warning('AdvancedAuthService: Could not store session - ${storeResult.error}');
+        Logger.warning(
+            'AdvancedAuthService: Could not store session - ${storeResult.error}');
       }
-      
+
       // Set preferences
       await _sessionManager.setRememberMeEnabled(rememberMe);
       await _sessionManager.setAutoLoginEnabled(autoLogin);
-      
+
       // Setup biometric if requested and available
       if (setupBiometric) {
         final biometricResult = await _setupBiometricAuth(session);
         if (biometricResult.isFailure) {
-          Logger.warning('AdvancedAuthService: Could not setup biometric - ${biometricResult.error}');
+          Logger.warning(
+              'AdvancedAuthService: Could not setup biometric - ${biometricResult.error}');
         }
       }
-      
-      Logger.info('AdvancedAuthService: Sign in successful for ${session.user.email}');
+
+      Logger.info(
+          'AdvancedAuthService: Sign in successful for ${session.user.email}');
       return Success(session);
-      
     } catch (e) {
       Logger.error('AdvancedAuthService: Error during sign in - $e');
       return Failure(
@@ -75,12 +78,12 @@ class AdvancedAuthService {
       );
     }
   }
-  
+
   /// Sign in using biometric authentication
   Future<Result<Session>> signInWithBiometric() async {
     try {
       Logger.info('AdvancedAuthService: Attempting biometric sign in');
-      
+
       // Check if biometric is enabled
       final biometricEnabledResult = await _sessionManager.isBiometricEnabled();
       if (biometricEnabledResult.isFailure || !biometricEnabledResult.data!) {
@@ -91,18 +94,16 @@ class AdvancedAuthService {
           ),
         );
       }
-      
+
       // Perform biometric authentication
       final authResult = await _biometricService.authenticate(
         reason: 'Please verify your identity to access your account',
-        useErrorDialogs: true,
-        stickyAuth: true,
       );
-      
+
       if (authResult.isFailure) {
         return Failure(authResult.error!);
       }
-      
+
       if (!authResult.data!) {
         return const Failure(
           AuthError(
@@ -111,25 +112,25 @@ class AdvancedAuthService {
           ),
         );
       }
-      
+
       // Get current session
       final sessionResult = await _sessionManager.getCurrentSession();
       if (sessionResult.isFailure) {
         return Failure(sessionResult.error!);
       }
-      
+
       if (sessionResult.data == null) {
         return const Failure(
           AuthError(
-            message: 'No saved session found. Please sign in with your credentials.',
+            message:
+                'No saved session found. Please sign in with your credentials.',
             code: 'NO_SAVED_SESSION',
           ),
         );
       }
-      
+
       Logger.info('AdvancedAuthService: Biometric sign in successful');
       return Success(sessionResult.data!);
-      
     } catch (e) {
       Logger.error('AdvancedAuthService: Error during biometric sign in - $e');
       return Failure(
@@ -137,33 +138,34 @@ class AdvancedAuthService {
       );
     }
   }
-  
+
   /// Attempt auto-login
   Future<Result<Session?>> attemptAutoLogin() async {
     try {
       Logger.info('AdvancedAuthService: Attempting auto-login');
-      
+
       // Check if auto-login is enabled
       final autoLoginEnabledResult = await _sessionManager.isAutoLoginEnabled();
       if (autoLoginEnabledResult.isFailure || !autoLoginEnabledResult.data!) {
         Logger.info('AdvancedAuthService: Auto-login is disabled');
         return const Success(null);
       }
-      
+
       // Get current session
       final sessionResult = await _sessionManager.getCurrentSession();
       if (sessionResult.isFailure) {
-        Logger.warning('AdvancedAuthService: Auto-login failed - ${sessionResult.error}');
+        Logger.warning(
+            'AdvancedAuthService: Auto-login failed - ${sessionResult.error}');
         return const Success(null);
       }
-      
+
       if (sessionResult.data == null) {
         Logger.info('AdvancedAuthService: No saved session for auto-login');
         return const Success(null);
       }
-      
+
       final session = sessionResult.data!;
-      
+
       // Validate session is still valid
       if (_authRepository != null) {
         final isAuthenticatedResult = await _authRepository!.isAuthenticated();
@@ -173,59 +175,59 @@ class AdvancedAuthService {
           return const Success(null);
         }
       }
-      
-      Logger.info('AdvancedAuthService: Auto-login successful for ${session.user.email}');
+
+      Logger.info(
+          'AdvancedAuthService: Auto-login successful for ${session.user.email}');
       return Success(session);
-      
     } catch (e) {
       Logger.error('AdvancedAuthService: Error during auto-login - $e');
       return const Success(null); // Don't fail the app, just don't auto-login
     }
   }
-  
+
   /// Setup biometric authentication
   Future<Result<void>> setupBiometricAuth(Session session) async {
     return await _setupBiometricAuth(session);
   }
-  
+
   /// Internal biometric setup
   Future<Result<void>> _setupBiometricAuth(Session session) async {
     try {
       Logger.info('AdvancedAuthService: Setting up biometric authentication');
-      
+
       // Check if biometrics are available
       final availabilityResult = await _biometricService.isAvailable();
       if (availabilityResult.isFailure || !availabilityResult.data!) {
         return const Failure(
           AuthError(
-            message: 'Biometric authentication is not available on this device.',
+            message:
+                'Biometric authentication is not available on this device.',
             code: 'BIOMETRIC_NOT_AVAILABLE',
           ),
         );
       }
-      
+
       // Check if biometrics are enrolled
       final enrolledResult = await _biometricService.hasEnrolledBiometrics();
       if (enrolledResult.isFailure || !enrolledResult.data!) {
         return const Failure(
           AuthError(
-            message: 'No biometrics are enrolled on this device. Please set up fingerprint or face recognition in your device settings.',
+            message:
+                'No biometrics are enrolled on this device. Please set up fingerprint or face recognition in your device settings.',
             code: 'BIOMETRIC_NOT_ENROLLED',
           ),
         );
       }
-      
+
       // Test biometric authentication
       final authResult = await _biometricService.authenticate(
         reason: 'Please verify your biometric to enable biometric sign in',
-        useErrorDialogs: true,
-        stickyAuth: true,
       );
-      
+
       if (authResult.isFailure) {
         return Failure(authResult.error!);
       }
-      
+
       if (!authResult.data!) {
         return const Failure(
           AuthError(
@@ -234,13 +236,13 @@ class AdvancedAuthService {
           ),
         );
       }
-      
+
       // Enable biometric authentication
       await _sessionManager.setBiometricEnabled(true);
-      
-      Logger.info('AdvancedAuthService: Biometric authentication setup complete');
+
+      Logger.info(
+          'AdvancedAuthService: Biometric authentication setup complete');
       return const Success(null);
-      
     } catch (e) {
       Logger.error('AdvancedAuthService: Error setting up biometric auth - $e');
       return Failure(
@@ -248,7 +250,7 @@ class AdvancedAuthService {
       );
     }
   }
-  
+
   /// Disable biometric authentication
   Future<Result<void>> disableBiometricAuth() async {
     try {
@@ -258,11 +260,12 @@ class AdvancedAuthService {
     } catch (e) {
       Logger.error('AdvancedAuthService: Error disabling biometric auth - $e');
       return Failure(
-        AppGeneralError.unknown('Failed to disable biometric authentication: $e'),
+        AppGeneralError.unknown(
+            'Failed to disable biometric authentication: $e'),
       );
     }
   }
-  
+
   /// Sign out from current session
   Future<Result<void>> signOut() async {
     if (_authRepository == null) {
@@ -270,31 +273,31 @@ class AdvancedAuthService {
         AppGeneralError.unknown('Authentication service not initialized'),
       );
     }
-    
+
     try {
       Logger.info('AdvancedAuthService: Signing out');
-      
+
       // Get current session to identify it
       final sessionResult = await _sessionManager.getCurrentSession();
       String? sessionId;
       if (sessionResult.isSuccess && sessionResult.data != null) {
         sessionId = sessionResult.data!.token.accessToken;
       }
-      
+
       // Clear from auth repository
       final signOutResult = await _authRepository!.signOut();
       if (signOutResult.isFailure) {
-        Logger.warning('AdvancedAuthService: Repository sign out failed - ${signOutResult.error}');
+        Logger.warning(
+            'AdvancedAuthService: Repository sign out failed - ${signOutResult.error}');
       }
-      
+
       // Clear current session
       if (sessionId != null) {
         await _sessionManager.clearSession(sessionId);
       }
-      
+
       Logger.info('AdvancedAuthService: Sign out complete');
       return const Success(null);
-      
     } catch (e) {
       Logger.error('AdvancedAuthService: Error during sign out - $e');
       return Failure(
@@ -302,7 +305,7 @@ class AdvancedAuthService {
       );
     }
   }
-  
+
   /// Sign out from all sessions
   Future<Result<void>> signOutFromAllSessions() async {
     if (_authRepository == null) {
@@ -310,40 +313,41 @@ class AdvancedAuthService {
         AppGeneralError.unknown('Authentication service not initialized'),
       );
     }
-    
+
     try {
       Logger.info('AdvancedAuthService: Signing out from all sessions');
-      
+
       // Clear from auth repository
       final signOutResult = await _authRepository!.signOut();
       if (signOutResult.isFailure) {
-        Logger.warning('AdvancedAuthService: Repository sign out failed - ${signOutResult.error}');
+        Logger.warning(
+            'AdvancedAuthService: Repository sign out failed - ${signOutResult.error}');
       }
-      
+
       // Clear all sessions
       await _sessionManager.clearAllSessions();
-      
+
       // Reset authentication preferences
       await _sessionManager.setBiometricEnabled(false);
       await _sessionManager.setRememberMeEnabled(false);
       await _sessionManager.setAutoLoginEnabled(false);
-      
+
       Logger.info('AdvancedAuthService: Sign out from all sessions complete');
       return const Success(null);
-      
     } catch (e) {
-      Logger.error('AdvancedAuthService: Error signing out from all sessions - $e');
+      Logger.error(
+          'AdvancedAuthService: Error signing out from all sessions - $e');
       return Failure(
         AppGeneralError.unknown('Sign out from all sessions failed: $e'),
       );
     }
   }
-  
+
   /// Get current session
   Future<Result<Session?>> getCurrentSession() async {
     return await _sessionManager.getCurrentSession();
   }
-  
+
   /// Check authentication status
   Future<Result<bool>> isAuthenticated() async {
     try {
@@ -351,45 +355,44 @@ class AdvancedAuthService {
       if (sessionResult.isFailure) {
         return const Success(false);
       }
-      
+
       if (sessionResult.data == null) {
         return const Success(false);
       }
-      
+
       // Double-check with auth repository if available
       if (_authRepository != null) {
         final repoResult = await _authRepository!.isAuthenticated();
         return Success(repoResult);
       }
-      
+
       return const Success(true);
-      
     } catch (e) {
       Logger.error('AdvancedAuthService: Error checking authentication - $e');
       return const Success(false);
     }
   }
-  
+
   /// Get all user sessions
   Future<Result<List<EnhancedSession>>> getAllSessions() async {
     return await _sessionManager.getAllSessions();
   }
-  
+
   /// Switch to different session
   Future<Result<void>> switchToSession(String sessionId) async {
     return await _sessionManager.switchToSession(sessionId);
   }
-  
+
   /// Check if biometric authentication is available
   Future<Result<bool>> isBiometricAvailable() async {
     return await _biometricService.isAvailable();
   }
-  
+
   /// Check if biometric authentication is enabled
   Future<Result<bool>> isBiometricEnabled() async {
     return await _sessionManager.isBiometricEnabled();
   }
-  
+
   /// Get available biometric types
   Future<Result<List<BiometricType>>> getAvailableBiometrics() async {
     return await _biometricService.getAvailableBiometrics();

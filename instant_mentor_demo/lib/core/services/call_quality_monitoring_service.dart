@@ -1,74 +1,18 @@
 import 'dart:async';
 import 'dart:math';
 
-import 'package:flutter/foundation.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:flutter/foundation.dart';
 
-import 'video_calling_service.dart';
-
-/// Phase 2 Day 20: Advanced call quality monitoring and bandwidth adaptation
-/// Provides real-time quality metrics and adaptive streaming capabilities
+// Stub: CallQualityMonitoringService removed
 class CallQualityMonitoringService {
-  static const String _tag = 'CallQualityMonitoringService';
-
-  final VideoCallingService _videoService;
-
-  // Quality monitoring state
-  bool _isMonitoring = false;
-  Timer? _monitoringTimer;
-  Timer? _adaptationTimer;
-
-  // Quality thresholds
-  static const int _poorLatencyThreshold = 200; // ms
-  static const double _highPacketLossThreshold = 0.05; // 5%
-  // static const int _lowBandwidthThreshold = 500; // kbps - Future use
-
-  // Network monitoring
-  final Connectivity _connectivity = Connectivity();
-  StreamSubscription<ConnectivityResult>? _connectivitySubscription;
-  ConnectivityResult _currentConnectionType = ConnectivityResult.none;
-
-  // Quality data storage
-  final List<CallQualityData> _qualityHistory = [];
-  static const int _maxHistoryLength = 100;
-
-  // Adaptive streaming configuration
-  final Map<String, VideoProfile> _videoProfiles = {
-    'high': VideoProfile(
-      width: 1280,
-      height: 720,
-      frameRate: 30,
-      bitrate: 1200,
-      name: 'HD (1280x720@30fps)',
-    ),
-    'medium': VideoProfile(
-      width: 640,
-      height: 480,
-      frameRate: 24,
-      bitrate: 600,
-      name: 'SD (640x480@24fps)',
-    ),
-    'low': VideoProfile(
-      width: 320,
-      height: 240,
-      frameRate: 15,
-      bitrate: 200,
-      name: 'Low (320x240@15fps)',
-    ),
-  };
-
-  String _currentVideoProfile = 'medium';
-
-  // Event streams
-  final StreamController<QualityAlert> _alertController =
-      StreamController<QualityAlert>.broadcast();
-  final StreamController<AdaptationEvent> _adaptationController =
-      StreamController<AdaptationEvent>.broadcast();
-
-  Stream<QualityAlert> get alertStream => _alertController.stream;
-  Stream<AdaptationEvent> get adaptationStream => _adaptationController.stream;
-
-  CallQualityMonitoringService(this._videoService);
+  CallQualityMonitoringService();
+  Stream<dynamic> get qualityStream => const Stream.empty();
+  Stream<dynamic> get alertStream => const Stream.empty();
+  void startMonitoring() {}
+  void stopMonitoring() {}
+  void dispose() {}
+}
 
   /// Start comprehensive quality monitoring
   Future<void> startMonitoring() async {

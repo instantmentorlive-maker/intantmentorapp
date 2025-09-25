@@ -273,7 +273,6 @@ class ChatService {
         type: MessageType.text,
         content: content,
         timestamp: DateTime.now(),
-        isRead: false,
       );
 
       // Store in local mock storage
@@ -315,7 +314,6 @@ class ChatService {
         mentorName: 'Prof. Raj Kumar',
         subject: 'Physics',
         lastActivity: now.subtract(const Duration(hours: 2)),
-        unreadCount: 0,
         messages: [
           ChatMessage(
             id: 'msg-2',

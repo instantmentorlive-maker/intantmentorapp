@@ -1,13 +1,18 @@
 import 'dart:async';
+
 import 'package:flutter/foundation.dart';
-import 'package:flutter_webrtc/flutter_webrtc.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../models/call_state.dart';
+// Conditional import: real flutter_webrtc except on web where stub avoids build issues
+// ignore: uri_does_not_exist
+import 'package:flutter_webrtc/flutter_webrtc.dart'
+    if (dart.library.html) 'package:instant_mentor_demo/features/shared/live_session/webrtc_stub.dart';
+
+import '../../../core/data/repositories/call_history_repository.dart';
 import '../models/call_data.dart';
 import '../models/call_history.dart';
+import '../models/call_state.dart';
 import '../models/signaling_message.dart';
 import '../services/signaling_service.dart';
-import '../../../core/data/repositories/call_history_repository.dart';
 
 /// Exception thrown by the call controller
 class CallException implements Exception {
@@ -297,7 +302,7 @@ class SimpleCallController extends StateNotifier<CallData?> {
 
         await videoTracks.first.applyConstraints(constraints);
         debugPrint(
-            '📹 Video resolution set to ${width}x${height}@${frameRate}fps');
+            '📹 Video resolution set to ${width}x$height@${frameRate}fps');
       }
     } catch (e) {
       debugPrint('❌ Failed to set video resolution: $e');

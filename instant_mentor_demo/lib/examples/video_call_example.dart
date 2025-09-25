@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import '../features/call/controllers/simple_call_controller.dart';
+import '../features/call/models/models.dart';
+import '../features/call/screens/active_call_screen.dart';
 import '../features/call/screens/incoming_call_screen.dart';
 import '../features/call/screens/outgoing_call_screen.dart';
-import '../features/call/screens/active_call_screen.dart';
 import '../features/call/services/call_notification_service.dart';
-import '../features/call/models/models.dart';
 
 /// Example implementation showing how to integrate video calling
 /// This demonstrates the complete call flow and UI integration
@@ -354,7 +355,6 @@ class VideoCallExample extends ConsumerWidget {
         targetUserId: 'user2',
         targetUserName: 'John Doe',
         currentUserName: 'You',
-        isVideoCall: true,
       );
 
       if (context.mounted) {
@@ -497,8 +497,7 @@ class VideoCallExample extends ConsumerWidget {
             ListTile(
               title: const Text('HD Quality (720p)'),
               onTap: () {
-                controller.setVideoResolution(
-                    width: 1280, height: 720, frameRate: 30);
+                controller.setVideoResolution();
                 Navigator.of(context).pop();
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(content: Text('Video quality set to HD')),

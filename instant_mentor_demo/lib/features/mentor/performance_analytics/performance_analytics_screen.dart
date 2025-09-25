@@ -1,55 +1,70 @@
+import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:fl_chart/fl_chart.dart';
 
 // Mock analytics data
 final analyticsDataProvider = StateProvider<Map<String, dynamic>>((ref) => {
-  'totalStudents': 67,
-  'totalSessions': 1247,
-  'totalHours': 892,
-  'averageRating': 4.9,
-  'monthlyEarnings': 3450,
-  'responseRate': 98,
-  'completionRate': 96,
-  'repeatStudents': 78,
-  
-  // Weekly session data for chart
-  'weeklySessionData': [
-    {'day': 'Mon', 'sessions': 8, 'hours': 6.5},
-    {'day': 'Tue', 'sessions': 12, 'hours': 9.0},
-    {'day': 'Wed', 'sessions': 15, 'hours': 11.5},
-    {'day': 'Thu', 'sessions': 10, 'hours': 7.5},
-    {'day': 'Fri', 'sessions': 14, 'hours': 10.0},
-    {'day': 'Sat', 'sessions': 18, 'hours': 13.5},
-    {'day': 'Sun', 'sessions': 9, 'hours': 6.5},
-  ],
-  
-  // Subject distribution
-  'subjectData': [
-    {'subject': 'Mathematics', 'percentage': 45, 'sessions': 561, 'color': Colors.blue},
-    {'subject': 'Physics', 'percentage': 30, 'sessions': 374, 'color': Colors.green},
-    {'subject': 'Chemistry', 'percentage': 25, 'sessions': 312, 'color': Colors.orange},
-  ],
-  
-  // Monthly earnings data
-  'monthlyEarningsData': [
-    {'month': 'Jan', 'earnings': 2800},
-    {'month': 'Feb', 'earnings': 3200},
-    {'month': 'Mar', 'earnings': 3600},
-    {'month': 'Apr', 'earnings': 3450},
-    {'month': 'May', 'earnings': 3800},
-    {'month': 'Jun', 'earnings': 4200},
-  ],
-  
-  // Student ratings distribution
-  'ratingsData': [
-    {'stars': 5, 'count': 950},
-    {'stars': 4, 'count': 230},
-    {'stars': 3, 'count': 45},
-    {'stars': 2, 'count': 15},
-    {'stars': 1, 'count': 7},
-  ],
-});
+      'totalStudents': 67,
+      'totalSessions': 1247,
+      'totalHours': 892,
+      'averageRating': 4.9,
+      'monthlyEarnings': 3450,
+      'responseRate': 98,
+      'completionRate': 96,
+      'repeatStudents': 78,
+
+      // Weekly session data for chart
+      'weeklySessionData': [
+        {'day': 'Mon', 'sessions': 8, 'hours': 6.5},
+        {'day': 'Tue', 'sessions': 12, 'hours': 9.0},
+        {'day': 'Wed', 'sessions': 15, 'hours': 11.5},
+        {'day': 'Thu', 'sessions': 10, 'hours': 7.5},
+        {'day': 'Fri', 'sessions': 14, 'hours': 10.0},
+        {'day': 'Sat', 'sessions': 18, 'hours': 13.5},
+        {'day': 'Sun', 'sessions': 9, 'hours': 6.5},
+      ],
+
+      // Subject distribution
+      'subjectData': [
+        {
+          'subject': 'Mathematics',
+          'percentage': 45,
+          'sessions': 561,
+          'color': Colors.blue
+        },
+        {
+          'subject': 'Physics',
+          'percentage': 30,
+          'sessions': 374,
+          'color': Colors.green
+        },
+        {
+          'subject': 'Chemistry',
+          'percentage': 25,
+          'sessions': 312,
+          'color': Colors.orange
+        },
+      ],
+
+      // Monthly earnings data
+      'monthlyEarningsData': [
+        {'month': 'Jan', 'earnings': 2800},
+        {'month': 'Feb', 'earnings': 3200},
+        {'month': 'Mar', 'earnings': 3600},
+        {'month': 'Apr', 'earnings': 3450},
+        {'month': 'May', 'earnings': 3800},
+        {'month': 'Jun', 'earnings': 4200},
+      ],
+
+      // Student ratings distribution
+      'ratingsData': [
+        {'stars': 5, 'count': 950},
+        {'stars': 4, 'count': 230},
+        {'stars': 3, 'count': 45},
+        {'stars': 2, 'count': 15},
+        {'stars': 1, 'count': 7},
+      ],
+    });
 
 final selectedTimeRangeProvider = StateProvider<String>((ref) => 'This Month');
 
@@ -60,7 +75,7 @@ class PerformanceAnalyticsScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final analyticsData = ref.watch(analyticsDataProvider);
     final selectedTimeRange = ref.watch(selectedTimeRangeProvider);
-    
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Performance Analytics'),
@@ -74,8 +89,10 @@ class PerformanceAnalyticsScreen extends ConsumerWidget {
             },
             itemBuilder: (context) => [
               const PopupMenuItem(value: 'This Week', child: Text('This Week')),
-              const PopupMenuItem(value: 'This Month', child: Text('This Month')),
-              const PopupMenuItem(value: 'Last 3 Months', child: Text('Last 3 Months')),
+              const PopupMenuItem(
+                  value: 'This Month', child: Text('This Month')),
+              const PopupMenuItem(
+                  value: 'Last 3 Months', child: Text('Last 3 Months')),
               const PopupMenuItem(value: 'This Year', child: Text('This Year')),
             ],
           ),
@@ -90,31 +107,31 @@ class PerformanceAnalyticsScreen extends ConsumerWidget {
             Text(
               'Analytics for $selectedTimeRange',
               style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
+                    fontWeight: FontWeight.bold,
+                  ),
             ),
             const SizedBox(height: 20),
-            
+
             // Key Metrics Cards
             _buildMetricsGrid(analyticsData),
             const SizedBox(height: 24),
-            
+
             // Weekly Sessions Chart
             _buildWeeklySessionsChart(analyticsData['weeklySessionData']),
             const SizedBox(height: 24),
-            
+
             // Subject Distribution
             _buildSubjectDistribution(analyticsData['subjectData']),
             const SizedBox(height: 24),
-            
+
             // Monthly Earnings Chart
             _buildMonthlyEarningsChart(analyticsData['monthlyEarningsData']),
             const SizedBox(height: 24),
-            
+
             // Student Ratings
             _buildRatingsDistribution(analyticsData['ratingsData']),
             const SizedBox(height: 24),
-            
+
             // Performance Insights
             _buildPerformanceInsights(analyticsData),
           ],
@@ -132,17 +149,24 @@ class PerformanceAnalyticsScreen extends ConsumerWidget {
       crossAxisSpacing: 16,
       childAspectRatio: 1.5,
       children: [
-        _buildMetricCard('Total Students', '${data['totalStudents']}', Icons.people, Colors.blue),
-        _buildMetricCard('Total Sessions', '${data['totalSessions']}', Icons.video_call, Colors.green),
-        _buildMetricCard('Hours Taught', '${data['totalHours']}h', Icons.access_time, Colors.orange),
-        _buildMetricCard('Avg Rating', '${data['averageRating']}/5.0', Icons.star, Colors.amber),
-        _buildMetricCard('Monthly Earnings', '\$${data['monthlyEarnings']}', Icons.attach_money, Colors.purple),
-        _buildMetricCard('Response Rate', '${data['responseRate']}%', Icons.reply, Colors.teal),
+        _buildMetricCard('Total Students', '${data['totalStudents']}',
+            Icons.people, Colors.blue),
+        _buildMetricCard('Total Sessions', '${data['totalSessions']}',
+            Icons.video_call, Colors.green),
+        _buildMetricCard('Hours Taught', '${data['totalHours']}h',
+            Icons.access_time, Colors.orange),
+        _buildMetricCard('Avg Rating', '${data['averageRating']}/5.0',
+            Icons.star, Colors.amber),
+        _buildMetricCard('Monthly Earnings', '\$${data['monthlyEarnings']}',
+            Icons.attach_money, Colors.purple),
+        _buildMetricCard('Response Rate', '${data['responseRate']}%',
+            Icons.reply, Colors.teal),
       ],
     );
   }
 
-  Widget _buildMetricCard(String title, String value, IconData icon, Color color) {
+  Widget _buildMetricCard(
+      String title, String value, IconData icon, Color color) {
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -194,7 +218,6 @@ class PerformanceAnalyticsScreen extends ConsumerWidget {
                   maxY: 20,
                   barTouchData: BarTouchData(enabled: false),
                   titlesData: FlTitlesData(
-                    show: true,
                     bottomTitles: AxisTitles(
                       sideTitles: SideTitles(
                         showTitles: true,
@@ -210,15 +233,9 @@ class PerformanceAnalyticsScreen extends ConsumerWidget {
                         },
                       ),
                     ),
-                    leftTitles: const AxisTitles(
-                      sideTitles: SideTitles(showTitles: false),
-                    ),
-                    topTitles: const AxisTitles(
-                      sideTitles: SideTitles(showTitles: false),
-                    ),
-                    rightTitles: const AxisTitles(
-                      sideTitles: SideTitles(showTitles: false),
-                    ),
+                    leftTitles: const AxisTitles(),
+                    topTitles: const AxisTitles(),
+                    rightTitles: const AxisTitles(),
                   ),
                   borderData: FlBorderData(show: false),
                   barGroups: weeklyData.asMap().entries.map((entry) {
@@ -229,7 +246,8 @@ class PerformanceAnalyticsScreen extends ConsumerWidget {
                           toY: entry.value['sessions'].toDouble(),
                           color: Colors.blue,
                           width: 20,
-                          borderRadius: const BorderRadius.vertical(top: Radius.circular(4)),
+                          borderRadius: const BorderRadius.vertical(
+                              top: Radius.circular(4)),
                         ),
                       ],
                     );
@@ -265,17 +283,19 @@ class PerformanceAnalyticsScreen extends ConsumerWidget {
                       PieChartData(
                         sectionsSpace: 0,
                         centerSpaceRadius: 40,
-                        sections: subjectData.map((data) => PieChartSectionData(
-                          color: data['color'],
-                          value: data['percentage'].toDouble(),
-                          title: '${data['percentage']}%',
-                          radius: 50,
-                          titleStyle: const TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
-                          ),
-                        )).toList(),
+                        sections: subjectData
+                            .map((data) => PieChartSectionData(
+                                  color: data['color'],
+                                  value: data['percentage'].toDouble(),
+                                  title: '${data['percentage']}%',
+                                  radius: 50,
+                                  titleStyle: const TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.white,
+                                  ),
+                                ))
+                            .toList(),
                       ),
                     ),
                   ),
@@ -284,37 +304,42 @@ class PerformanceAnalyticsScreen extends ConsumerWidget {
                   flex: 3,
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
-                    children: subjectData.map((data) => Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 4),
-                      child: Row(
-                        children: [
-                          Container(
-                            width: 16,
-                            height: 16,
-                            decoration: BoxDecoration(
-                              color: data['color'],
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  data['subject'],
-                                  style: const TextStyle(fontWeight: FontWeight.w500),
-                                ),
-                                Text(
-                                  '${data['sessions']} sessions',
-                                  style: const TextStyle(fontSize: 12, color: Colors.grey),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    )).toList(),
+                    children: subjectData
+                        .map((data) => Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 4),
+                              child: Row(
+                                children: [
+                                  Container(
+                                    width: 16,
+                                    height: 16,
+                                    decoration: BoxDecoration(
+                                      color: data['color'],
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          data['subject'],
+                                          style: const TextStyle(
+                                              fontWeight: FontWeight.w500),
+                                        ),
+                                        Text(
+                                          '${data['sessions']} sessions',
+                                          style: const TextStyle(
+                                              fontSize: 12, color: Colors.grey),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ))
+                        .toList(),
                   ),
                 ),
               ],
@@ -358,26 +383,20 @@ class PerformanceAnalyticsScreen extends ConsumerWidget {
                         },
                       ),
                     ),
-                    leftTitles: const AxisTitles(
-                      sideTitles: SideTitles(showTitles: false),
-                    ),
-                    topTitles: const AxisTitles(
-                      sideTitles: SideTitles(showTitles: false),
-                    ),
-                    rightTitles: const AxisTitles(
-                      sideTitles: SideTitles(showTitles: false),
-                    ),
+                    leftTitles: const AxisTitles(),
+                    topTitles: const AxisTitles(),
+                    rightTitles: const AxisTitles(),
                   ),
                   borderData: FlBorderData(show: false),
                   lineBarsData: [
                     LineChartBarData(
                       spots: earningsData.asMap().entries.map((entry) {
-                        return FlSpot(entry.key.toDouble(), entry.value['earnings'].toDouble());
+                        return FlSpot(entry.key.toDouble(),
+                            entry.value['earnings'].toDouble());
                       }).toList(),
                       isCurved: true,
                       color: Colors.green,
                       barWidth: 3,
-                      dotData: const FlDotData(show: true),
                       belowBarData: BarAreaData(
                         show: true,
                         color: Colors.green.withOpacity(0.1),
@@ -394,8 +413,9 @@ class PerformanceAnalyticsScreen extends ConsumerWidget {
   }
 
   Widget _buildRatingsDistribution(List<dynamic> ratingsData) {
-    final totalRatings = ratingsData.fold<int>(0, (sum, item) => sum + (item['count'] as int));
-    
+    final totalRatings =
+        ratingsData.fold<int>(0, (sum, item) => sum + (item['count'] as int));
+
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -427,13 +447,15 @@ class PerformanceAnalyticsScreen extends ConsumerWidget {
                       child: LinearProgressIndicator(
                         value: data['count'] / ratingsData[0]['count'],
                         backgroundColor: Colors.grey.withOpacity(0.3),
-                        valueColor: const AlwaysStoppedAnimation<Color>(Colors.amber),
+                        valueColor:
+                            const AlwaysStoppedAnimation<Color>(Colors.amber),
                       ),
                     ),
                     const SizedBox(width: 8),
                     SizedBox(
                       width: 60,
-                      child: Text('$percentage% (${data['count']})', style: const TextStyle(fontSize: 12)),
+                      child: Text('$percentage% (${data['count']})',
+                          style: const TextStyle(fontSize: 12)),
                     ),
                   ],
                 ),
@@ -466,7 +488,8 @@ class PerformanceAnalyticsScreen extends ConsumerWidget {
             _buildInsightItem(
               icon: Icons.people_outline,
               title: 'Student Retention',
-              description: '${data['repeatStudents']}% of your students book follow-up sessions.',
+              description:
+                  '${data['repeatStudents']}% of your students book follow-up sessions.',
               color: Colors.blue,
             ),
             _buildInsightItem(
@@ -478,7 +501,8 @@ class PerformanceAnalyticsScreen extends ConsumerWidget {
             _buildInsightItem(
               icon: Icons.subject,
               title: 'Top Subject',
-              description: 'Mathematics generates the most bookings and highest ratings.',
+              description:
+                  'Mathematics generates the most bookings and highest ratings.',
               color: Colors.purple,
             ),
           ],

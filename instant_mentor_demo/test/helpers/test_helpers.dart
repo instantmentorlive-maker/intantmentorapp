@@ -1,7 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'package:instant_mentor_demo/core/utils/result.dart';
 import 'package:instant_mentor_demo/core/error/app_error.dart';
+import 'package:instant_mentor_demo/core/utils/result.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 /// Test helper functions and utilities
 class TestHelpers {
@@ -9,7 +9,7 @@ class TestHelpers {
   static void setupSharedPreferences() {
     SharedPreferences.setMockInitialValues({});
   }
-  
+
   /// Create a mock user for testing
   static Map<String, dynamic> createMockUser({
     String? id,
@@ -28,7 +28,7 @@ class TestHelpers {
       'isActive': true,
     };
   }
-  
+
   /// Create a mock token for testing
   static Map<String, dynamic> createMockToken({
     String? accessToken,
@@ -38,10 +38,11 @@ class TestHelpers {
     return {
       'accessToken': accessToken ?? 'mock_access_token',
       'refreshToken': refreshToken ?? 'mock_refresh_token',
-      'expiresAt': (expiresAt ?? DateTime.now().add(const Duration(hours: 1))).toIso8601String(),
+      'expiresAt': (expiresAt ?? DateTime.now().add(const Duration(hours: 1)))
+          .toIso8601String(),
     };
   }
-  
+
   /// Create a mock session for testing
   static Map<String, dynamic> createMockSession({
     Map<String, dynamic>? user,
@@ -52,19 +53,20 @@ class TestHelpers {
       'token': token ?? createMockToken(),
     };
   }
-  
+
   /// Wait for async operations with timeout
-  static Future<T> waitForAsync<T>(Future<T> future, {Duration timeout = const Duration(seconds: 5)}) {
+  static Future<T> waitForAsync<T>(Future<T> future,
+      {Duration timeout = const Duration(seconds: 5)}) {
     return future.timeout(timeout);
   }
-  
+
   /// Group test wrapper with common setup
   static void testGroup(String description, void Function() body) {
     group(description, () {
       setUp(() {
         setupSharedPreferences();
       });
-      
+
       body();
     });
   }
@@ -74,16 +76,16 @@ class TestHelpers {
 class AppMatchers {
   /// Matcher for successful Result
   static Matcher isSuccess() => const TypeMatcher<Success>();
-  
+
   /// Matcher for failed Result
   static Matcher isFailure() => const TypeMatcher<Failure>();
-  
+
   /// Matcher for ValidationError
   static Matcher isValidationError() => const TypeMatcher<ValidationError>();
-  
+
   /// Matcher for AuthError
   static Matcher isAuthError() => const TypeMatcher<AuthError>();
-  
+
   /// Matcher for NetworkError
   static Matcher isNetworkError() => const TypeMatcher<NetworkError>();
 }
@@ -95,13 +97,13 @@ class TestData {
     'email': 'student@student.com',
     'password': 'password123',
   };
-  
+
   /// Valid mentor login credentials
   static const validMentorCredentials = {
     'email': 'mentor@mentor.com',
     'password': 'password123',
   };
-  
+
   /// Valid student registration data
   static const validStudentRegistration = {
     'name': 'John Student',
@@ -109,7 +111,7 @@ class TestData {
     'password': 'password123',
     'role': 'student',
   };
-  
+
   /// Valid mentor registration data
   static const validMentorRegistration = {
     'name': 'Jane Mentor',
@@ -117,7 +119,7 @@ class TestData {
     'password': 'password123',
     'role': 'mentor',
   };
-  
+
   /// Invalid credentials for testing error cases
   static const invalidCredentials = [
     {
@@ -141,7 +143,7 @@ class TestData {
       'password': '12',
     },
   ];
-  
+
   /// Invalid registration data for testing error cases
   static const invalidRegistrationData = [
     {
@@ -186,13 +188,15 @@ class TestData {
 extension ResultTestExtension<T> on Result<T> {
   /// Assert that result is successful and return data
   T expectSuccess() {
-    expect(isSuccess, isTrue, reason: 'Expected success but got failure: ${error?.message}');
+    expect(isSuccess, isTrue,
+        reason: 'Expected success but got failure: ${error?.message}');
     return data!;
   }
-  
+
   /// Assert that result is failure and return error
   AppError expectFailure() {
-    expect(isFailure, isTrue, reason: 'Expected failure but got success: $data');
+    expect(isFailure, isTrue,
+        reason: 'Expected failure but got success: $data');
     return error!;
   }
 }

@@ -1,14 +1,15 @@
+import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:fl_chart/fl_chart.dart';
-import '../../../core/providers/user_provider.dart';
+
 import '../../../core/models/session.dart';
+import '../../../core/providers/user_provider.dart';
 
 // Mock progress data providers
 final progressDataProvider = Provider<List<Progress>>((ref) {
   final user = ref.watch(userProvider);
   if (user == null) return [];
-  
+
   return [
     Progress(
       studentId: user.id,
@@ -61,19 +62,24 @@ final progressDataProvider = Provider<List<Progress>>((ref) {
 
 final overallStatsProvider = Provider<Map<String, dynamic>>((ref) {
   final progressList = ref.watch(progressDataProvider);
-  
-  final totalSessions = progressList.fold<int>(0, (sum, progress) => sum + progress.completedSessions);
-  final totalPlanned = progressList.fold<int>(0, (sum, progress) => sum + progress.totalSessions);
-  final averageProgress = progressList.isEmpty 
-    ? 0.0 
-    : progressList.fold<double>(0, (sum, progress) => sum + progress.completionPercentage) / progressList.length;
-    
+
+  final totalSessions = progressList.fold<int>(
+      0, (sum, progress) => sum + progress.completedSessions);
+  final totalPlanned = progressList.fold<int>(
+      0, (sum, progress) => sum + progress.totalSessions);
+  final averageProgress = progressList.isEmpty
+      ? 0.0
+      : progressList.fold<double>(
+              0, (sum, progress) => sum + progress.completionPercentage) /
+          progressList.length;
+
   return {
     'completed_sessions': totalSessions,
     'total_planned': totalPlanned,
     'in_progress': totalPlanned - totalSessions,
     'average_progress': averageProgress,
-    'weak_areas_count': progressList.fold<int>(0, (sum, progress) => sum + progress.weakAreas.length),
+    'weak_areas_count': progressList.fold<int>(
+        0, (sum, progress) => sum + progress.weakAreas.length),
   };
 });
 
@@ -100,11 +106,11 @@ class ProgressScreen extends ConsumerWidget {
                   Text(
                     'Overall Progress',
                     style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
+                          fontWeight: FontWeight.bold,
+                        ),
                   ),
                   const SizedBox(height: 16),
-                  
+
                   // Progress Chart
                   SizedBox(
                     height: 200,
@@ -114,9 +120,9 @@ class ProgressScreen extends ConsumerWidget {
                       averageProgress: stats['average_progress'],
                     ),
                   ),
-                  
+
                   const SizedBox(height: 16),
-                  
+
                   // Stats Row
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceAround,
@@ -145,9 +151,9 @@ class ProgressScreen extends ConsumerWidget {
               ),
             ),
           ),
-          
+
           const SizedBox(height: 24),
-          
+
           // Subject Progress
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -155,8 +161,8 @@ class ProgressScreen extends ConsumerWidget {
               Text(
                 'Subject Progress',
                 style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
+                      fontWeight: FontWeight.bold,
+                    ),
               ),
               TextButton(
                 onPressed: () => _showDetailedProgress(context, progressList),
@@ -165,11 +171,12 @@ class ProgressScreen extends ConsumerWidget {
             ],
           ),
           const SizedBox(height: 12),
-          
-          ...progressList.map((progress) => _SubjectProgressCard(progress: progress)),
-          
+
+          ...progressList
+              .map((progress) => _SubjectProgressCard(progress: progress)),
+
           const SizedBox(height: 24),
-          
+
           // Weekly Progress Chart
           Card(
             child: Padding(
@@ -180,8 +187,8 @@ class ProgressScreen extends ConsumerWidget {
                   Text(
                     'Weekly Session Activity',
                     style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
+                          fontWeight: FontWeight.bold,
+                        ),
                   ),
                   const SizedBox(height: 16),
                   SizedBox(
@@ -197,7 +204,8 @@ class ProgressScreen extends ConsumerWidget {
     );
   }
 
-  void _showDetailedProgress(BuildContext context, List<Progress> progressList) {
+  void _showDetailedProgress(
+      BuildContext context, List<Progress> progressList) {
     showDialog(
       context: context,
       builder: (context) => _DetailedProgressDialog(progressList: progressList),
@@ -291,10 +299,9 @@ class _OverallProgressChart extends StatelessWidget {
             ),
           ),
         ),
-        
+
         // Progress Indicator
         Expanded(
-          flex: 1,
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
@@ -372,7 +379,8 @@ class _SubjectProgressCard extends StatelessWidget {
                 ),
                 if (progress.weakAreas.isNotEmpty)
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                     decoration: BoxDecoration(
                       color: Colors.red.withOpacity(0.1),
                       borderRadius: BorderRadius.circular(12),
@@ -399,7 +407,6 @@ class _WeeklyProgressChart extends StatelessWidget {
   Widget build(BuildContext context) {
     return LineChart(
       LineChartData(
-        gridData: const FlGridData(show: true),
         titlesData: FlTitlesData(
           bottomTitles: AxisTitles(
             sideTitles: SideTitles(
@@ -423,8 +430,8 @@ class _WeeklyProgressChart extends StatelessWidget {
               },
             ),
           ),
-          rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-          topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+          rightTitles: const AxisTitles(),
+          topTitles: const AxisTitles(),
         ),
         borderData: FlBorderData(show: true),
         lineBarsData: [
@@ -475,7 +482,8 @@ class _DetailedProgressDialog extends StatelessWidget {
             final progress = progressList[index];
             return ExpansionTile(
               title: Text(progress.subject),
-              subtitle: Text('${progress.completionPercentage.toInt()}% complete'),
+              subtitle:
+                  Text('${progress.completionPercentage.toInt()}% complete'),
               children: [
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16),

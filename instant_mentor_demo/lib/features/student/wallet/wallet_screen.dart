@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
-import '../../../core/providers/user_provider.dart';
-import '../../../core/providers/wallet_provider.dart';
+
 import '../../../core/models/wallet.dart';
 import '../../../core/payments/upi_payment_service.dart';
+import '../../../core/providers/user_provider.dart';
+import '../../../core/providers/wallet_provider.dart';
 
 class WalletScreen extends ConsumerStatefulWidget {
   const WalletScreen({super.key});

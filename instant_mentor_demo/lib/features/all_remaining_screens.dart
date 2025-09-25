@@ -2,11 +2,12 @@
 // to complete the Instant Mentor app implementation
 
 import 'package:flutter/material.dart';
-import '../core/providers/ui_state_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import '../../core/providers/user_provider.dart';
+
 import '../../core/providers/auth_provider.dart';
+import '../../core/providers/user_provider.dart';
+import '../core/providers/ui_state_provider.dart';
 
 // ============================================================================
 // MENTOR SCREENS
@@ -666,10 +667,10 @@ class LiveSessionScreen extends StatelessWidget {
                   ),
 
                   // Whiteboard Canvas
-                  Expanded(
+                  const Expanded(
                     child: SizedBox(
                       width: double.infinity,
-                      child: const Center(
+                      child: Center(
                         child: Text(
                           'Interactive Whiteboard\n(Drawing functionality will be implemented here)',
                           textAlign: TextAlign.center,

@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:instant_mentor_demo/examples/video_call_example.dart';
+import 'package:instant_mentor_demo/features/call/controllers/simple_call_controller.dart';
+import 'package:instant_mentor_demo/features/call/models/call_state.dart';
+import 'package:instant_mentor_demo/features/call/services/call_notification_service.dart';
 import 'package:integration_test/integration_test.dart';
-import '../lib/examples/video_call_example.dart';
-import '../lib/features/call/controllers/simple_call_controller.dart';
-import '../lib/features/call/models/call_state.dart';
-import '../lib/features/call/services/call_notification_service.dart';
 
 /// Comprehensive end-to-end test for video calling system
 /// This test validates the complete call flow from initiation to termination
@@ -16,9 +16,9 @@ void main() {
     testWidgets('Complete video call flow - outgoing call',
         (WidgetTester tester) async {
       // Create a test app with providers
-      final app = ProviderScope(
+      const app = ProviderScope(
         child: MaterialApp(
-          home: const VideoCallExample(),
+          home: VideoCallExample(),
         ),
       );
 
@@ -72,9 +72,9 @@ void main() {
     });
 
     testWidgets('Audio call flow test', (WidgetTester tester) async {
-      final app = ProviderScope(
+      const app = ProviderScope(
         child: MaterialApp(
-          home: const VideoCallExample(),
+          home: VideoCallExample(),
         ),
       );
 
@@ -97,9 +97,9 @@ void main() {
     });
 
     testWidgets('Call notification service test', (WidgetTester tester) async {
-      final app = ProviderScope(
+      const app = ProviderScope(
         child: MaterialApp(
-          home: const VideoCallExample(),
+          home: VideoCallExample(),
         ),
       );
 
@@ -119,9 +119,9 @@ void main() {
     });
 
     testWidgets('Call screen navigation test', (WidgetTester tester) async {
-      final app = ProviderScope(
+      const app = ProviderScope(
         child: MaterialApp(
-          home: const VideoCallExample(),
+          home: VideoCallExample(),
         ),
       );
 
@@ -162,9 +162,9 @@ void main() {
     });
 
     testWidgets('Call state transitions test', (WidgetTester tester) async {
-      final app = ProviderScope(
+      const app = ProviderScope(
         child: MaterialApp(
-          home: const VideoCallExample(),
+          home: VideoCallExample(),
         ),
       );
 
@@ -202,15 +202,15 @@ void main() {
       await tester.pump();
 
       callData = container.read(simpleCallControllerProvider);
-      expect(callData?.state, equals(CallState.ended));
+      expect(callData.state, equals(CallState.ended));
 
       print('✅ Call state transitions working correctly');
     });
 
     testWidgets('Error handling test', (WidgetTester tester) async {
-      final app = ProviderScope(
+      const app = ProviderScope(
         child: MaterialApp(
-          home: const VideoCallExample(),
+          home: VideoCallExample(),
         ),
       );
 
@@ -235,9 +235,9 @@ void main() {
     });
 
     testWidgets('WebRTC media streams test', (WidgetTester tester) async {
-      final app = ProviderScope(
+      const app = ProviderScope(
         child: MaterialApp(
-          home: const VideoCallExample(),
+          home: VideoCallExample(),
         ),
       );
 
@@ -264,9 +264,9 @@ void main() {
 
   group('Performance Tests', () {
     testWidgets('Call initiation performance', (WidgetTester tester) async {
-      final app = ProviderScope(
+      const app = ProviderScope(
         child: MaterialApp(
-          home: const VideoCallExample(),
+          home: VideoCallExample(),
         ),
       );
 
@@ -289,9 +289,9 @@ void main() {
     });
 
     testWidgets('UI responsiveness test', (WidgetTester tester) async {
-      final app = ProviderScope(
+      const app = ProviderScope(
         child: MaterialApp(
-          home: const VideoCallExample(),
+          home: VideoCallExample(),
         ),
       );
 
@@ -348,7 +348,6 @@ class CallTestUtils {
       targetUserId: 'user2',
       targetUserName: 'Test User',
       currentUserName: 'Current User',
-      isVideoCall: true,
     );
 
     await tester.pump();

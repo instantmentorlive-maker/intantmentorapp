@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+
+import 'core/models/user.dart'; // User, UserRole
+import 'core/providers/auth_provider.dart'; // authProvider
 import 'core/providers/user_provider.dart';
 import 'core/routing/routing.dart';
-import 'core/providers/auth_provider.dart'; // authProvider
-import 'core/models/user.dart'; // User, UserRole
 
 class MainNavigation extends ConsumerWidget {
   final Widget child;

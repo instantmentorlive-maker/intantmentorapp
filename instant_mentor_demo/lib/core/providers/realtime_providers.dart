@@ -1,9 +1,11 @@
 import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../realtime/websocket_client.dart';
-import '../realtime/socketio_client.dart';
+
 import '../realtime/messaging_service.dart';
 import '../realtime/notification_service.dart';
+import '../realtime/socketio_client.dart';
+import '../realtime/websocket_client.dart';
 
 // =============================================================================
 // WebSocket Providers
@@ -15,12 +17,15 @@ final webSocketClientProvider = Provider<WebSocketClient>((ref) {
 });
 
 /// WebSocket connection state provider
-final webSocketStateProvider = StateNotifierProvider<WebSocketStateNotifier, WebSocketConnectionState>((ref) {
+final webSocketStateProvider =
+    StateNotifierProvider<WebSocketStateNotifier, WebSocketConnectionState>(
+        (ref) {
   return WebSocketStateNotifier(ref);
 });
 
 class WebSocketStateNotifier extends StateNotifier<WebSocketConnectionState> {
-  WebSocketStateNotifier(this.ref) : super(WebSocketConnectionState.disconnected) {
+  WebSocketStateNotifier(this.ref)
+      : super(WebSocketConnectionState.disconnected) {
     _initialize();
   }
 
@@ -57,20 +62,22 @@ class WebSocketStateNotifier extends StateNotifier<WebSocketConnectionState> {
 }
 
 /// WebSocket statistics provider
-final webSocketStatsProvider = StateNotifierProvider<WebSocketStatsNotifier, WebSocketStats>((ref) {
+final webSocketStatsProvider =
+    StateNotifierProvider<WebSocketStatsNotifier, WebSocketStats>((ref) {
   return WebSocketStatsNotifier(ref);
 });
 
 class WebSocketStatsNotifier extends StateNotifier<WebSocketStats> {
-  WebSocketStatsNotifier(this.ref) : super(WebSocketStats(
-    totalConnections: 0,
-    totalReconnections: 0,
-    totalMessages: 0,
-    totalErrors: 0,
-    totalUptime: Duration.zero,
-    lastConnected: DateTime.now(),
-    recentErrors: [],
-  )) {
+  WebSocketStatsNotifier(this.ref)
+      : super(WebSocketStats(
+          totalConnections: 0,
+          totalReconnections: 0,
+          totalMessages: 0,
+          totalErrors: 0,
+          totalUptime: Duration.zero,
+          lastConnected: DateTime.now(),
+          recentErrors: [],
+        )) {
     _startPeriodicUpdate();
   }
 
@@ -101,7 +108,8 @@ final socketIOClientProvider = Provider<SocketIOClient>((ref) {
 });
 
 /// Socket.IO connection state provider
-final socketIOStateProvider = StateNotifierProvider<SocketIOStateNotifier, SocketConnectionState>((ref) {
+final socketIOStateProvider =
+    StateNotifierProvider<SocketIOStateNotifier, SocketConnectionState>((ref) {
   return SocketIOStateNotifier(ref);
 });
 
@@ -145,21 +153,23 @@ class SocketIOStateNotifier extends StateNotifier<SocketConnectionState> {
 }
 
 /// Socket.IO statistics provider
-final socketIOStatsProvider = StateNotifierProvider<SocketIOStatsNotifier, SocketStats>((ref) {
+final socketIOStatsProvider =
+    StateNotifierProvider<SocketIOStatsNotifier, SocketStats>((ref) {
   return SocketIOStatsNotifier(ref);
 });
 
 class SocketIOStatsNotifier extends StateNotifier<SocketStats> {
-  SocketIOStatsNotifier(this.ref) : super(SocketStats(
-    totalConnections: 0,
-    totalDisconnections: 0,
-    totalEvents: 0,
-    totalErrors: 0,
-    totalUptime: Duration.zero,
-    lastConnected: DateTime.now(),
-    eventCounts: {},
-    recentErrors: [],
-  )) {
+  SocketIOStatsNotifier(this.ref)
+      : super(SocketStats(
+          totalConnections: 0,
+          totalDisconnections: 0,
+          totalEvents: 0,
+          totalErrors: 0,
+          totalUptime: Duration.zero,
+          lastConnected: DateTime.now(),
+          eventCounts: {},
+          recentErrors: [],
+        )) {
     _startPeriodicUpdate();
   }
 
@@ -208,19 +218,23 @@ final presenceUpdatesStreamProvider = StreamProvider<UserPresence>((ref) {
 });
 
 /// Room messages provider
-final roomMessagesProvider = StreamProviderFamily<RealtimeMessage, String>((ref, roomId) {
+final roomMessagesProvider =
+    StreamProviderFamily<RealtimeMessage, String>((ref, roomId) {
   final service = ref.read(messagingServiceProvider);
   return service.getMessagesForRoom(roomId);
 });
 
 /// User messages provider
-final userMessagesProvider = StreamProviderFamily<RealtimeMessage, String>((ref, userId) {
+final userMessagesProvider =
+    StreamProviderFamily<RealtimeMessage, String>((ref, userId) {
   final service = ref.read(messagingServiceProvider);
   return service.getMessagesForUser(userId);
 });
 
 /// User presences provider
-final userPresencesProvider = StateNotifierProvider<UserPresencesNotifier, Map<String, UserPresence>>((ref) {
+final userPresencesProvider =
+    StateNotifierProvider<UserPresencesNotifier, Map<String, UserPresence>>(
+        (ref) {
   return UserPresencesNotifier(ref);
 });
 
@@ -250,7 +264,9 @@ class UserPresencesNotifier extends StateNotifier<Map<String, UserPresence>> {
 }
 
 /// Typing users provider
-final typingUsersProvider = StateNotifierProvider<TypingUsersNotifier, Map<String, TypingIndicator>>((ref) {
+final typingUsersProvider =
+    StateNotifierProvider<TypingUsersNotifier, Map<String, TypingIndicator>>(
+        (ref) {
   return TypingUsersNotifier(ref);
 });
 
@@ -302,7 +318,8 @@ class TypingUsersNotifier extends StateNotifier<Map<String, TypingIndicator>> {
 // =============================================================================
 
 /// Notification service provider
-final notificationServiceProvider = Provider<RealtimeNotificationService>((ref) {
+final notificationServiceProvider =
+    Provider<RealtimeNotificationService>((ref) {
   return RealtimeNotificationService.instance;
 });
 
@@ -313,11 +330,14 @@ final notificationsStreamProvider = StreamProvider<RealtimeNotification>((ref) {
 });
 
 /// All notifications provider
-final allNotificationsProvider = StateNotifierProvider<AllNotificationsNotifier, List<RealtimeNotification>>((ref) {
+final allNotificationsProvider =
+    StateNotifierProvider<AllNotificationsNotifier, List<RealtimeNotification>>(
+        (ref) {
   return AllNotificationsNotifier(ref);
 });
 
-class AllNotificationsNotifier extends StateNotifier<List<RealtimeNotification>> {
+class AllNotificationsNotifier
+    extends StateNotifier<List<RealtimeNotification>> {
   AllNotificationsNotifier(this.ref) : super([]) {
     _initialize();
   }
@@ -338,7 +358,7 @@ class AllNotificationsNotifier extends StateNotifier<List<RealtimeNotification>>
   void markAsRead(String notificationId) {
     final service = ref.read(notificationServiceProvider);
     service.markAsRead(notificationId);
-    
+
     final index = state.indexWhere((n) => n.id == notificationId);
     if (index >= 0) {
       final updatedNotification = state[index].copyWith(isRead: true);
@@ -351,14 +371,14 @@ class AllNotificationsNotifier extends StateNotifier<List<RealtimeNotification>>
   void markAllAsRead() {
     final service = ref.read(notificationServiceProvider);
     service.markAllAsRead();
-    
+
     state = state.map((n) => n.copyWith(isRead: true)).toList();
   }
 
   void clearNotifications({NotificationType? type}) {
     final service = ref.read(notificationServiceProvider);
     service.clearNotifications(type: type);
-    
+
     if (type != null) {
       state = state.where((n) => n.type != type).toList();
     } else {
@@ -386,18 +406,22 @@ final unreadCountProvider = Provider<int>((ref) {
 });
 
 /// Notifications by type provider
-final notificationsByTypeProvider = ProviderFamily<List<RealtimeNotification>, NotificationType>((ref, type) {
+final notificationsByTypeProvider =
+    ProviderFamily<List<RealtimeNotification>, NotificationType>((ref, type) {
   final notifications = ref.watch(allNotificationsProvider);
   return notifications.where((n) => n.type == type).toList();
 });
 
 /// Notification preferences provider
-final notificationPreferencesProvider = StateNotifierProvider<NotificationPreferencesNotifier, NotificationPreferences>((ref) {
+final notificationPreferencesProvider = StateNotifierProvider<
+    NotificationPreferencesNotifier, NotificationPreferences>((ref) {
   return NotificationPreferencesNotifier(ref);
 });
 
-class NotificationPreferencesNotifier extends StateNotifier<NotificationPreferences> {
-  NotificationPreferencesNotifier(this.ref) : super(const NotificationPreferences());
+class NotificationPreferencesNotifier
+    extends StateNotifier<NotificationPreferences> {
+  NotificationPreferencesNotifier(this.ref)
+      : super(const NotificationPreferences());
 
   final Ref ref;
 
@@ -440,9 +464,10 @@ class NotificationPreferencesNotifier extends StateNotifier<NotificationPreferen
   }
 
   void setTypePreference(NotificationType type, bool enabled) {
-    final newTypePrefs = Map<NotificationType, bool>.from(state.typePreferences);
+    final newTypePrefs =
+        Map<NotificationType, bool>.from(state.typePreferences);
     newTypePrefs[type] = enabled;
-    
+
     final newPrefs = NotificationPreferences(
       enablePush: state.enablePush,
       enableInApp: state.enableInApp,
@@ -463,7 +488,7 @@ class NotificationPreferencesNotifier extends StateNotifier<NotificationPreferen
     if (!newMutedUsers.contains(userId)) {
       newMutedUsers.add(userId);
     }
-    
+
     final newPrefs = NotificationPreferences(
       enablePush: state.enablePush,
       enableInApp: state.enableInApp,
@@ -482,7 +507,7 @@ class NotificationPreferencesNotifier extends StateNotifier<NotificationPreferen
   void unmuteUser(String userId) {
     final newMutedUsers = List<String>.from(state.mutedUsers);
     newMutedUsers.remove(userId);
-    
+
     final newPrefs = NotificationPreferences(
       enablePush: state.enablePush,
       enableInApp: state.enableInApp,
@@ -537,7 +562,7 @@ final realtimeDashboardProvider = Provider<RealtimeDashboardState>((ref) {
   final typingUsers = ref.watch(typingUsersProvider);
 
   final isConnected = webSocketState == WebSocketConnectionState.connected ||
-                     socketIOState == SocketConnectionState.connected;
+      socketIOState == SocketConnectionState.connected;
 
   return RealtimeDashboardState(
     webSocketState: webSocketState,

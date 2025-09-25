@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import '../../../core/providers/realtime_providers.dart';
-import '../../../core/realtime/websocket_client.dart';
-import '../../../core/realtime/socketio_client.dart';
 import '../../../core/realtime/messaging_service.dart';
 import '../../../core/realtime/notification_service.dart';
+import '../../../core/realtime/socketio_client.dart';
+import '../../../core/realtime/websocket_client.dart';
 
 /// Real-time features dashboard widget
 class RealtimeDashboard extends ConsumerStatefulWidget {
@@ -155,7 +156,8 @@ class _RealtimeDashboardState extends ConsumerState<RealtimeDashboard>
                         'Test WebSocket',
                         Icons.wifi,
                         () => _testWebSocket(),
-                        dashboard.webSocketState == WebSocketConnectionState.connected
+                        dashboard.webSocketState ==
+                                WebSocketConnectionState.connected
                             ? Colors.blue
                             : Colors.grey,
                       ),
@@ -163,7 +165,8 @@ class _RealtimeDashboardState extends ConsumerState<RealtimeDashboard>
                         'Test Socket.IO',
                         Icons.swap_calls,
                         () => _testSocketIO(),
-                        dashboard.socketIOState == SocketConnectionState.connected
+                        dashboard.socketIOState ==
+                                SocketConnectionState.connected
                             ? Colors.green
                             : Colors.grey,
                       ),
@@ -242,7 +245,8 @@ class _RealtimeDashboardState extends ConsumerState<RealtimeDashboard>
                           children: userPresences.values.map((presence) {
                             return Chip(
                               avatar: CircleAvatar(
-                                backgroundColor: _getPresenceColor(presence.status),
+                                backgroundColor:
+                                    _getPresenceColor(presence.status),
                                 radius: 6,
                               ),
                               label: Text(presence.userId),
@@ -272,7 +276,8 @@ class _RealtimeDashboardState extends ConsumerState<RealtimeDashboard>
                         Expanded(
                           child: messagesAsync.when(
                             data: (message) => _buildMessagesList([message]),
-                            loading: () => const Center(child: CircularProgressIndicator()),
+                            loading: () => const Center(
+                                child: CircularProgressIndicator()),
                             error: (error, stack) => Center(
                               child: Text('Error: $error'),
                             ),
@@ -341,14 +346,18 @@ class _RealtimeDashboardState extends ConsumerState<RealtimeDashboard>
                     children: [
                       ElevatedButton.icon(
                         onPressed: unreadCount > 0
-                            ? () => ref.read(allNotificationsProvider.notifier).markAllAsRead()
+                            ? () => ref
+                                .read(allNotificationsProvider.notifier)
+                                .markAllAsRead()
                             : null,
                         icon: const Icon(Icons.done_all),
                         label: const Text('Mark All Read'),
                       ),
                       ElevatedButton.icon(
                         onPressed: notifications.isNotEmpty
-                            ? () => ref.read(allNotificationsProvider.notifier).clearNotifications()
+                            ? () => ref
+                                .read(allNotificationsProvider.notifier)
+                                .clearNotifications()
                             : null,
                         icon: const Icon(Icons.clear_all),
                         label: const Text('Clear All'),
@@ -368,7 +377,8 @@ class _RealtimeDashboardState extends ConsumerState<RealtimeDashboard>
                           child: Column(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              Icon(Icons.notifications_off, size: 64, color: Colors.grey),
+                              Icon(Icons.notifications_off,
+                                  size: 64, color: Colors.grey),
                               SizedBox(height: 16),
                               Text('No notifications'),
                             ],
@@ -421,7 +431,8 @@ class _RealtimeDashboardState extends ConsumerState<RealtimeDashboard>
                       ),
                       SwitchListTile(
                         title: const Text('In-App Notifications'),
-                        subtitle: const Text('Show notifications within the app'),
+                        subtitle:
+                            const Text('Show notifications within the app'),
                         value: preferences.enableInApp,
                         onChanged: (value) => ref
                             .read(notificationPreferencesProvider.notifier)
@@ -447,7 +458,8 @@ class _RealtimeDashboardState extends ConsumerState<RealtimeDashboard>
                       ),
                       const SizedBox(height: 16),
                       ...NotificationType.values.map((type) {
-                        final enabled = preferences.typePreferences[type] ?? true;
+                        final enabled =
+                            preferences.typePreferences[type] ?? true;
                         return SwitchListTile(
                           title: Text(_getNotificationTypeName(type)),
                           value: enabled,
@@ -475,10 +487,11 @@ class _RealtimeDashboardState extends ConsumerState<RealtimeDashboard>
     Color color,
   ) {
     final isConnected = (state == WebSocketConnectionState.connected) ||
-                        (state == SocketConnectionState.connected);
-    
+        (state == SocketConnectionState.connected);
+
     return Card(
-      color: isConnected ? color.withOpacity(0.1) : Colors.grey.withOpacity(0.1),
+      color:
+          isConnected ? color.withOpacity(0.1) : Colors.grey.withOpacity(0.1),
       child: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
@@ -524,7 +537,8 @@ class _RealtimeDashboardState extends ConsumerState<RealtimeDashboard>
     );
   }
 
-  Widget _buildStatItem(IconData icon, String value, String label, Color color) {
+  Widget _buildStatItem(
+      IconData icon, String value, String label, Color color) {
     return Column(
       children: [
         Icon(icon, color: color, size: 32),
@@ -546,7 +560,8 @@ class _RealtimeDashboardState extends ConsumerState<RealtimeDashboard>
     );
   }
 
-  Widget _buildActionButton(String label, IconData icon, VoidCallback onPressed, Color color) {
+  Widget _buildActionButton(
+      String label, IconData icon, VoidCallback onPressed, Color color) {
     return ElevatedButton.icon(
       onPressed: onPressed,
       icon: Icon(icon),
@@ -590,7 +605,8 @@ class _RealtimeDashboardState extends ConsumerState<RealtimeDashboard>
     );
   }
 
-  Widget _buildNotificationTile(RealtimeNotification notification, WidgetRef ref) {
+  Widget _buildNotificationTile(
+      RealtimeNotification notification, WidgetRef ref) {
     return Dismissible(
       key: Key(notification.id),
       onDismissed: (_) {
@@ -614,7 +630,8 @@ class _RealtimeDashboardState extends ConsumerState<RealtimeDashboard>
         title: Text(
           notification.title,
           style: TextStyle(
-            fontWeight: notification.isRead ? FontWeight.normal : FontWeight.bold,
+            fontWeight:
+                notification.isRead ? FontWeight.normal : FontWeight.bold,
           ),
         ),
         subtitle: Column(
@@ -639,7 +656,9 @@ class _RealtimeDashboardState extends ConsumerState<RealtimeDashboard>
               ),
         onTap: () {
           if (!notification.isRead) {
-            ref.read(allNotificationsProvider.notifier).markAsRead(notification.id);
+            ref
+                .read(allNotificationsProvider.notifier)
+                .markAsRead(notification.id);
           }
         },
       ),
@@ -808,8 +827,6 @@ class _RealtimeDashboardState extends ConsumerState<RealtimeDashboard>
     final service = RealtimeMessagingService.instance;
     await service.sendMessage(
       content: 'Test message from dashboard',
-      type: MessageType.text,
-      priority: MessagePriority.normal,
     );
     _showSnackBar('Test message sent!');
   }
@@ -820,7 +837,6 @@ class _RealtimeDashboardState extends ConsumerState<RealtimeDashboard>
       title: 'Test Notification',
       body: 'This is a test notification from the dashboard',
       type: NotificationType.system,
-      priority: NotificationPriority.normal,
     );
     _showSnackBar('Test notification sent!');
   }

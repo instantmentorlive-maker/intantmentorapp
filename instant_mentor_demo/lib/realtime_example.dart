@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../core/realtime/websocket_client.dart';
-import '../core/realtime/socketio_client.dart';
+
 import '../core/realtime/messaging_service.dart';
 import '../core/realtime/notification_service.dart';
+import '../core/realtime/socketio_client.dart';
+import '../core/realtime/websocket_client.dart';
 
 /// Example demonstrating real-time features usage
 class RealtimeExampleApp extends ConsumerStatefulWidget {
@@ -29,21 +30,14 @@ class _RealtimeExampleAppState extends ConsumerState<RealtimeExampleApp> {
       final webSocketClient = WebSocketClient.instance;
       await webSocketClient.connect(
         'wss://echo.websocket.org', // Example WebSocket server
-        config: const WebSocketConfig(
-          enableHeartbeat: true,
-          enableReconnect: true,
-          heartbeatInterval: Duration(seconds: 30),
-        ),
+        config: const WebSocketConfig(),
       );
 
       // Initialize Socket.IO client
       final socketIOClient = SocketIOClient.instance;
       await socketIOClient.connect(
         'http://localhost:3000', // Your Socket.IO server
-        config: const SocketConfig(
-          enableReconnection: true,
-          reconnectionAttempts: 5,
-        ),
+        config: const SocketConfig(),
       );
 
       // Initialize messaging service
@@ -58,10 +52,7 @@ class _RealtimeExampleAppState extends ConsumerState<RealtimeExampleApp> {
       final notificationService = RealtimeNotificationService.instance;
       await notificationService.initialize(
         userId: 'demo_user_123',
-        preferences: const NotificationPreferences(
-          enablePush: true,
-          enableInApp: true,
-        ),
+        preferences: const NotificationPreferences(),
       );
 
       setState(() {
@@ -227,8 +218,8 @@ class _RealtimeExampleAppState extends ConsumerState<RealtimeExampleApp> {
             Text(
               title,
               style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
+                    fontWeight: FontWeight.bold,
+                  ),
             ),
             const SizedBox(height: 12),
             Wrap(
@@ -291,9 +282,7 @@ class _RealtimeExampleAppState extends ConsumerState<RealtimeExampleApp> {
     final service = RealtimeMessagingService.instance;
     await service.sendMessage(
       content: text,
-      type: MessageType.text,
       roomId: 'demo_room',
-      priority: MessagePriority.normal,
     );
 
     _messageController.clear();
@@ -328,7 +317,6 @@ class _RealtimeExampleAppState extends ConsumerState<RealtimeExampleApp> {
       title: 'Test Notification',
       body: 'This is a test notification from the demo app',
       type: NotificationType.system,
-      priority: NotificationPriority.normal,
     );
     _showSnackBar('Test notification sent');
   }

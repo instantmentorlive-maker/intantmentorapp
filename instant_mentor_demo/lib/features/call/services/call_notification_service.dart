@@ -1,10 +1,12 @@
 import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../controllers/simple_call_controller.dart';
 import '../models/call_data.dart';
 import '../models/call_state.dart';
-import '../controllers/simple_call_controller.dart';
 
 /// Service for handling call notifications, ringtones, and system integration
 class CallNotificationService {

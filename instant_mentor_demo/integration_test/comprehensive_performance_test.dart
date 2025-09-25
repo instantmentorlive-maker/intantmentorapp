@@ -1,9 +1,9 @@
-import 'package:flutter_test/flutter_test.dart';
-import 'package:integration_test/integration_test.dart';
 import 'package:flutter/material.dart';
-import 'package:instant_mentor_demo/main.dart' as app;
-import 'package:instant_mentor_demo/core/testing/performance_monitor.dart';
+import 'package:flutter_test/flutter_test.dart';
 import 'package:instant_mentor_demo/core/testing/ci_pipeline.dart';
+import 'package:instant_mentor_demo/core/testing/performance_monitor.dart';
+import 'package:instant_mentor_demo/main.dart' as app;
+import 'package:integration_test/integration_test.dart';
 
 /// Comprehensive integration test with performance monitoring and CI/CD integration
 void main() {

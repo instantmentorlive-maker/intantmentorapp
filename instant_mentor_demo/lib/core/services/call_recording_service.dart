@@ -1,43 +1,13 @@
-import 'dart:async';
-import 'dart:convert';
-
-import 'package:flutter/foundation.dart';
-import 'package:http/http.dart' as http;
-import 'package:shared_preferences/shared_preferences.dart';
-
-import 'video_calling_service.dart';
-
-/// Phase 2 Day 21: Call recording service with server-side token flow
-/// Manages call recordings with proper authentication and storage
+// Stub: CallRecordingService removed
 class CallRecordingService {
-  static const String _tag = 'CallRecordingService';
-
-  // Recording configuration
-  static const String _recordingServerUrl =
-      'https://your-recording-server.com/api'; // TODO: Configure
-  // static const String _storagePrefix = 'instant_mentor_recordings'; // Future use
-
-  final VideoCallingService _videoService;
-
-  // Recording state
-  bool _isRecording = false;
-  String? _currentRecordingId;
-  DateTime? _recordingStartTime;
-
-  // Recording settings
-  RecordingConfiguration _config = const RecordingConfiguration();
-
-  // Event streams
-  final StreamController<RecordingEvent> _eventController =
-      StreamController<RecordingEvent>.broadcast();
-
-  Stream<RecordingEvent> get eventStream => _eventController.stream;
-
-  // Recording metadata
-  final List<RecordingSession> _recordingSessions = [];
-
-  bool get isRecording => _isRecording;
-  String? get currentRecordingId => _currentRecordingId;
+  bool get isRecording => false;
+  String? get currentRecordingId => null;
+  Stream<dynamic> get eventStream => const Stream.empty();
+  Future<bool> initialize() async => false;
+  Future<bool> startRecording({required String channelName}) async => false;
+  Future<void> stopRecording() async {}
+  Future<void> dispose() async {}
+}
   RecordingConfiguration get config => _config;
 
   CallRecordingService(this._videoService);

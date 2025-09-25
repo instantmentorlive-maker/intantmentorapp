@@ -1,8 +1,9 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../services/supabase_service.dart';
+
 import '../models/user.dart' as domain; // Domain user model
+import '../services/supabase_service.dart';
 import 'user_provider.dart'; // Domain user provider
 
 /// Authentication state
@@ -38,10 +39,17 @@ class AuthState {
 class AuthNotifier extends StateNotifier<AuthState> {
   final SupabaseService _supabaseService;
   final Ref _ref;
+  bool _isInitializing = true;
 
   AuthNotifier(this._ref, this._supabaseService) : super(const AuthState()) {
     // Delay initialization to ensure all providers are ready
     Future.microtask(() => _initializeAuth());
+
+    // Set initialization flag to false after a reasonable delay
+    Future.delayed(const Duration(seconds: 3), () {
+      _isInitializing = false;
+      debugPrint('🔐 AuthProvider: Initialization period ended');
+    });
   }
 
   /// Map Supabase user to domain user and update userProvider
@@ -89,6 +97,9 @@ class AuthNotifier extends StateNotifier<AuthState> {
   /// Initialize authentication state
   void _initializeAuth() {
     final currentUser = _supabaseService.currentUser;
+    debugPrint(
+        '🔐 AuthProvider: Initializing auth - Current user: ${currentUser?.id}');
+
     state = state.copyWith(
       user: currentUser,
       isAuthenticated: currentUser != null,
@@ -101,11 +112,33 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
     // Listen to auth state changes (Supabase emits AuthState objects via onAuthStateChange)
     _supabaseService.authStateChanges.listen((authEvent) {
+      final userId = authEvent.session?.user.id ?? 'null';
+      debugPrint(
+          '🔐 AuthProvider: Auth event received - Event: ${authEvent.event}, User: $userId');
+
       final newUser = authEvent.session?.user;
+      final wasAuthenticated = state.isAuthenticated;
+      final isNowAuthenticated = newUser != null;
+
+      // Ignore SIGNED_OUT events during initialization unless explicitly forced
+      if (authEvent.event.name == 'SIGNED_OUT' && _isInitializing) {
+        debugPrint(
+            '🚫 AuthProvider: Ignoring SIGNED_OUT event during initialization');
+        return;
+      }
+
+      // Log state transitions
+      if (wasAuthenticated && !isNowAuthenticated) {
+        debugPrint(
+            '🔐 AuthProvider: User signed out - Event: ${authEvent.event}');
+      } else if (!wasAuthenticated && isNowAuthenticated) {
+        debugPrint(
+            '🔐 AuthProvider: User signed in - Event: ${authEvent.event}');
+      }
+
       state = state.copyWith(
         user: newUser,
-        isAuthenticated: newUser != null,
-        error: null,
+        isAuthenticated: isNowAuthenticated,
       );
       _syncDomainUser(newUser);
     });
@@ -118,7 +151,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
     required String fullName,
     Map<String, dynamic>? additionalData,
   }) async {
-    state = state.copyWith(isLoading: true, error: null);
+    state = state.copyWith(isLoading: true);
 
     try {
       final metadata = {
@@ -194,7 +227,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
     required String email,
     required String password,
   }) async {
-    state = state.copyWith(isLoading: true, error: null);
+    state = state.copyWith(isLoading: true);
 
     try {
       final response = await _supabaseService.signInWithEmail(
@@ -239,18 +272,29 @@ class AuthNotifier extends StateNotifier<AuthState> {
   }
 
   /// Sign out
-  Future<void> signOut() async {
-    state = state.copyWith(isLoading: true, error: null);
+  Future<void> signOut({bool forced = false}) async {
+    // Prevent signout during initialization unless forced
+    if (_isInitializing && !forced) {
+      debugPrint('🚫 AuthProvider: Blocking signOut during initialization');
+      return;
+    }
+
+    // Add stack trace to see what's calling signOut
+    debugPrint('🔐 AuthProvider: Signing out user... Call stack:');
+    debugPrint(StackTrace.current.toString().split('\n').take(5).join('\n'));
+
+    state = state.copyWith(isLoading: true);
 
     try {
       await _supabaseService.signOut();
       state = state.copyWith(
-        user: null,
         isAuthenticated: false,
         isLoading: false,
       );
       _syncDomainUser(null); // clear domain user
+      debugPrint('✅ AuthProvider: Successfully signed out');
     } catch (e) {
+      debugPrint('❌ AuthProvider: Sign out failed: $e');
       state = state.copyWith(
         isLoading: false,
         error: e.toString(),
@@ -260,7 +304,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
   /// Reset password
   Future<void> resetPassword(String email) async {
-    state = state.copyWith(isLoading: true, error: null);
+    state = state.copyWith(isLoading: true);
 
     try {
       await _supabaseService.resetPassword(email);
@@ -275,7 +319,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
   /// Set new password for the currently authenticated user
   Future<void> setNewPassword(String newPassword) async {
-    state = state.copyWith(isLoading: true, error: null);
+    state = state.copyWith(isLoading: true);
 
     try {
       // Supabase updates password for current session user
@@ -293,7 +337,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
   /// Send email OTP for verification
   Future<void> sendEmailOTP(String email,
       {bool shouldCreateUser = true}) async {
-    state = state.copyWith(isLoading: true, error: null);
+    state = state.copyWith(isLoading: true);
 
     try {
       await _supabaseService.sendEmailOTP(email);
@@ -327,7 +371,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
     required String email,
     required String otp,
   }) async {
-    state = state.copyWith(isLoading: true, error: null);
+    state = state.copyWith(isLoading: true);
 
     try {
       await _supabaseService.verifyEmailOTP(email: email, otp: otp);
@@ -342,7 +386,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
   /// Resend email OTP
   Future<void> resendEmailOTP(String email) async {
-    state = state.copyWith(isLoading: true, error: null);
+    state = state.copyWith(isLoading: true);
 
     try {
       await _supabaseService.resendEmailOTP(email);
@@ -357,7 +401,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
   /// Send phone OTP for verification
   Future<void> sendPhoneOTP(String phoneNumber) async {
-    state = state.copyWith(isLoading: true, error: null);
+    state = state.copyWith(isLoading: true);
 
     try {
       await _supabaseService.sendPhoneOTP(phoneNumber);
@@ -375,7 +419,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
     required String phone,
     required String otp,
   }) async {
-    state = state.copyWith(isLoading: true, error: null);
+    state = state.copyWith(isLoading: true);
 
     try {
       await _supabaseService.verifyPhoneOTP(phone: phone, otp: otp);
@@ -390,7 +434,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
   /// Resend phone OTP
   Future<void> resendPhoneOTP(String phoneNumber) async {
-    state = state.copyWith(isLoading: true, error: null);
+    state = state.copyWith(isLoading: true);
 
     try {
       await _supabaseService.resendPhoneOTP(phoneNumber);
@@ -409,6 +453,10 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
     try {
       await _supabaseService.upsertUserProfile(profileData: profileData);
+
+      // Profile updated successfully - just update loading state
+      // The SupabaseService already updated the auth user metadata
+      // We'll let the user data refresh naturally on next auth state check
       state = state.copyWith(isLoading: false);
     } catch (e) {
       state = state.copyWith(
@@ -420,7 +468,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
   /// Clear error
   void clearError() {
-    state = state.copyWith(error: null);
+    state = state.copyWith();
   }
 }
 

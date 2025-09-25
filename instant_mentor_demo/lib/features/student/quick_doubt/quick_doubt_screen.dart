@@ -1,5 +1,14 @@
 import 'package:flutter/material.dart';
+import '../../../core/services/payment_service.dart';
+import '../../payments/payment_checkout_sheet.dart';
+import '../../../core/providers/video_call_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:file_picker/file_picker.dart';
+import 'package:record/record.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:permission_handler/permission_handler.dart';
+// Removed unused dart:io import
 
 class QuickDoubtScreen extends ConsumerStatefulWidget {
   const QuickDoubtScreen({super.key});
@@ -12,6 +21,141 @@ class _QuickDoubtScreenState extends ConsumerState<QuickDoubtScreen> {
   final TextEditingController _questionController = TextEditingController();
   String _selectedSubject = 'Mathematics';
   String _urgencyLevel = 'Medium';
+  static const double _mentorCardListHeight =
+      150; // Increased to avoid overflow
+  DateTime? _scheduledFor; // Chosen scheduled session time
+  // Attachments state
+  final List<XFile> _imageAttachments = [];
+  final List<PlatformFile> _fileAttachments = [];
+  String? _audioFilePath;
+  bool _isRecording = false;
+  final AudioRecorder _recorder = AudioRecorder();
+  bool _isFindingMentor = false;
+  @override
+  void initState() {
+    super.initState();
+    _questionController.addListener(() {
+      if (mounted) setState(() {}); // Force rebuild for button enable/disable
+    });
+  }
+
+  // ===== Attachment Helpers (moved from extension for setState access) =====
+  bool get _hasAnyAttachment =>
+      _imageAttachments.isNotEmpty ||
+      _fileAttachments.isNotEmpty ||
+      _audioFilePath != null;
+
+  Future<void> _pickImages() async {
+    try {
+      final picker = ImagePicker();
+      final images = await picker.pickMultiImage(imageQuality: 80);
+      if (images.isNotEmpty) {
+        setState(() => _imageAttachments.addAll(images));
+      }
+    } catch (e) {
+      _showSnack('Failed to pick images: $e');
+    }
+  }
+
+  Future<void> _pickFiles() async {
+    try {
+      final result = await FilePicker.platform.pickFiles(allowMultiple: true);
+      if (result != null && result.files.isNotEmpty) {
+        setState(() => _fileAttachments.addAll(result.files));
+      }
+    } catch (e) {
+      _showSnack('Failed to pick files: $e');
+    }
+  }
+
+  Future<void> _toggleRecording() async {
+    try {
+      if (_isRecording) {
+        final path = await _recorder.stop();
+        setState(() {
+          _isRecording = false;
+          _audioFilePath = path;
+        });
+        if (path != null) _showSnack('Audio recorded');
+        return;
+      }
+      if (!await _recorder.hasPermission()) {
+        final micStatus = await Permission.microphone.request();
+        if (!micStatus.isGranted) {
+          _showSnack('Microphone permission required');
+          return;
+        }
+      }
+      final dir = await getTemporaryDirectory();
+      final filePath =
+          '${dir.path}/qd_audio_${DateTime.now().millisecondsSinceEpoch}.m4a';
+      await _recorder.start(
+        const RecordConfig(
+          bitRate: 64000,
+          sampleRate: 16000,
+        ),
+        path: filePath,
+      );
+      setState(() => _isRecording = true);
+    } catch (e) {
+      _showSnack('Recording failed: $e');
+    }
+  }
+
+  Widget _buildAttachmentPreview() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            ..._imageAttachments.map((img) => _attachmentChip(
+                  icon: Icons.image,
+                  label: _truncate(img.name),
+                  onRemove: () => setState(() => _imageAttachments.remove(img)),
+                )),
+            ..._fileAttachments.map((f) => _attachmentChip(
+                  icon: Icons.insert_drive_file,
+                  label: _truncate(f.name),
+                  onRemove: () => setState(() => _fileAttachments.remove(f)),
+                )),
+            if (_audioFilePath != null)
+              _attachmentChip(
+                icon: Icons.audiotrack,
+                label: 'audio.m4a',
+                onRemove: () => setState(() => _audioFilePath = null),
+              ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _attachmentChip({
+    required IconData icon,
+    required String label,
+    required VoidCallback onRemove,
+  }) {
+    return Chip(
+      avatar: Icon(icon, size: 16),
+      label: Text(label, overflow: TextOverflow.ellipsis),
+      deleteIcon: const Icon(Icons.close, size: 16),
+      onDeleted: onRemove,
+      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+    );
+  }
+
+  String _truncate(String name, {int max = 14}) {
+    if (name.length <= max) return name;
+    return '${name.substring(0, max - 3)}...';
+  }
+
+  void _showSnack(String msg) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -76,7 +220,7 @@ class _QuickDoubtScreenState extends ConsumerState<QuickDoubtScreen> {
             const SizedBox(height: 12),
 
             SizedBox(
-              height: 120,
+              height: _mentorCardListHeight,
               child: ListView.builder(
                 scrollDirection: Axis.horizontal,
                 itemCount: _getAvailableMentors().length,
@@ -147,6 +291,7 @@ class _QuickDoubtScreenState extends ConsumerState<QuickDoubtScreen> {
                     const SizedBox(height: 16),
                     TextField(
                       controller: _questionController,
+                      onChanged: (_) => setState(() {}),
                       decoration: const InputDecoration(
                         labelText: 'Your Question',
                         hintText: 'Describe your doubt in detail...',
@@ -156,28 +301,40 @@ class _QuickDoubtScreenState extends ConsumerState<QuickDoubtScreen> {
                       maxLines: 4,
                     ),
                     const SizedBox(height: 16),
-                    Row(
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        IconButton(
-                          onPressed: () => _attachImage(),
-                          icon: const Icon(Icons.image),
+                        Row(
+                          children: [
+                            IconButton(
+                              tooltip: 'Add images',
+                              onPressed: _attachImage,
+                              icon: const Icon(Icons.image),
+                            ),
+                            IconButton(
+                              tooltip: 'Attach files',
+                              onPressed: _attachDocument,
+                              icon: const Icon(Icons.attach_file),
+                            ),
+                            IconButton(
+                              tooltip: _isRecording
+                                  ? 'Stop recording'
+                                  : 'Record voice',
+                              onPressed: _recordVoice,
+                              icon: Icon(_isRecording ? Icons.stop : Icons.mic),
+                              color: _isRecording ? Colors.red : null,
+                            ),
+                            const Spacer(),
+                            Text(
+                              '${_questionController.text.length}/500',
+                              style: TextStyle(
+                                color: Colors.grey[600],
+                                fontSize: 12,
+                              ),
+                            ),
+                          ],
                         ),
-                        IconButton(
-                          onPressed: () => _attachDocument(),
-                          icon: const Icon(Icons.attach_file),
-                        ),
-                        IconButton(
-                          onPressed: () => _recordVoice(),
-                          icon: const Icon(Icons.mic),
-                        ),
-                        const Spacer(),
-                        Text(
-                          '${_questionController.text.length}/500',
-                          style: TextStyle(
-                            color: Colors.grey[600],
-                            fontSize: 12,
-                          ),
-                        ),
+                        if (_hasAnyAttachment) _buildAttachmentPreview(),
                       ],
                     ),
                   ],
@@ -228,16 +385,29 @@ class _QuickDoubtScreenState extends ConsumerState<QuickDoubtScreen> {
             SizedBox(
               width: double.infinity,
               child: ElevatedButton.icon(
-                onPressed: _questionController.text.trim().isEmpty
-                    ? null
-                    : () => _findMentor(),
+                onPressed:
+                    _questionController.text.trim().isEmpty || _isFindingMentor
+                        ? null
+                        : _findMentor,
                 style: ElevatedButton.styleFrom(
                   padding: const EdgeInsets.all(16),
                   backgroundColor: Colors.orange,
                   foregroundColor: Colors.white,
                 ),
-                icon: const Icon(Icons.search),
-                label: const Text('Find Available Mentor'),
+                icon: _isFindingMentor
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor:
+                              AlwaysStoppedAnimation<Color>(Colors.white),
+                        ),
+                      )
+                    : const Icon(Icons.search),
+                label: Text(_isFindingMentor
+                    ? 'Searching...'
+                    : 'Find Available Mentor'),
               ),
             ),
 
@@ -246,12 +416,14 @@ class _QuickDoubtScreenState extends ConsumerState<QuickDoubtScreen> {
             SizedBox(
               width: double.infinity,
               child: OutlinedButton.icon(
-                onPressed: () => _scheduleForLater(),
+                onPressed: () => _openScheduleDialog(),
                 style: OutlinedButton.styleFrom(
                   padding: const EdgeInsets.all(16),
                 ),
                 icon: const Icon(Icons.schedule),
-                label: const Text('Schedule for Later'),
+                label: Text(_scheduledFor == null
+                    ? 'Schedule for Later'
+                    : 'Scheduled: ${_formatScheduledTime(_scheduledFor!)}'),
               ),
             ),
 
@@ -366,25 +538,13 @@ class _QuickDoubtScreenState extends ConsumerState<QuickDoubtScreen> {
     );
   }
 
-  void _attachImage() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Image attachment feature coming soon!')),
-    );
-  }
-
-  void _attachDocument() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Document attachment feature coming soon!')),
-    );
-  }
-
-  void _recordVoice() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Voice recording feature coming soon!')),
-    );
-  }
+  void _attachImage() => _pickImages();
+  void _attachDocument() => _pickFiles();
+  void _recordVoice() => _toggleRecording();
 
   void _findMentor() {
+    if (_isFindingMentor) return;
+    setState(() => _isFindingMentor = true);
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -407,8 +567,11 @@ class _QuickDoubtScreenState extends ConsumerState<QuickDoubtScreen> {
 
     // Simulate mentor finding
     Future.delayed(const Duration(seconds: 2), () {
-      Navigator.pop(context);
-      _showMentorFound();
+      if (mounted) {
+        Navigator.pop(context);
+        _showMentorFound();
+        setState(() => _isFindingMentor = false);
+      }
     });
   }
 
@@ -459,8 +622,68 @@ class _QuickDoubtScreenState extends ConsumerState<QuickDoubtScreen> {
             child: const Text('Cancel'),
           ),
           ElevatedButton(
-            onPressed: () {
+            onPressed: () async {
+              // Close mentor found dialog
               Navigator.pop(context);
+              // Show payment confirmation sheet
+              final confirmed = await showModalBottomSheet<bool>(
+                context: context,
+                isScrollControlled: true,
+                builder: (ctx) => PaymentCheckoutSheet(
+                  mentorName: 'Dr. Sarah Smith',
+                  hourlyRate: 60, // Example rate, adjust as needed
+                  minutes: 15,
+                  amount: 15, // Estimated cost from dialog
+                  onConfirm: () {}, // actual payment kicks in after pop
+                ),
+              );
+              if (confirmed != true) return; // User cancelled
+
+              // Setup and present payment sheet
+              final sessionId =
+                  'quick_${DateTime.now().millisecondsSinceEpoch}';
+              final setupOk = await PaymentService.instance.setupPaymentSheet(
+                sessionId: sessionId,
+                amount: 15,
+              );
+              if (!setupOk) {
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Payment setup failed'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                }
+                return;
+              }
+              final result =
+                  await PaymentService.instance.presentPaymentSheet(sessionId);
+              if (!result.isSuccess) {
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(result.isCancelled
+                          ? 'Payment cancelled'
+                          : 'Payment failed: ${result.error ?? ''}'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                }
+                return;
+              }
+
+              // After successful payment, start session (video call placeholder)
+              // Start global video call state (stubbed implementation)
+              if (context.mounted) {
+                final container =
+                    ProviderScope.containerOf(context, listen: false);
+                container.read(videoCallProvider.notifier).startCall(
+                      mentorId: 'mentor_demo',
+                      mentorName: 'Dr. Sarah Smith',
+                      sessionId: sessionId,
+                    );
+              }
               _startSession();
             },
             child: const Text('Start Session'),
@@ -482,49 +705,93 @@ class _QuickDoubtScreenState extends ConsumerState<QuickDoubtScreen> {
     Navigator.pop(context);
   }
 
-  void _scheduleForLater() {
-    showDialog(
+  Future<void> _openScheduleDialog() async {
+    final now = DateTime.now();
+    final result = await showDialog<DateTime>(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (dialogCtx) => AlertDialog(
         title: const Text('Schedule Session'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             const Text('When would you like to have this doubt session?'),
             const SizedBox(height: 16),
-            ListTile(
-              leading: const Icon(Icons.access_time),
-              title: const Text('In 1 hour'),
-              onTap: () => _scheduleSession('1 hour'),
+            _ScheduleOptionTile(
+              icon: Icons.access_time,
+              title: 'In 1 hour',
+              subtitle: _formatTime(now.add(const Duration(hours: 1))),
+              onTap: () =>
+                  Navigator.pop(dialogCtx, now.add(const Duration(hours: 1))),
             ),
-            ListTile(
-              leading: const Icon(Icons.calendar_today),
-              title: const Text('Tomorrow'),
-              onTap: () => _scheduleSession('tomorrow'),
+            _ScheduleOptionTile(
+              icon: Icons.calendar_today,
+              title: 'Tomorrow',
+              subtitle:
+                  _formatTime(DateTime(now.year, now.month, now.day + 1, 10)),
+              onTap: () => Navigator.pop(
+                  dialogCtx, DateTime(now.year, now.month, now.day + 1, 10)),
             ),
-            ListTile(
-              leading: const Icon(Icons.schedule),
-              title: const Text('Custom time'),
-              onTap: () => _scheduleSession('custom'),
+            _ScheduleOptionTile(
+              icon: Icons.schedule,
+              title: 'Custom time',
+              subtitle: 'Pick a date & time',
+              onTap: () async {
+                final pickedDate = await showDatePicker(
+                  context: dialogCtx,
+                  initialDate: now.add(const Duration(days: 1)),
+                  firstDate: now,
+                  lastDate: now.add(const Duration(days: 60)),
+                );
+                if (pickedDate == null) return; // Stay in dialog
+                final pickedTime = await showTimePicker(
+                  context: dialogCtx,
+                  initialTime: const TimeOfDay(hour: 10, minute: 0),
+                );
+                if (pickedTime == null) return;
+                final dt = DateTime(pickedDate.year, pickedDate.month,
+                    pickedDate.day, pickedTime.hour, pickedTime.minute);
+                if (context.mounted) Navigator.pop(dialogCtx, dt);
+              },
             ),
           ],
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.pop(dialogCtx),
             child: const Text('Cancel'),
           ),
         ],
       ),
     );
+
+    if (result != null && mounted) {
+      setState(() => _scheduledFor = result);
+      _showSnack('Session scheduled for ${_formatScheduledTime(result)}');
+    }
   }
 
-  void _scheduleSession(String when) {
-    Navigator.pop(context);
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Session scheduled for $when')),
-    );
+  String _formatScheduledTime(DateTime dt) {
+    final now = DateTime.now();
+    final difference = dt.difference(now);
+    if (difference.inMinutes < 60) {
+      return 'in ${difference.inMinutes}m';
+    } else if (difference.inHours < 24) {
+      return 'in ${difference.inHours}h';
+    } else if (difference.inDays < 7) {
+      return '${difference.inDays}d from now';
+    }
+    return _formatDate(dt);
   }
+
+  String _formatTime(DateTime dt) {
+    final h = dt.hour % 12 == 0 ? 12 : dt.hour % 12;
+    final m = dt.minute.toString().padLeft(2, '0');
+    final ampm = dt.hour >= 12 ? 'PM' : 'AM';
+    return '$h:$m $ampm';
+  }
+
+  String _formatDate(DateTime dt) =>
+      '${dt.year}-${dt.month.toString().padLeft(2, '0')}-${dt.day.toString().padLeft(2, '0')} ${_formatTime(dt)}';
 
   void _viewSessionDetails(Map<String, dynamic> session) {
     showDialog(
@@ -564,6 +831,7 @@ class _QuickDoubtScreenState extends ConsumerState<QuickDoubtScreen> {
 
   @override
   void dispose() {
+    _recorder.dispose();
     _questionController.dispose();
     super.dispose();
   }
@@ -581,75 +849,105 @@ class _MentorCard extends StatelessWidget {
       margin: const EdgeInsets.only(right: 12),
       child: Card(
         child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: IntrinsicHeight(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Stack(
-                  children: [
-                    CircleAvatar(
-                      radius: 20,
-                      child: Text(mentor['name']
-                          .toString()
-                          .split(' ')
-                          .map((n) => n[0])
-                          .join()),
-                    ),
-                    Positioned(
-                      right: 0,
-                      bottom: 0,
-                      child: Container(
-                        width: 12,
-                        height: 12,
-                        decoration: BoxDecoration(
-                          color:
-                              mentor['isOnline'] ? Colors.green : Colors.grey,
-                          shape: BoxShape.circle,
-                          border: Border.all(color: Colors.white, width: 2),
-                        ),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Stack(
+                children: [
+                  CircleAvatar(
+                    radius: 18,
+                    child: Text(mentor['name']
+                        .toString()
+                        .split(' ')
+                        .map((n) => n[0])
+                        .join()),
+                  ),
+                  Positioned(
+                    right: 0,
+                    bottom: 0,
+                    child: Container(
+                      width: 10,
+                      height: 10,
+                      decoration: BoxDecoration(
+                        color: mentor['isOnline'] ? Colors.green : Colors.grey,
+                        shape: BoxShape.circle,
+                        border: Border.all(color: Colors.white, width: 2),
                       ),
                     ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  mentor['name'],
-                  style: const TextStyle(
-                      fontWeight: FontWeight.bold, fontSize: 12),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  textAlign: TextAlign.center,
-                ),
-                Text(
-                  mentor['subject'],
-                  style: const TextStyle(fontSize: 10, color: Colors.grey),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 4),
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.star, size: 10, color: Colors.amber[600]),
-                    const SizedBox(width: 2),
-                    Text('${mentor['rating']}',
-                        style: const TextStyle(fontSize: 10)),
-                  ],
-                ),
-                Text(
-                  mentor['responseTime'],
-                  style: const TextStyle(fontSize: 9, color: Colors.green),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  textAlign: TextAlign.center,
-                ),
-              ],
-            ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 6),
+              Text(
+                mentor['name'],
+                style:
+                    const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
+              ),
+              Text(
+                mentor['subject'],
+                style: const TextStyle(fontSize: 10, color: Colors.grey),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 2),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.star, size: 10, color: Colors.amber[600]),
+                  const SizedBox(width: 2),
+                  Text('${mentor['rating']}',
+                      style: const TextStyle(fontSize: 10)),
+                ],
+              ),
+              const SizedBox(height: 2),
+              Text(
+                mentor['responseTime'],
+                style: const TextStyle(fontSize: 9, color: Colors.green),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
+              ),
+            ],
           ),
         ),
       ),
     );
   }
 }
+
+class _ScheduleOptionTile extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final VoidCallback onTap;
+
+  const _ScheduleOptionTile({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return ListTile(
+      leading: Icon(icon),
+      title: Text(title),
+      subtitle: Text(subtitle),
+      onTap: onTap,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      tileColor: Theme.of(context)
+          .colorScheme
+          .surfaceContainerHighest
+          .withOpacity(0.15),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+    );
+  }
+}
+
+// (Attachment helper extension removed; logic moved into State class)

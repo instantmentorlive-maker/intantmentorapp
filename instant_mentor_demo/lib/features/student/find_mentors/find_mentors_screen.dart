@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:share_plus/share_plus.dart';
+
 import '../../common/widgets/mentor_presence_widgets.dart';
+import '../../payments/payment_checkout_sheet.dart';
 
 class FindMentorsScreen extends ConsumerStatefulWidget {
   const FindMentorsScreen({super.key});
@@ -505,24 +508,37 @@ class _MentorCard extends StatelessWidget {
 
             const SizedBox(height: 12),
 
-            Row(
+            // Use Column layout for small screens to prevent overflow
+            Column(
               children: [
-                Icon(Icons.schedule, size: 14, color: Colors.grey[600]),
-                const SizedBox(width: 4),
-                Text(
-                  'Responds ${mentor['responseTime']}',
-                  style: TextStyle(color: Colors.grey[600], fontSize: 12),
-                ),
-                const SizedBox(width: 16),
-                Icon(Icons.language, size: 14, color: Colors.grey[600]),
-                const SizedBox(width: 4),
-                Text(
-                  mentor['languages'].toString(),
-                  style: TextStyle(color: Colors.grey[600], fontSize: 12),
-                ),
-                const Spacer(),
+                // Info row with response time and languages
                 Row(
-                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.schedule, size: 14, color: Colors.grey[600]),
+                    const SizedBox(width: 4),
+                    Flexible(
+                      child: Text(
+                        'Responds ${mentor['responseTime']}',
+                        style: TextStyle(color: Colors.grey[600], fontSize: 12),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Icon(Icons.language, size: 14, color: Colors.grey[600]),
+                    const SizedBox(width: 4),
+                    Flexible(
+                      child: Text(
+                        mentor['languages'].toString(),
+                        style: TextStyle(color: Colors.grey[600], fontSize: 12),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                // Buttons row
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
                   children: [
                     OutlinedButton(
                       onPressed: () => _viewProfile(context, mentor),
@@ -786,51 +802,9 @@ class MentorProfileScreen extends StatelessWidget {
   }
 
   void _shareProfile(BuildContext context, Map<String, dynamic> mentor) {
-    // Show share options dialog
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Share Mentor Profile'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              leading: const Icon(Icons.link),
-              title: const Text('Copy Link'),
-              onTap: () {
-                Navigator.of(context).pop();
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(
-                        'Profile link for ${mentor['name']} copied to clipboard'),
-                    backgroundColor: Colors.green,
-                  ),
-                );
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.share),
-              title: const Text('Share via Apps'),
-              onTap: () {
-                Navigator.of(context).pop();
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text('Sharing ${mentor['name']}\'s profile...'),
-                    backgroundColor: Colors.blue,
-                  ),
-                );
-              },
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Cancel'),
-          ),
-        ],
-      ),
-    );
+    final id = mentor['id'] ?? mentor['name'];
+    final link = 'https://instantmentor.app/mentor/$id';
+    Share.share('Check out mentor ${mentor['name']} on InstantMentor: $link');
   }
 
   void _toggleFavorite(BuildContext context, Map<String, dynamic> mentor) {
@@ -892,6 +866,19 @@ class MentorProfileScreen extends StatelessWidget {
             onPressed: () => Navigator.of(context).pop(),
             child: const Text('Cancel'),
           ),
+          // Show Instant Call button only for available mentors
+          if (mentor['isOnline'] == true)
+            ElevatedButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+                _startInstantCall(context, mentor);
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.green,
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('Instant Call'),
+            ),
           ElevatedButton(
             onPressed: () {
               Navigator.of(context).pop();
@@ -953,10 +940,10 @@ class MentorProfileScreen extends StatelessWidget {
       context: context,
       builder: (context) => AlertDialog(
         title: Text('Send Message to ${mentor['name']}'),
-        content: Column(
+        content: const Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const TextField(
+            TextField(
               decoration: InputDecoration(
                 labelText: 'Your Message',
                 hintText: 'Type your message here...',
@@ -964,8 +951,8 @@ class MentorProfileScreen extends StatelessWidget {
               ),
               maxLines: 3,
             ),
-            const SizedBox(height: 16),
-            const Text(
+            SizedBox(height: 16),
+            Text(
               'This will start a new chat conversation with the mentor.',
               style: TextStyle(fontSize: 12, color: Colors.grey),
             ),
@@ -991,6 +978,172 @@ class MentorProfileScreen extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  void _startInstantCall(BuildContext context, Map<String, dynamic> mentor) {
+    // First show payment page, then proceed to video call
+    _showPaymentSheet(context, mentor);
+  }
+
+  void _showPaymentSheet(BuildContext context, Map<String, dynamic> mentor) {
+    final double hourlyRate = (mentor['price'] as num).toDouble();
+    final int minutes = 30; // Default 30-minute session
+    final double amount =
+        (hourlyRate / 60) * minutes; // Prorated for 30 minutes
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.only(
+            topLeft: Radius.circular(20),
+            topRight: Radius.circular(20),
+          ),
+        ),
+        child: PaymentCheckoutSheet(
+          mentorName: mentor['name'],
+          hourlyRate: hourlyRate,
+          minutes: minutes,
+          amount: amount,
+          onConfirm: () {
+            _processPaymentAndStartCall(context, mentor, amount);
+          },
+        ),
+      ),
+    );
+  }
+
+  void _processPaymentAndStartCall(
+      BuildContext context, Map<String, dynamic> mentor, double amount) async {
+    try {
+      // Show payment processing indicator
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => AlertDialog(
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const CircularProgressIndicator(),
+              const SizedBox(height: 16),
+              Text('Processing payment of \$${amount.toStringAsFixed(2)}...'),
+              const SizedBox(height: 8),
+              const Text(
+                'Demo mode - payment simulation',
+                style: TextStyle(fontSize: 12, color: Colors.grey),
+              ),
+            ],
+          ),
+        ),
+      );
+
+      // Simulate payment processing with more realistic timing
+      await Future.delayed(const Duration(seconds: 3));
+
+      // Close payment processing dialog
+      if (context.mounted) {
+        Navigator.of(context).pop();
+      }
+
+      // Show payment success dialog
+      if (context.mounted) {
+        await showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Row(
+              children: [
+                Icon(Icons.check_circle, color: Colors.green),
+                SizedBox(width: 8),
+                Text('Payment Successful!'),
+              ],
+            ),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Amount: \$${amount.toStringAsFixed(2)}'),
+                Text('Mentor: ${mentor['name']}'),
+                const Text('Session: 30 minutes'),
+                const SizedBox(height: 16),
+                const Text('Starting video call...'),
+              ],
+            ),
+            actions: [
+              ElevatedButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('Continue'),
+              ),
+            ],
+          ),
+        );
+      }
+
+      // Navigate to live session screen for instant video call
+      if (context.mounted) {
+        Navigator.pushNamed(
+          context,
+          '/live-session',
+          arguments: {
+            'sessionId':
+                'instant_${mentor['id']}_${DateTime.now().millisecondsSinceEpoch}',
+            'mentorId': mentor['id'],
+            'mentorName': mentor['name'],
+            'isInstantCall': true,
+            'amount': amount,
+            'paymentStatus': 'paid',
+            'sessionDuration': 30, // minutes
+          },
+        );
+
+        // Show success snackbar
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('🎥 Video call started with ${mentor['name']}!'),
+            backgroundColor: Colors.green,
+            duration: const Duration(seconds: 3),
+            action: SnackBarAction(
+              label: 'View',
+              textColor: Colors.white,
+              onPressed: () {
+                // Additional action if needed
+              },
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      // Close payment processing dialog if still open
+      if (context.mounted) {
+        Navigator.of(context).pop();
+      }
+
+      // Show error message
+      if (context.mounted) {
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Row(
+              children: [
+                Icon(Icons.error, color: Colors.red),
+                SizedBox(width: 8),
+                Text('Payment Failed'),
+              ],
+            ),
+            content: Text(
+                'Error: ${e.toString()}\n\nPlease try again or contact support.'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('OK'),
+              ),
+            ],
+          ),
+        );
+      }
+    }
   }
 }
 
@@ -1066,7 +1219,7 @@ class _FilterDialogState extends State<FilterDialog> {
           mainAxisSize: MainAxisSize.min,
           children: [
             DropdownButtonFormField<String>(
-              value: _selectedExam,
+              initialValue: _selectedExam,
               decoration: const InputDecoration(labelText: 'Exam Preparation'),
               items: ['All', 'JEE', 'NEET', 'IELTS', 'SAT', 'GMAT']
                   .map((e) => DropdownMenuItem(value: e, child: Text(e)))
@@ -1079,7 +1232,7 @@ class _FilterDialogState extends State<FilterDialog> {
             ),
             const SizedBox(height: 16),
             DropdownButtonFormField<String>(
-              value: _selectedLanguage,
+              initialValue: _selectedLanguage,
               decoration: const InputDecoration(labelText: 'Teaching Language'),
               items: ['All', 'English', 'Hindi', 'Tamil', 'Telugu', 'Bengali']
                   .map((l) => DropdownMenuItem(value: l, child: Text(l)))

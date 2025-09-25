@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import '../../../core/routing/routing.dart';
-import '../../../core/providers/mentor_provider.dart';
-import '../../../core/models/user.dart';
 
+import '../../../core/models/user.dart';
+import '../../../core/providers/mentor_provider.dart';
+import '../../../core/routing/app_routes.dart';
+import '../../../core/routing/routing.dart';
+import '../../../core/services/payment_service.dart';
 
 final selectedExamProvider = StateProvider<String?>((ref) => null);
 final selectedSubjectProvider = StateProvider<String?>((ref) => null);
@@ -17,14 +19,16 @@ class BookSessionScreen extends ConsumerWidget {
     final mentors = ref.watch(mentorsProvider);
     final selectedExam = ref.watch(selectedExamProvider);
     final selectedSubject = ref.watch(selectedSubjectProvider);
-    
+
     // Filter mentors based on selection
     final filteredMentors = mentors.where((mentor) {
-      if (selectedExam != null && !mentor.specializations.contains(selectedExam)) {
+      if (selectedExam != null &&
+          !mentor.specializations.contains(selectedExam)) {
         return false;
       }
-      if (selectedSubject != null && !mentor.specializations.any((spec) => 
-        spec.toLowerCase().contains(selectedSubject.toLowerCase()))) {
+      if (selectedSubject != null &&
+          !mentor.specializations.any((spec) =>
+              spec.toLowerCase().contains(selectedSubject.toLowerCase()))) {
         return false;
       }
       return true;
@@ -42,12 +46,11 @@ class BookSessionScreen extends ConsumerWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    'Filters',
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.bold
-                    )
-                  ),
+                  Text('Filters',
+                      style: Theme.of(context)
+                          .textTheme
+                          .titleLarge
+                          ?.copyWith(fontWeight: FontWeight.bold)),
                   const SizedBox(height: 16),
                   Row(
                     children: [
@@ -60,13 +63,16 @@ class BookSessionScreen extends ConsumerWidget {
                             border: OutlineInputBorder(),
                           ),
                           items: const [
-                            DropdownMenuItem(value: null, child: Text('All Exams')),
+                            DropdownMenuItem(child: Text('All Exams')),
                             DropdownMenuItem(value: 'JEE', child: Text('JEE')),
-                            DropdownMenuItem(value: 'NEET', child: Text('NEET')),
-                            DropdownMenuItem(value: 'IELTS', child: Text('IELTS')),
+                            DropdownMenuItem(
+                                value: 'NEET', child: Text('NEET')),
+                            DropdownMenuItem(
+                                value: 'IELTS', child: Text('IELTS')),
                           ],
                           onChanged: (value) {
-                            ref.read(selectedExamProvider.notifier).state = value;
+                            ref.read(selectedExamProvider.notifier).state =
+                                value;
                           },
                         ),
                       ),
@@ -80,15 +86,22 @@ class BookSessionScreen extends ConsumerWidget {
                             border: OutlineInputBorder(),
                           ),
                           items: const [
-                            DropdownMenuItem(value: null, child: Text('All Subjects')),
-                            DropdownMenuItem(value: 'Mathematics', child: Text('Mathematics')),
-                            DropdownMenuItem(value: 'Physics', child: Text('Physics')),
-                            DropdownMenuItem(value: 'Chemistry', child: Text('Chemistry')),
-                            DropdownMenuItem(value: 'Biology', child: Text('Biology')),
-                            DropdownMenuItem(value: 'English', child: Text('English')),
+                            DropdownMenuItem(child: Text('All Subjects')),
+                            DropdownMenuItem(
+                                value: 'Mathematics',
+                                child: Text('Mathematics')),
+                            DropdownMenuItem(
+                                value: 'Physics', child: Text('Physics')),
+                            DropdownMenuItem(
+                                value: 'Chemistry', child: Text('Chemistry')),
+                            DropdownMenuItem(
+                                value: 'Biology', child: Text('Biology')),
+                            DropdownMenuItem(
+                                value: 'English', child: Text('English')),
                           ],
                           onChanged: (value) {
-                            ref.read(selectedSubjectProvider.notifier).state = value;
+                            ref.read(selectedSubjectProvider.notifier).state =
+                                value;
                           },
                         ),
                       ),
@@ -108,18 +121,17 @@ class BookSessionScreen extends ConsumerWidget {
               ),
             ),
           ),
-          
+
           const SizedBox(height: 16),
-          
+
           // Results header
-          Text(
-            'Available Mentors (${filteredMentors.length})',
-            style: Theme.of(context).textTheme.titleLarge?.copyWith(
-              fontWeight: FontWeight.bold
-            )
-          ),
+          Text('Available Mentors (${filteredMentors.length})',
+              style: Theme.of(context)
+                  .textTheme
+                  .titleLarge
+                  ?.copyWith(fontWeight: FontWeight.bold)),
           const SizedBox(height: 12),
-          
+
           // Mentors List
           if (filteredMentors.isEmpty)
             const Center(
@@ -145,7 +157,8 @@ class BookSessionScreen extends ConsumerWidget {
                 margin: const EdgeInsets.only(bottom: 12),
                 child: ListTile(
                   leading: CircleAvatar(
-                    backgroundColor: Theme.of(context).colorScheme.primaryContainer,
+                    backgroundColor:
+                        Theme.of(context).colorScheme.primaryContainer,
                     child: Text(mentor.name.split(' ').map((n) => n[0]).join()),
                   ),
                   title: Text(mentor.name),
@@ -159,17 +172,20 @@ class BookSessionScreen extends ConsumerWidget {
                           Icon(Icons.star, size: 16, color: Colors.amber[600]),
                           Text(' ${mentor.rating} • '),
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 2),
                             decoration: BoxDecoration(
-                              color: mentor.isAvailable 
-                                ? Colors.green.withOpacity(0.1) 
-                                : Colors.red.withOpacity(0.1),
+                              color: mentor.isAvailable
+                                  ? Colors.green.withOpacity(0.1)
+                                  : Colors.red.withOpacity(0.1),
                               borderRadius: BorderRadius.circular(12),
                             ),
                             child: Text(
                               mentor.isAvailable ? 'Available' : 'Busy',
                               style: TextStyle(
-                                color: mentor.isAvailable ? Colors.green : Colors.red,
+                                color: mentor.isAvailable
+                                    ? Colors.green
+                                    : Colors.red,
                                 fontSize: 12,
                               ),
                             ),
@@ -193,23 +209,28 @@ class BookSessionScreen extends ConsumerWidget {
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           TextButton(
-                            onPressed: () => context.go(AppRoutes.mentorProfile(mentor.id)),
+                            onPressed: () =>
+                                context.go(AppRoutes.mentorProfile(mentor.id)),
                             style: TextButton.styleFrom(
                               minimumSize: const Size(50, 30),
-                              padding: const EdgeInsets.symmetric(horizontal: 8),
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 8),
                             ),
-                            child: const Text('View', style: TextStyle(fontSize: 12)),
+                            child: const Text('View',
+                                style: TextStyle(fontSize: 12)),
                           ),
                           const SizedBox(width: 4),
                           ElevatedButton(
-                            onPressed: mentor.isAvailable 
-                              ? () => _showBookingDialog(context, mentor)
-                              : null,
+                            onPressed: mentor.isAvailable
+                                ? () => _showBookingDialog(context, mentor)
+                                : null,
                             style: ElevatedButton.styleFrom(
                               minimumSize: const Size(60, 30),
-                              padding: const EdgeInsets.symmetric(horizontal: 8),
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 8),
                             ),
-                            child: const Text('Book', style: TextStyle(fontSize: 12)),
+                            child: const Text('Book',
+                                style: TextStyle(fontSize: 12)),
                           ),
                         ],
                       ),
@@ -246,11 +267,12 @@ class _BookingDialogState extends State<BookingDialog> {
   DateTime? selectedDate;
   TimeOfDay? selectedTime;
   final messageController = TextEditingController();
+  bool _isProcessingInstantCall = false;
 
   @override
   Widget build(BuildContext context) {
     final price = _calculatePrice();
-    
+
     return AlertDialog(
       title: Text('Book Session with ${widget.mentor.name}'),
       content: SingleChildScrollView(
@@ -261,7 +283,7 @@ class _BookingDialogState extends State<BookingDialog> {
             Text('Subject: ${widget.mentor.specializations.first}'),
             Text('Rate: \$${widget.mentor.hourlyRate}/hour'),
             const SizedBox(height: 16),
-            
+
             // Duration Selection
             DropdownButtonFormField<String>(
               decoration: const InputDecoration(
@@ -272,28 +294,31 @@ class _BookingDialogState extends State<BookingDialog> {
               items: [
                 DropdownMenuItem(
                   value: '30',
-                  child: Text('30 minutes - \$${(widget.mentor.hourlyRate * 0.5).toStringAsFixed(2)}'),
+                  child: Text(
+                      '30 minutes - \$${(widget.mentor.hourlyRate * 0.5).toStringAsFixed(2)}'),
                 ),
                 DropdownMenuItem(
                   value: '60',
-                  child: Text('1 hour - \$${widget.mentor.hourlyRate.toStringAsFixed(2)}'),
+                  child: Text(
+                      '1 hour - \$${widget.mentor.hourlyRate.toStringAsFixed(2)}'),
                 ),
                 DropdownMenuItem(
                   value: '90',
-                  child: Text('1.5 hours - \$${(widget.mentor.hourlyRate * 1.5).toStringAsFixed(2)}'),
+                  child: Text(
+                      '1.5 hours - \$${(widget.mentor.hourlyRate * 1.5).toStringAsFixed(2)}'),
                 ),
               ],
               onChanged: (value) => setState(() => selectedDuration = value),
             ),
-            
+
             const SizedBox(height: 16),
-            
+
             // Date Selection
             ListTile(
               leading: const Icon(Icons.calendar_today),
-              title: Text(selectedDate == null 
-                ? 'Select Date' 
-                : 'Date: ${selectedDate!.day}/${selectedDate!.month}/${selectedDate!.year}'),
+              title: Text(selectedDate == null
+                  ? 'Select Date'
+                  : 'Date: ${selectedDate!.day}/${selectedDate!.month}/${selectedDate!.year}'),
               onTap: () async {
                 final date = await showDatePicker(
                   context: context,
@@ -306,13 +331,13 @@ class _BookingDialogState extends State<BookingDialog> {
                 }
               },
             ),
-            
+
             // Time Selection
             ListTile(
               leading: const Icon(Icons.access_time),
-              title: Text(selectedTime == null 
-                ? 'Select Time' 
-                : 'Time: ${selectedTime!.format(context)}'),
+              title: Text(selectedTime == null
+                  ? 'Select Time'
+                  : 'Time: ${selectedTime!.format(context)}'),
               onTap: () async {
                 final time = await showTimePicker(
                   context: context,
@@ -323,9 +348,9 @@ class _BookingDialogState extends State<BookingDialog> {
                 }
               },
             ),
-            
+
             const SizedBox(height: 16),
-            
+
             // Message
             TextField(
               controller: messageController,
@@ -336,9 +361,9 @@ class _BookingDialogState extends State<BookingDialog> {
               ),
               maxLines: 3,
             ),
-            
+
             const SizedBox(height: 16),
-            
+
             if (price > 0)
               Container(
                 padding: const EdgeInsets.all(12),
@@ -356,9 +381,9 @@ class _BookingDialogState extends State<BookingDialog> {
                     Text(
                       '\$${price.toStringAsFixed(2)}',
                       style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
-                        color: Theme.of(context).colorScheme.primary,
-                      ),
+                            fontWeight: FontWeight.bold,
+                            color: Theme.of(context).colorScheme.primary,
+                          ),
                     ),
                   ],
                 ),
@@ -371,6 +396,22 @@ class _BookingDialogState extends State<BookingDialog> {
           onPressed: () => Navigator.of(context).pop(),
           child: const Text('Cancel'),
         ),
+        if (widget.mentor.isAvailable)
+          ElevatedButton(
+            onPressed: _isProcessingInstantCall
+                ? null
+                : () => _startInstantCall(context),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Theme.of(context).colorScheme.secondary,
+            ),
+            child: _isProcessingInstantCall
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Text('Instant Call'),
+          ),
         ElevatedButton(
           onPressed: _canBook() ? () => _bookSession(context) : null,
           child: const Text('Book Session'),
@@ -381,21 +422,22 @@ class _BookingDialogState extends State<BookingDialog> {
 
   double _calculatePrice() {
     if (selectedDuration == null) return 0;
-    
-    final duration = int.parse(selectedDuration!) / 60; // Convert minutes to hours
+
+    final duration =
+        int.parse(selectedDuration!) / 60; // Convert minutes to hours
     return widget.mentor.hourlyRate * duration;
   }
 
   bool _canBook() {
-    return selectedDuration != null && 
-           selectedDate != null && 
-           selectedTime != null;
+    return selectedDuration != null &&
+        selectedDate != null &&
+        selectedTime != null;
   }
 
   void _bookSession(BuildContext context) {
     // Here you would typically call an API to create the session
     Navigator.of(context).pop();
-    
+
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Column(
@@ -403,17 +445,84 @@ class _BookingDialogState extends State<BookingDialog> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text('Session booked with ${widget.mentor.name}!'),
-            Text('${selectedDate!.day}/${selectedDate!.month} at ${selectedTime!.format(context)}'),
+            Text(
+                '${selectedDate!.day}/${selectedDate!.month} at ${selectedTime!.format(context)}'),
             Text('Amount: \$${_calculatePrice().toStringAsFixed(2)}'),
           ],
         ),
         backgroundColor: Colors.green,
-        duration: const Duration(seconds: 4),
       ),
     );
-    
+
     // Navigate back to home
     context.go(AppRoutes.studentHome);
+  }
+
+  Future<void> _startInstantCall(BuildContext context) async {
+    setState(() => _isProcessingInstantCall = true);
+
+    try {
+      // Determine charge amount: use selected duration if chosen else default 30 minutes
+      final durationMinutes = selectedDuration != null
+          ? int.tryParse(selectedDuration!) ?? 30
+          : 30; // default 30 min
+      final amount = (widget.mentor.hourlyRate / 60) * durationMinutes;
+
+      // Create a pseudo session id for instant call
+      final sessionId = 'instant_${DateTime.now().millisecondsSinceEpoch}';
+
+      // Setup payment sheet
+      final setupOk = await PaymentService.instance.setupPaymentSheet(
+        sessionId: sessionId,
+        amount: double.parse(amount.toStringAsFixed(2)),
+      );
+
+      if (!setupOk) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+              content: Text('Failed to prepare payment. Try again.')),
+        );
+        setState(() => _isProcessingInstantCall = false);
+        return;
+      }
+
+      // Present payment sheet
+      final result =
+          await PaymentService.instance.presentPaymentSheet(sessionId);
+
+      if (!mounted) return;
+
+      if (result.isSuccess) {
+        // Close dialog first
+        Navigator.of(context).pop();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+                'Payment successful. Starting call with ${widget.mentor.name}...'),
+            backgroundColor: Colors.green,
+          ),
+        );
+        // Navigate to session screen (live session) – this screen can auto-start call or user can initiate
+        context.go(AppRoutes.session(sessionId));
+      } else if (result.isCancelled) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Payment cancelled.')),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(result.error ?? 'Payment failed')),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Instant call failed: $e')),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isProcessingInstantCall = false);
+      }
+    }
   }
 
   @override

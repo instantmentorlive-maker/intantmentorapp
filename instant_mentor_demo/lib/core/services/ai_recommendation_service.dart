@@ -1,5 +1,7 @@
-import 'package:flutter/foundation.dart';
 import 'dart:math' as math;
+
+import 'package:flutter/foundation.dart';
+
 import 'supabase_service.dart';
 
 /// AI-powered mentor recommendation service

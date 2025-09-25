@@ -11,7 +11,7 @@ class AdminService {
     return _sb
         .from('mentor_applications')
         .stream(primaryKey: ['id'])
-        .order('created_at', ascending: false)
+        .order('created_at')
         .map((rows) => rows);
   }
 
@@ -20,15 +20,12 @@ class AdminService {
     required String status, // approved | rejected
     String? adminNotes,
   }) async {
-    await _sb
-        .from('mentor_applications')
-        .update({
-          'status': status,
-          'admin_notes': adminNotes,
-          'reviewed_by': _sb.auth.currentUser?.id,
-          'reviewed_at': DateTime.now().toIso8601String(),
-        })
-        .eq('id', id);
+    await _sb.from('mentor_applications').update({
+      'status': status,
+      'admin_notes': adminNotes,
+      'reviewed_by': _sb.auth.currentUser?.id,
+      'reviewed_at': DateTime.now().toIso8601String(),
+    }).eq('id', id);
   }
 
   // Call logs
@@ -36,7 +33,7 @@ class AdminService {
     return _sb
         .from('call_logs')
         .stream(primaryKey: ['id'])
-        .order('created_at', ascending: false)
+        .order('created_at')
         .map((rows) => rows);
   }
 
@@ -53,7 +50,7 @@ class AdminService {
     return _sb
         .from('disputes')
         .stream(primaryKey: ['id'])
-        .order('created_at', ascending: false)
+        .order('created_at')
         .map((rows) => rows);
   }
 
@@ -63,15 +60,12 @@ class AdminService {
     String? resolution,
     num? refundAmount,
   }) async {
-    await _sb
-        .from('disputes')
-        .update({
-          'status': status,
-          'resolution': resolution,
-          'refund_amount': refundAmount,
-          'updated_at': DateTime.now().toIso8601String(),
-        })
-        .eq('id', id);
+    await _sb.from('disputes').update({
+      'status': status,
+      'resolution': resolution,
+      'refund_amount': refundAmount,
+      'updated_at': DateTime.now().toIso8601String(),
+    }).eq('id', id);
   }
 
   // Refunds
@@ -131,7 +125,7 @@ class AdminService {
     return _sb
         .from('admin_refunds')
         .stream(primaryKey: ['id'])
-        .order('created_at', ascending: false)
+        .order('created_at')
         .map((rows) => rows);
   }
 
@@ -150,15 +144,16 @@ class AdminService {
   Future<void> liftBan({
     required String banId,
   }) async {
-    await _sb
-        .from('user_bans')
-        .update({'active': false, 'lifted_at': DateTime.now().toIso8601String()})
-        .eq('id', banId);
+    await _sb.from('user_bans').update({
+      'active': false,
+      'lifted_at': DateTime.now().toIso8601String()
+    }).eq('id', banId);
   }
 
   // GDPR helpers
   Future<Map<String, dynamic>> exportUserData(String userId) async {
-    final res = await _sb.rpc('export_user_data', params: {'p_user_id': userId});
+    final res =
+        await _sb.rpc('export_user_data', params: {'p_user_id': userId});
     return (res as Map<String, dynamic>?) ?? {};
   }
 

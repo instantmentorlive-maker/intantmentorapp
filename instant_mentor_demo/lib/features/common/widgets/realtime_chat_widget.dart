@@ -1,13 +1,15 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'dart:async';
-import '../../../core/services/websocket_service.dart';
-import '../../../core/providers/websocket_provider.dart';
+
+import '../../../core/models/chat.dart';
 import '../../../core/providers/auth_provider.dart';
 import '../../../core/providers/chat_providers.dart';
 import '../../../core/providers/realtime_chat_provider.dart'
     hide typingIndicatorProvider;
-import '../../../core/models/chat.dart';
+import '../../../core/providers/websocket_provider.dart';
+import '../../../core/services/websocket_service.dart';
 
 class RealTimeChatWidget extends ConsumerStatefulWidget {
   final String receiverId;
@@ -30,7 +32,7 @@ class _RealTimeChatWidgetState extends ConsumerState<RealTimeChatWidget> {
   final ScrollController _scrollController = ScrollController();
   final List<ChatMessage> _messages = [];
   bool _isTyping = false;
-  bool _showTypingIndicator = false;
+  final bool _showTypingIndicator = false;
 
   Timer? _typingTimer;
 
@@ -125,7 +127,6 @@ class _RealTimeChatWidgetState extends ConsumerState<RealTimeChatWidget> {
       senderName: currentUser.email ?? 'User',
       type: MessageType.text,
       timestamp: DateTime.now(),
-      isSent: false, // Initially not sent
     );
 
     setState(() {
@@ -217,33 +218,7 @@ class _RealTimeChatWidgetState extends ConsumerState<RealTimeChatWidget> {
     });
   }
 
-  void _initiateVideoCall() async {
-    try {
-      final webSocketManager = ref.read(webSocketManagerProvider);
-      await webSocketManager.initiateVideoCall(
-        receiverId: widget.receiverId,
-        callData: {
-          'callerName':
-              ref.read(authProvider).user?.userMetadata?['full_name'] ??
-                  'Unknown',
-          'callId': DateTime.now().millisecondsSinceEpoch.toString(),
-        },
-      );
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Video call initiated')),
-        );
-      }
-    } catch (e) {
-      debugPrint('Error initiating video call: $e');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to initiate call: $e')),
-        );
-      }
-    }
-  }
+  // Video call initiation removed
 
   @override
   Widget build(BuildContext context) {
@@ -336,12 +311,7 @@ class _RealTimeChatWidgetState extends ConsumerState<RealTimeChatWidget> {
                 ),
               ),
 
-              // Video call button
-              IconButton(
-                onPressed: _initiateVideoCall,
-                icon: const Icon(Icons.videocam),
-                tooltip: 'Start video call',
-              ),
+              // Video call button removed
             ],
           ),
         ),

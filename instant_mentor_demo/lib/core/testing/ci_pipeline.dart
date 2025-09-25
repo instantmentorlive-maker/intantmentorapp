@@ -103,7 +103,7 @@ class CIPipelineIntegration {
 
   /// Generate GitHub Actions workflow
   static Future<void> _generateGitHubActions() async {
-    final workflow = '''
+    const workflow = '''
 name: Flutter CI/CD Pipeline
 
 on:
@@ -157,7 +157,7 @@ jobs:
 
   /// Generate GitLab CI configuration
   static Future<void> _generateGitLabCI() async {
-    final config = '''
+    const config = '''
 image: cirrusci/flutter:stable
 
 stages:
@@ -210,7 +210,7 @@ deploy:
 
   /// Generate Jenkinsfile
   static Future<void> _generateJenkinsfile() async {
-    final jenkinsfile = '''
+    const jenkinsfile = '''
 pipeline {
     agent any
     

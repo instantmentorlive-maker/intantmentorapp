@@ -107,7 +107,7 @@ class AnalyticsService {
       // Get reviews for mentor
       final reviews = await _supabase.client
           .from('reviews')
-          .select('*')
+          .select()
           .eq('reviewed_id', mentorId);
 
       // Calculate performance metrics
@@ -338,7 +338,7 @@ class AnalyticsService {
       'event_type': 'error_occurred',
       'error_type': errorType,
       'error_message': errorMessage.length > 500
-          ? errorMessage.substring(0, 500) + '...'
+          ? '${errorMessage.substring(0, 500)}...'
           : errorMessage,
       'feature': feature,
       'has_stack_trace': stackTrace != null,
@@ -1258,7 +1258,7 @@ class AnalyticsService {
       return {
         'total_users': users.length,
         'new_users_period': newUsers,
-        'growth_rate': users.length > 0 ? (newUsers / users.length) * 100 : 0.0,
+        'growth_rate': users.isNotEmpty ? (newUsers / users.length) * 100 : 0.0,
       };
     } catch (e) {
       return {'error': 'Failed to get user metrics'};

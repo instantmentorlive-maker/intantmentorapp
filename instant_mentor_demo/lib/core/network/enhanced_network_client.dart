@@ -1,17 +1,18 @@
 import 'dart:io';
-import 'package:flutter/foundation.dart' show kIsWeb;
+
 import 'package:dio/dio.dart';
-import 'package:pretty_dio_logger/pretty_dio_logger.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:pretty_dio_logger/pretty_dio_logger.dart';
 
 import '../config/app_config.dart';
 import '../utils/logger.dart';
+import 'connection_pool.dart';
 import 'http_cache.dart';
 import 'http_cache_interceptor.dart';
-import 'http_retry.dart';
 import 'http_performance.dart';
+import 'http_retry.dart';
 import 'offline_manager.dart';
-import 'connection_pool.dart';
 
 /// Enhanced HTTP client with performance optimizations
 class EnhancedNetworkClient {
@@ -55,7 +56,8 @@ class EnhancedNetworkClient {
       _setupInterceptors();
 
       _isInitialized = true;
-      Logger.info('Enhanced network client initialized with optimizations: ${_config.getEnabledFeatures()}');
+      Logger.info(
+          'Enhanced network client initialized with optimizations: ${_config.getEnabledFeatures()}');
     } catch (e) {
       Logger.error('Failed to initialize enhanced network client: $e');
       rethrow;
@@ -65,7 +67,8 @@ class EnhancedNetworkClient {
   /// Get the configured Dio instance
   static Dio get instance {
     if (!_isInitialized) {
-      throw StateError('Enhanced network client not initialized. Call initialize() first.');
+      throw StateError(
+          'Enhanced network client not initialized. Call initialize() first.');
     }
     return _dio;
   }
@@ -73,7 +76,7 @@ class EnhancedNetworkClient {
   /// Setup Dio options with performance optimizations
   static void _setupOptions() {
     final appConfig = AppConfig.instance;
-    
+
     _dio.options = BaseOptions(
       baseUrl: appConfig.fullApiUrl,
       connectTimeout: _config.connectionTimeout,
@@ -92,7 +95,7 @@ class EnhancedNetworkClient {
     );
 
     // Configure connection pooling
-  if (_config.enableConnectionPooling && !kIsWeb) {
+    if (_config.enableConnectionPooling && !kIsWeb) {
       final adapter = ConnectionPoolManager.createDioAdapter();
       if (adapter != null) {
         _dio.httpClientAdapter = adapter;
@@ -112,7 +115,6 @@ class EnhancedNetworkClient {
     // HTTP caching
     if (_config.enableCaching) {
       _dio.interceptors.add(HttpCacheInterceptor(
-        enableCache: true,
         defaultCacheDuration: _config.defaultCacheDuration,
         cacheableMethods: _config.cacheableMethods,
       ));
@@ -128,7 +130,6 @@ class EnhancedNetworkClient {
     // Offline request queuing
     if (_config.enableOfflineSupport) {
       _dio.interceptors.add(OfflineInterceptor(
-        enableQueueing: true,
         defaultPriority: _config.defaultOfflinePriority,
         queueableMethods: _config.offlineQueueableMethods,
       ));
@@ -143,26 +144,29 @@ class EnhancedNetworkClient {
           if (token != null) {
             options.headers['Authorization'] = 'Bearer $token';
           }
-          
+
           // Add request timestamp for performance tracking
-          options.extra['request_start_time'] = DateTime.now().millisecondsSinceEpoch;
-          
+          options.extra['request_start_time'] =
+              DateTime.now().millisecondsSinceEpoch;
+
           Logger.debug('HTTP Request: ${options.method} ${options.path}');
           handler.next(options);
         },
         onResponse: (response, handler) {
           // Log response timing
-          final startTime = response.requestOptions.extra['request_start_time'] as int?;
+          final startTime =
+              response.requestOptions.extra['request_start_time'] as int?;
           if (startTime != null) {
             final duration = DateTime.now().millisecondsSinceEpoch - startTime;
-            Logger.debug('HTTP Response: ${response.statusCode} ${response.requestOptions.path} (${duration}ms)');
+            Logger.debug(
+                'HTTP Response: ${response.statusCode} ${response.requestOptions.path} (${duration}ms)');
           }
-          
+
           handler.next(response);
         },
         onError: (error, handler) async {
           Logger.error('HTTP Error: ${error.message}');
-          
+
           // Handle token refresh on 401
           if (error.response?.statusCode == 401) {
             final refreshed = await _refreshToken();
@@ -173,7 +177,7 @@ class EnhancedNetworkClient {
               if (token != null) {
                 options.headers['Authorization'] = 'Bearer $token';
               }
-              
+
               try {
                 final response = await _dio.fetch(options);
                 handler.resolve(response);
@@ -183,23 +187,18 @@ class EnhancedNetworkClient {
               }
             }
           }
-          
+
           handler.next(error);
         },
       ),
     );
-    
+
     // Pretty logging for development (last to see final request/response)
     if (appConfig.enableNetworkLogs && appConfig.isDevelopment) {
       _dio.interceptors.add(
         PrettyDioLogger(
           requestHeader: true,
           requestBody: true,
-          responseBody: true,
-          responseHeader: false,
-          error: true,
-          compact: true,
-          maxWidth: 90,
         ),
       );
     }
@@ -213,26 +212,28 @@ class EnhancedNetworkClient {
         Logger.warning('No refresh token available');
         return false;
       }
-      
+
       Logger.info('Attempting token refresh');
-      
+
       final response = await Dio().post(
         '${AppConfig.instance.authEndpoint}/refresh',
         data: {'refresh_token': refreshToken},
       );
-      
+
       if (response.statusCode == 200) {
         final data = response.data;
-        await _secureStorage.write(key: 'auth_token', value: data['access_token']);
-        await _secureStorage.write(key: 'refresh_token', value: data['refresh_token']);
-        
+        await _secureStorage.write(
+            key: 'auth_token', value: data['access_token']);
+        await _secureStorage.write(
+            key: 'refresh_token', value: data['refresh_token']);
+
         Logger.info('Token refresh successful');
         return true;
       }
     } catch (e) {
       Logger.error('Token refresh failed: $e');
     }
-    
+
     // Clear invalid tokens
     await _secureStorage.delete(key: 'auth_token');
     await _secureStorage.delete(key: 'refresh_token');
@@ -283,7 +284,7 @@ class EnhancedNetworkClient {
   static Future<void> updateConfiguration(PerformanceConfig config) async {
     _config.updateFrom(config);
     Logger.info('Network client configuration updated');
-    
+
     // Note: This doesn't reinitialize interceptors.
     // For major changes, consider calling dispose() and initialize()
   }
@@ -313,7 +314,7 @@ class EnhancedNetworkClient {
   }) {
     final dio = Dio();
     final appConfig = AppConfig.instance;
-    
+
     dio.options = BaseOptions(
       baseUrl: baseUrl ?? appConfig.fullApiUrl,
       connectTimeout: timeout ?? _config.connectionTimeout,
@@ -329,7 +330,7 @@ class EnhancedNetworkClient {
     if (enableCache) {
       dio.interceptors.add(HttpCacheInterceptor());
     }
-    
+
     if (enableRetry) {
       dio.interceptors.add(HttpRetryInterceptor(
         config: retryConfig ?? _config.retryConfig,
@@ -403,23 +404,23 @@ class PerformanceConfig {
 
   /// Convert to JSON
   Map<String, dynamic> toJson() => {
-    'maxConnections': maxConnections,
-    'maxConnectionsPerHost': maxConnectionsPerHost,
-    'connectionTimeout': connectionTimeout.inMilliseconds,
-    'receiveTimeout': receiveTimeout.inMilliseconds,
-    'sendTimeout': sendTimeout.inMilliseconds,
-    'idleTimeout': idleTimeout.inMilliseconds,
-    'enableKeepAlive': enableKeepAlive,
-    'enableCaching': enableCaching,
-    'enableRetry': enableRetry,
-    'enableOfflineSupport': enableOfflineSupport,
-    'enableConnectionPooling': enableConnectionPooling,
-    'enablePerformanceMonitoring': enablePerformanceMonitoring,
-    'defaultCacheDuration': defaultCacheDuration.inMinutes,
-    'cacheableMethods': cacheableMethods,
-    'retryConfig': retryConfig.toString(),
-    'defaultOfflinePriority': defaultOfflinePriority,
-    'offlineQueueableMethods': offlineQueueableMethods,
-    'enabledFeatures': getEnabledFeatures(),
-  };
+        'maxConnections': maxConnections,
+        'maxConnectionsPerHost': maxConnectionsPerHost,
+        'connectionTimeout': connectionTimeout.inMilliseconds,
+        'receiveTimeout': receiveTimeout.inMilliseconds,
+        'sendTimeout': sendTimeout.inMilliseconds,
+        'idleTimeout': idleTimeout.inMilliseconds,
+        'enableKeepAlive': enableKeepAlive,
+        'enableCaching': enableCaching,
+        'enableRetry': enableRetry,
+        'enableOfflineSupport': enableOfflineSupport,
+        'enableConnectionPooling': enableConnectionPooling,
+        'enablePerformanceMonitoring': enablePerformanceMonitoring,
+        'defaultCacheDuration': defaultCacheDuration.inMinutes,
+        'cacheableMethods': cacheableMethods,
+        'retryConfig': retryConfig.toString(),
+        'defaultOfflinePriority': defaultOfflinePriority,
+        'offlineQueueableMethods': offlineQueueableMethods,
+        'enabledFeatures': getEnabledFeatures(),
+      };
 }

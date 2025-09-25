@@ -1,10 +1,11 @@
+import 'dart:convert';
+
 import 'package:flutter_test/flutter_test.dart';
+import 'package:instant_mentor_demo/core/error/app_error.dart';
 import 'package:instant_mentor_demo/core/models/user.dart';
 import 'package:instant_mentor_demo/core/utils/result.dart';
-import 'package:instant_mentor_demo/core/error/app_error.dart';
 import 'package:instant_mentor_demo/data/repositories/mock_auth_repository.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'dart:convert';
 
 void main() {
   group('MockAuthRepository', () {
@@ -218,7 +219,8 @@ void main() {
         expect(result.error, isA<AuthError>());
       });
 
-      test('should return failure for wrong email domain for student', () async {
+      test('should return failure for wrong email domain for student',
+          () async {
         // Arrange
         const data = RegisterData(
           name: 'Test User',
@@ -288,7 +290,7 @@ void main() {
 
         // Assert
         expect(result.isSuccess, isTrue);
-        
+
         // Verify session is cleared
         final sessionAfter = await repository.getCurrentSession();
         expect(sessionAfter, isNull);
@@ -296,7 +298,8 @@ void main() {
     });
 
     group('refreshToken', () {
-      test('should return success with new token for valid refresh token', () async {
+      test('should return success with new token for valid refresh token',
+          () async {
         // Act
         final result = await repository.refreshToken('refresh_123456');
 
@@ -340,7 +343,7 @@ void main() {
           email: 'mentor@mentor.com',
           password: 'password123',
         );
-        
+
         // Sign in first
         await repository.signIn(credentials);
 

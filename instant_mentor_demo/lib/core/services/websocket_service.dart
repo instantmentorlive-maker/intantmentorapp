@@ -5,6 +5,7 @@ import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:socket_io_client/socket_io_client.dart' as IO;
+import '../config/feature_flags.dart';
 
 /// WebSocket connection states
 enum WebSocketConnectionState {
@@ -169,14 +170,45 @@ class WebSocketService {
       return;
     }
 
+    // Unified gating: if realtime is disabled OR demo mode active, skip.
+    if (!FeatureFlags.realtimeEnabled) {
+      debugPrint('🌐 WebSocket: Realtime disabled (REALTIME_ENABLED=false)');
+      _updateConnectionState(WebSocketConnectionState.disconnected);
+      return;
+    }
+
+    if (FeatureFlags.demoMode) {
+      debugPrint('🌐 WebSocket: Skipping connection (DEMO_MODE=true)');
+      _updateConnectionState(WebSocketConnectionState.disconnected);
+      return;
+    }
+
     _currentUserId = userId;
     _userRole = userRole;
 
-    final wsUrl = serverUrl ?? _getDefaultServerUrl();
+    String wsUrl = serverUrl?.trim().isNotEmpty == true
+        ? serverUrl!.trim()
+        : (FeatureFlags.realtimeServerUrl.isNotEmpty
+            ? FeatureFlags.realtimeServerUrl
+            : _getDefaultServerUrl());
+
+    // Treat placeholder production host as "disabled" to avoid endless failing reconnects.
+    if (wsUrl.contains('your-production-server.com')) {
+      debugPrint(
+          '🌐 WebSocket: Placeholder production URL detected -> disabling connection (demo mode)');
+      wsUrl = '';
+    }
+
+    // Guard against accidental ws urls that resolve to an unsafe port or ":0" (seen in console logs)
+    if (wsUrl.endsWith(':0')) {
+      debugPrint(
+          '🚫 WebSocket: Detected invalid :0 port in "$wsUrl" -> disabling connection');
+      wsUrl = '';
+    }
 
     // Skip connection if URL is empty (demo mode)
     if (wsUrl.isEmpty) {
-      debugPrint('🌐 WebSocket: Skipping connection in demo mode');
+      debugPrint('🌐 WebSocket: No server URL resolved; skipping connection');
       _updateConnectionState(WebSocketConnectionState.disconnected);
       return;
     }
@@ -787,13 +819,11 @@ class WebSocketService {
   /// Get default server URL
   String _getDefaultServerUrl() {
     // In production, this should come from environment config
+    // If feature flags specify an override, it is handled earlier.
     if (kDebugMode) {
-      // For development mode, use the local WebSocket server
-      // This WebSocket service is for general app messaging, not WebRTC signaling
-      return 'http://localhost:3000'; // Use the same server as signaling
-    } else {
-      return 'wss://your-production-server.com'; // Production server
+      return 'http://localhost:3000';
     }
+    return '';
   }
 
   /// Disconnect WebSocket

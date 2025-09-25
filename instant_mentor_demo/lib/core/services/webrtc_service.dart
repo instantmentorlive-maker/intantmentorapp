@@ -1,42 +1,11 @@
-// DEPRECATED: Replaced by features/call/webrtc/webrtc_media_service.dart integrated
-// with CallController & SignalingService. This file will be removed after all
-// references are migrated. Do not add new logic here.
-// ignore_for_file: unused_import, dead_code, unused_field, unnecessary_this, deprecated_member_use, avoid_print, no_leading_underscores_for_local_identifiers, prefer_final_fields
-import 'dart:async';
-import 'package:flutter/foundation.dart';
-import 'package:flutter_webrtc/flutter_webrtc.dart';
-import '../config/app_config.dart';
-import 'websocket_service.dart';
-
-/// Simple WebRTC service that uses the existing WebSocketService for signaling.
+// Stub: WebRTCService removed
 class WebRTCService {
   WebRTCService._();
   static final WebRTCService instance = WebRTCService._();
-
-  RTCPeerConnection? _pc;
-  MediaStream? _localStream;
-  MediaStream? _remoteStream;
-  final RTCVideoRenderer localRenderer = RTCVideoRenderer();
-  final RTCVideoRenderer remoteRenderer = RTCVideoRenderer();
-
-  // Signaling
-  late final WebSocketService _ws;
-  StreamSubscription<WebSocketMessage>? _wsSub;
-
-  String? _currentCallId;
-  String? _peerUserId;
-
-  bool _inited = false;
-  bool get isInitialized => _inited;
-
-  Future<void> initialize({WebSocketService? ws}) async {
-    if (_inited) return;
-    await localRenderer.initialize();
-    await remoteRenderer.initialize();
-    _ws = ws ?? WebSocketService.instance;
-    _wsSub = _ws.messageStream.listen(_onSignalMessage);
-    _inited = true;
-  }
+  bool get isInitialized => false;
+  Future<void> initialize() async {}
+  Future<void> dispose() async {}
+}
 
   Future<void> dispose() async {
     await _wsSub?.cancel();

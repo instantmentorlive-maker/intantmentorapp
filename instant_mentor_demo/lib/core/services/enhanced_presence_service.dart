@@ -133,7 +133,7 @@ class EnhancedPresenceService {
     }
 
     debugPrint(
-        '📱 Privacy settings loaded: global=${_globalPresenceVisible}, hidden=${_hiddenFromChats.length}');
+        '📱 Privacy settings loaded: global=$_globalPresenceVisible, hidden=${_hiddenFromChats.length}');
   }
 
   /// Save privacy settings to persistent storage
@@ -408,7 +408,9 @@ class EnhancedPresenceService {
 
   /// Clean up resources
   void dispose() {
-    _presenceUpdateTimers.values.forEach((timer) => timer.cancel());
+    for (var timer in _presenceUpdateTimers.values) {
+      timer.cancel();
+    }
     _presenceUpdateTimers.clear();
     _conversationPresenceController.close();
     _conversationPresences.clear();

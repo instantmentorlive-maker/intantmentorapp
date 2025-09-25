@@ -186,7 +186,7 @@ class TestPerformanceMonitor {
     report.writeln('Test: $testName');
     report.writeln('Duration: ${metrics.totalDuration}');
     report.writeln('Samples: ${metrics.samples}');
-    report.writeln('');
+    report.writeln();
 
     // Memory metrics
     report.writeln('🧠 Memory Metrics:');
@@ -201,7 +201,7 @@ class TestPerformanceMonitor {
     }
 
     // Frame metrics
-    report.writeln('');
+    report.writeln();
     report.writeln('🖼️ Frame Metrics:');
     if (metrics.frameTimes.isNotEmpty) {
       final avgFrameTime = metrics.frameTimes.reduce((a, b) => a + b) /
@@ -216,7 +216,7 @@ class TestPerformanceMonitor {
     // Alerts
     final testAlerts = _alerts.where((a) => a.testName == testName).toList();
     if (testAlerts.isNotEmpty) {
-      report.writeln('');
+      report.writeln();
       report.writeln('⚠️ Performance Alerts:');
       for (final alert in testAlerts) {
         report.writeln('  ${alert.type.name}: ${alert.message}');
@@ -224,7 +224,7 @@ class TestPerformanceMonitor {
     }
 
     // Recommendations
-    report.writeln('');
+    report.writeln();
     report.writeln('💡 Recommendations:');
     _addRecommendations(report, metrics);
 

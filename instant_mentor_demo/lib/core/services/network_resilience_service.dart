@@ -91,7 +91,7 @@ class NetworkResilienceService {
 
   /// Send test messages while offline to test queuing
   Future<void> _sendTestMessagesOffline(int flapNumber) async {
-    final messageCount = 3; // Send 3 messages per flap
+    const messageCount = 3; // Send 3 messages per flap
 
     for (int i = 1; i <= messageCount; i++) {
       final testMessage = ChatMessage(
@@ -102,7 +102,6 @@ class NetworkResilienceService {
         type: MessageType.text,
         content: 'Test message $i during network flap $flapNumber',
         timestamp: DateTime.now(),
-        isSent: false,
       );
 
       _testMessages.add(testMessage);
@@ -116,8 +115,8 @@ class NetworkResilienceService {
 
   /// Wait for connection establishment and queue flush
   Future<void> _waitForConnectionAndFlush() async {
-    final maxWaitTime = Duration(seconds: 30);
-    final checkInterval = Duration(milliseconds: 500);
+    const maxWaitTime = Duration(seconds: 30);
+    const checkInterval = Duration(milliseconds: 500);
     final startTime = DateTime.now();
 
     while (DateTime.now().difference(startTime) < maxWaitTime) {
@@ -159,7 +158,6 @@ class NetworkResilienceService {
           type: MessageType.text,
           content: scenarios[i],
           timestamp: DateTime.now(),
-          isSent: false,
         );
 
         await _testMessageResendScenario(message, i + 1);
@@ -262,7 +260,6 @@ ${_simulationLogs.join('\n')}
           type: MessageType.text,
           content: 'Queue test message $i of $testMessageCount',
           timestamp: DateTime.now(),
-          isSent: false,
         );
 
         queueTestMessages.add(message);

@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+
+import '../../../core/providers/auth_provider.dart'; // Use Supabase auth provider
 import '../../../core/routing/routing.dart';
 import '../../../core/widgets/loading_overlay.dart';
-import '../../../core/providers/auth_provider.dart'; // Use Supabase auth provider
-import '../../common/widgets/error_handler_widget.dart';
 import '../../common/widgets/enhanced_form_fields.dart';
+import '../../common/widgets/error_handler_widget.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -148,7 +149,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   PasswordFormField(
                     controller: _passwordController,
                     label: 'Password',
-                    required: true,
                   ),
                   const SizedBox(height: 32),
 

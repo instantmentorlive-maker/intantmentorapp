@@ -9,7 +9,7 @@ class AppConfig {
 
   /// Initialize configuration from environment
   static Future<void> initialize() async {
-    await dotenv.load(fileName: '.env');
+    await dotenv.load();
     _instance = AppConfig._();
   }
 
@@ -58,26 +58,22 @@ class AppConfig {
       dotenv.env['ENABLE_NETWORK_LOGS']?.toLowerCase() == 'true';
 
   // Video Calling
-  static const String agoraAppId =
-      String.fromEnvironment('AGORA_APP_ID', defaultValue: '');
+  static const String agoraAppId = String.fromEnvironment('AGORA_APP_ID');
 
   // Payment
   static const String stripePublishableKey =
-      String.fromEnvironment('STRIPE_PUBLISHABLE_KEY', defaultValue: '');
+      String.fromEnvironment('STRIPE_PUBLISHABLE_KEY');
   static const String stripeSecretKey =
-      String.fromEnvironment('STRIPE_SECRET_KEY', defaultValue: '');
+      String.fromEnvironment('STRIPE_SECRET_KEY');
 
   // Notifications
-  static const String fcmServerKey =
-      String.fromEnvironment('FCM_SERVER_KEY', defaultValue: '');
-  static const String fcmSenderId =
-      String.fromEnvironment('FCM_SENDER_ID', defaultValue: '');
+  static const String fcmServerKey = String.fromEnvironment('FCM_SERVER_KEY');
+  static const String fcmSenderId = String.fromEnvironment('FCM_SENDER_ID');
 
   // API Keys
-  static const String openaiApiKey =
-      String.fromEnvironment('OPENAI_API_KEY', defaultValue: '');
+  static const String openaiApiKey = String.fromEnvironment('OPENAI_API_KEY');
   static const String googleMapsApiKey =
-      String.fromEnvironment('GOOGLE_MAPS_API_KEY', defaultValue: '');
+      String.fromEnvironment('GOOGLE_MAPS_API_KEY');
 
   // Instance getters for environment variables
   String get agoraCertificate => dotenv.env['AGORA_CERTIFICATE'] ?? '';
@@ -90,26 +86,26 @@ class AppConfig {
   String get studentsEndpoint => '$fullApiUrl/students';
   String get sessionsEndpoint => '$fullApiUrl/sessions';
 
-    // WebRTC ICE servers
-    List<Map<String, dynamic>> get webrtcIceServers {
-        final stun = dotenv.env['STUN_URL'] ?? 'stun:stun.l.google.com:19302';
-        final turnUrl = dotenv.env['TURN_URL'];
-        final turnUser = dotenv.env['TURN_USERNAME'];
-        final turnPass = dotenv.env['TURN_PASSWORD'];
+  // WebRTC ICE servers
+  List<Map<String, dynamic>> get webrtcIceServers {
+    final stun = dotenv.env['STUN_URL'] ?? 'stun:stun.l.google.com:19302';
+    final turnUrl = dotenv.env['TURN_URL'];
+    final turnUser = dotenv.env['TURN_USERNAME'];
+    final turnPass = dotenv.env['TURN_PASSWORD'];
 
-        final servers = <Map<String, dynamic>>[
-            {
-                'urls': [stun],
-            },
-        ];
+    final servers = <Map<String, dynamic>>[
+      {
+        'urls': [stun],
+      },
+    ];
 
-        if (turnUrl != null && turnUrl.isNotEmpty) {
-            servers.add({
-                'urls': [turnUrl],
-                if (turnUser != null) 'username': turnUser,
-                if (turnPass != null) 'credential': turnPass,
-            });
-        }
-        return servers;
+    if (turnUrl != null && turnUrl.isNotEmpty) {
+      servers.add({
+        'urls': [turnUrl],
+        if (turnUser != null) 'username': turnUser,
+        if (turnPass != null) 'credential': turnPass,
+      });
     }
+    return servers;
+  }
 }

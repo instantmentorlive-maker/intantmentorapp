@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../core/providers/network_providers.dart';
+
 import '../../../core/network/enhanced_network_client.dart';
+import '../../../core/providers/network_providers.dart';
 
 /// Network performance monitoring dashboard
 class NetworkPerformanceDashboard extends ConsumerWidget {
@@ -20,7 +21,9 @@ class NetworkPerformanceDashboard extends ConsumerWidget {
             icon: const Icon(Icons.refresh),
             onPressed: () {
               ref.read(networkPerformanceProvider.notifier).updateStats();
-              ref.read(networkConnectivityProvider.notifier).checkConnectivity();
+              ref
+                  .read(networkConnectivityProvider.notifier)
+                  .checkConnectivity();
               ref.read(httpCacheProvider.notifier).refreshStats();
             },
           ),
@@ -48,7 +51,7 @@ class NetworkPerformanceDashboard extends ConsumerWidget {
 
   Widget _buildConnectivitySection(BuildContext context, WidgetRef ref) {
     final connectivityState = ref.watch(networkConnectivityProvider);
-    
+
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -65,8 +68,8 @@ class NetworkPerformanceDashboard extends ConsumerWidget {
                 Text(
                   'Connectivity Status',
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
+                        fontWeight: FontWeight.bold,
+                      ),
                 ),
               ],
             ),
@@ -84,7 +87,9 @@ class NetworkPerformanceDashboard extends ConsumerWidget {
             _buildStatusTile(
               'Queued Requests',
               '${connectivityState.queuedRequestsCount}',
-              connectivityState.queuedRequestsCount > 0 ? Colors.orange : Colors.grey[600],
+              connectivityState.queuedRequestsCount > 0
+                  ? Colors.orange
+                  : Colors.grey[600],
             ),
           ],
         ),
@@ -95,7 +100,7 @@ class NetworkPerformanceDashboard extends ConsumerWidget {
   Widget _buildPerformanceSection(BuildContext context, WidgetRef ref) {
     final performanceState = ref.watch(networkPerformanceProvider);
     final stats = performanceState.stats;
-    
+
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -109,17 +114,21 @@ class NetworkPerformanceDashboard extends ConsumerWidget {
                 Text(
                   'Performance Metrics',
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
+                        fontWeight: FontWeight.bold,
+                      ),
                 ),
                 const Spacer(),
                 Switch(
                   value: performanceState.isMonitoring,
                   onChanged: (value) {
                     if (value) {
-                      ref.read(networkPerformanceProvider.notifier).enableMonitoring();
+                      ref
+                          .read(networkPerformanceProvider.notifier)
+                          .enableMonitoring();
                     } else {
-                      ref.read(networkPerformanceProvider.notifier).disableMonitoring();
+                      ref
+                          .read(networkPerformanceProvider.notifier)
+                          .disableMonitoring();
                     }
                   },
                 ),
@@ -171,17 +180,24 @@ class NetworkPerformanceDashboard extends ConsumerWidget {
             ),
             if (stats.totalRequests > 0) ...[
               const SizedBox(height: 12),
-              Text('Response Time Percentiles', 
+              Text(
+                'Response Time Percentiles',
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  fontWeight: FontWeight.w600,
-                ),
+                      fontWeight: FontWeight.w600,
+                    ),
               ),
               const SizedBox(height: 4),
               Row(
                 children: [
-                  Expanded(child: _buildPercentileTile('P50', stats.p50ResponseTime)),
-                  Expanded(child: _buildPercentileTile('P95', stats.p95ResponseTime)),
-                  Expanded(child: _buildPercentileTile('P99', stats.p99ResponseTime)),
+                  Expanded(
+                      child:
+                          _buildPercentileTile('P50', stats.p50ResponseTime)),
+                  Expanded(
+                      child:
+                          _buildPercentileTile('P95', stats.p95ResponseTime)),
+                  Expanded(
+                      child:
+                          _buildPercentileTile('P99', stats.p99ResponseTime)),
                 ],
               ),
             ],
@@ -194,7 +210,7 @@ class NetworkPerformanceDashboard extends ConsumerWidget {
   Widget _buildCacheSection(BuildContext context, WidgetRef ref) {
     final cacheState = ref.watch(httpCacheProvider);
     final stats = cacheState.stats;
-    
+
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -208,8 +224,8 @@ class NetworkPerformanceDashboard extends ConsumerWidget {
                 Text(
                   'HTTP Cache',
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
+                        fontWeight: FontWeight.bold,
+                      ),
                 ),
                 const Spacer(),
                 TextButton.icon(
@@ -277,7 +293,7 @@ class NetworkPerformanceDashboard extends ConsumerWidget {
 
   Widget _buildOfflineSection(BuildContext context, WidgetRef ref) {
     final offlineStats = ref.watch(offlineStatsProvider);
-    
+
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -291,8 +307,8 @@ class NetworkPerformanceDashboard extends ConsumerWidget {
                 Text(
                   'Offline Support',
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
+                        fontWeight: FontWeight.bold,
+                      ),
                 ),
               ],
             ),
@@ -325,9 +341,12 @@ class NetworkPerformanceDashboard extends ConsumerWidget {
                   Expanded(
                     child: ElevatedButton.icon(
                       onPressed: () async {
-                        await ref.read(networkConnectivityProvider.notifier).processOfflineQueue();
+                        await ref
+                            .read(networkConnectivityProvider.notifier)
+                            .processOfflineQueue();
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Processing offline queue...')),
+                          const SnackBar(
+                              content: Text('Processing offline queue...')),
                         );
                       },
                       icon: const Icon(Icons.play_arrow),
@@ -338,7 +357,9 @@ class NetworkPerformanceDashboard extends ConsumerWidget {
                   Expanded(
                     child: OutlinedButton.icon(
                       onPressed: () async {
-                        await ref.read(networkConnectivityProvider.notifier).clearOfflineQueue();
+                        await ref
+                            .read(networkConnectivityProvider.notifier)
+                            .clearOfflineQueue();
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(content: Text('Queue cleared')),
                         );
@@ -366,8 +387,8 @@ class NetworkPerformanceDashboard extends ConsumerWidget {
             Text(
               'Actions',
               style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
+                    fontWeight: FontWeight.bold,
+                  ),
             ),
             const SizedBox(height: 12),
             Wrap(
@@ -377,9 +398,12 @@ class NetworkPerformanceDashboard extends ConsumerWidget {
                 ElevatedButton.icon(
                   onPressed: () async {
                     await EnhancedNetworkClient.clearCaches();
-                    ref.read(networkPerformanceProvider.notifier).resetMetrics();
+                    ref
+                        .read(networkPerformanceProvider.notifier)
+                        .resetMetrics();
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('All caches and metrics cleared')),
+                      const SnackBar(
+                          content: Text('All caches and metrics cleared')),
                     );
                   },
                   icon: const Icon(Icons.cleaning_services),
@@ -387,9 +411,12 @@ class NetworkPerformanceDashboard extends ConsumerWidget {
                 ),
                 OutlinedButton.icon(
                   onPressed: () {
-                    ref.read(networkPerformanceProvider.notifier).resetMetrics();
+                    ref
+                        .read(networkPerformanceProvider.notifier)
+                        .resetMetrics();
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Performance metrics reset')),
+                      const SnackBar(
+                          content: Text('Performance metrics reset')),
                     );
                   },
                   icon: const Icon(Icons.restart_alt),
@@ -429,7 +456,8 @@ class NetworkPerformanceDashboard extends ConsumerWidget {
     );
   }
 
-  Widget _buildMetricCard(String title, String value, IconData icon, Color color) {
+  Widget _buildMetricCard(
+      String title, String value, IconData icon, Color color) {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
@@ -490,7 +518,7 @@ class NetworkPerformanceDashboard extends ConsumerWidget {
   String _formatDateTime(DateTime dateTime) {
     final now = DateTime.now();
     final diff = now.difference(dateTime);
-    
+
     if (diff.inMinutes < 1) {
       return 'Just now';
     } else if (diff.inHours < 1) {
@@ -504,7 +532,7 @@ class NetworkPerformanceDashboard extends ConsumerWidget {
 
   void _showDetailedStats(BuildContext context, WidgetRef ref) {
     final stats = EnhancedNetworkClient.getPerformanceStats();
-    
+
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -521,7 +549,8 @@ class NetworkPerformanceDashboard extends ConsumerWidget {
                     title: Text(category.key.toUpperCase()),
                     children: [
                       if (category.value is Map<String, dynamic>)
-                        for (final entry in (category.value as Map<String, dynamic>).entries)
+                        for (final entry
+                            in (category.value as Map<String, dynamic>).entries)
                           ListTile(
                             dense: true,
                             title: Text(entry.key),

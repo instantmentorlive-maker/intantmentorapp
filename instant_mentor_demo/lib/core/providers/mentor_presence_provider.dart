@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../realtime/messaging_service.dart';
+
 import '../models/user.dart';
+import '../realtime/messaging_service.dart';
 import 'mentor_provider.dart';
 
 /// Enhanced mentor presence information

@@ -3,9 +3,9 @@
 // This file demonstrates how to integrate the HTTP Performance Optimization
 // system into your Flutter app for maximum network performance.
 
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:dio/dio.dart';
 
 // Core imports for HTTP performance optimization
 import 'core/network/enhanced_network_client.dart';
@@ -40,13 +40,7 @@ Future<void> initializeHttpPerformance() async {
     ..connectionTimeout = const Duration(seconds: 15)
     ..receiveTimeout = const Duration(seconds: 30)
     ..defaultCacheDuration = const Duration(minutes: 10)
-    ..retryConfig = const RetryConfig(
-      maxRetries: 3,
-      baseDelay: Duration(seconds: 1),
-      backoffMultiplier: 2.0,
-      enableJitter: true,
-      retryStatusCodes: [408, 429, 500, 502, 503, 504],
-    );
+    ..retryConfig = const RetryConfig();
 
   // Initialize the enhanced network client
   await EnhancedNetworkClient.initialize(config: config);

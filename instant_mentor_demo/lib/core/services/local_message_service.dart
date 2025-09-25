@@ -188,7 +188,7 @@ class LocalMessageService {
 
     try {
       String whereClause = 'chat_id = ?';
-      List<dynamic> whereArgs = [chatId];
+      final List<dynamic> whereArgs = [chatId];
 
       if (!includeUnsent) {
         whereClause += ' AND (sync_status = ? OR sync_status = ?)';
@@ -322,7 +322,7 @@ class LocalMessageService {
 
       final serverMessages = await supabase.client
           .from('chat_messages')
-          .select('*')
+          .select()
           .gte(
               'created_at',
               DateTime.fromMillisecondsSinceEpoch(lastSyncTime)

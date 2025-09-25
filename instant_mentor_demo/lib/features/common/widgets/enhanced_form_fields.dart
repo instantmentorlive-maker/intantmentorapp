@@ -197,7 +197,6 @@ class _EmailFormFieldState extends State<EmailFormField> {
     return EnhancedTextFormField(
       controller: widget.controller,
       label: 'Email',
-      hint: null,
       prefixIcon: Icons.email_outlined,
       keyboardType: TextInputType.emailAddress,
       autofocus: widget.autofocus,

@@ -26,29 +26,30 @@ class ModernScaffold extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: appBar ?? (title != null 
-        ? AppBar(
-            title: Text(title!),
-            backgroundColor: AppTheme.deepNavy,
-            foregroundColor: AppTheme.white,
-            elevation: 0,
-            centerTitle: true,
-            leading: leading,
-            actions: actions,
-            titleTextStyle: const TextStyle(
-              color: AppTheme.white,
-              fontSize: 20,
-              fontWeight: FontWeight.w600,
-              fontFamily: 'SF Pro Display',
-            ),
-          )
-        : null),
-      body: hasGradientBackground 
-        ? Container(
-            decoration: AppTheme.gradientBackground,
-            child: body,
-          )
-        : body,
+      appBar: appBar ??
+          (title != null
+              ? AppBar(
+                  title: Text(title!),
+                  backgroundColor: AppTheme.deepNavy,
+                  foregroundColor: AppTheme.white,
+                  elevation: 0,
+                  centerTitle: true,
+                  leading: leading,
+                  actions: actions,
+                  titleTextStyle: const TextStyle(
+                    color: AppTheme.white,
+                    fontSize: 20,
+                    fontWeight: FontWeight.w600,
+                    fontFamily: 'SF Pro Display',
+                  ),
+                )
+              : null),
+      body: hasGradientBackground
+          ? Container(
+              decoration: AppTheme.gradientBackground,
+              child: body,
+            )
+          : body,
       bottomNavigationBar: bottomNavigationBar,
       floatingActionButton: floatingActionButton,
     );
@@ -75,17 +76,19 @@ class ModernCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final cardWidget = Container(
       margin: margin ?? const EdgeInsets.symmetric(vertical: 8),
-      decoration: hasGradient ? AppTheme.cardGradient : BoxDecoration(
-        color: AppTheme.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: AppTheme.deepNavy.withOpacity(0.08),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
+      decoration: hasGradient
+          ? AppTheme.cardGradient
+          : BoxDecoration(
+              color: AppTheme.white,
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: AppTheme.deepNavy.withOpacity(0.08),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
       child: Padding(
         padding: padding ?? const EdgeInsets.all(20),
         child: child,
@@ -134,7 +137,8 @@ class GradientButton extends StatelessWidget {
           style: OutlinedButton.styleFrom(
             foregroundColor: AppTheme.brightBlue,
             side: const BorderSide(color: AppTheme.brightBlue, width: 2),
-            padding: padding ?? const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+            padding: padding ??
+                const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(12),
             ),
@@ -150,12 +154,15 @@ class GradientButton extends StatelessWidget {
         decoration: AppTheme.primaryButtonGradient,
         child: ElevatedButton.icon(
           onPressed: onPressed,
-          icon: icon != null ? Icon(icon, color: AppTheme.white) : const SizedBox.shrink(),
+          icon: icon != null
+              ? Icon(icon, color: AppTheme.white)
+              : const SizedBox.shrink(),
           label: Text(text, style: AppTheme.buttonText),
           style: ElevatedButton.styleFrom(
             backgroundColor: Colors.transparent,
             shadowColor: Colors.transparent,
-            padding: padding ?? const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+            padding: padding ??
+                const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(12),
             ),
@@ -187,7 +194,6 @@ class StatCard extends StatelessWidget {
     return ModernCard(
       onTap: onTap,
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           Container(
             padding: const EdgeInsets.all(12),

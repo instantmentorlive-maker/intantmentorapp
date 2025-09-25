@@ -86,19 +86,19 @@ class MemoryLeakDetector {
     report.writeln('📊 MEMORY LEAK DETECTION REPORT');
     report.writeln('================================');
     report.writeln('Generated: ${DateTime.now()}');
-    report.writeln('');
+    report.writeln();
 
     if (_potentialLeaks.isEmpty) {
       report.writeln('✅ No potential memory leaks detected!');
     } else {
       report.writeln('⚠️  Potential Memory Leaks Found:');
-      report.writeln('');
+      report.writeln();
       for (int i = 0; i < _potentialLeaks.length; i++) {
         report.writeln('${i + 1}. ${_potentialLeaks[i]}');
       }
     }
 
-    report.writeln('');
+    report.writeln();
     report.writeln('💡 Recommendations:');
     report
         .writeln('- Use autoDispose for providers that don\'t need to persist');

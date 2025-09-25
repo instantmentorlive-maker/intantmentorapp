@@ -1,8 +1,9 @@
 import 'package:flutter/services.dart';
 import 'package:local_auth/local_auth.dart';
+
+import '../error/app_error.dart';
 import '../utils/logger.dart';
 import '../utils/result.dart';
-import '../error/app_error.dart';
 
 /// Service for handling biometric authentication
 class BiometricService {
@@ -11,16 +12,16 @@ class BiometricService {
   BiometricService._internal();
 
   final LocalAuthentication _localAuth = LocalAuthentication();
-  
+
   /// Check if biometric authentication is available on device
   Future<Result<bool>> isAvailable() async {
     try {
       final bool isAvailable = await _localAuth.isDeviceSupported();
       final bool canCheckBiometrics = await _localAuth.canCheckBiometrics;
-      
+
       final result = isAvailable && canCheckBiometrics;
       Logger.info('BiometricService: Biometric availability - $result');
-      
+
       return Success(result);
     } catch (e) {
       Logger.error('BiometricService: Error checking availability - $e');
@@ -29,14 +30,15 @@ class BiometricService {
       );
     }
   }
-  
+
   /// Get list of available biometric types
   Future<Result<List<BiometricType>>> getAvailableBiometrics() async {
     try {
-      final List<BiometricType> availableBiometrics = 
+      final List<BiometricType> availableBiometrics =
           await _localAuth.getAvailableBiometrics();
-      
-      Logger.info('BiometricService: Available biometrics - $availableBiometrics');
+
+      Logger.info(
+          'BiometricService: Available biometrics - $availableBiometrics');
       return Success(availableBiometrics);
     } catch (e) {
       Logger.error('BiometricService: Error getting available biometrics - $e');
@@ -45,7 +47,7 @@ class BiometricService {
       );
     }
   }
-  
+
   /// Authenticate using biometrics
   Future<Result<bool>> authenticate({
     required String reason,
@@ -57,17 +59,19 @@ class BiometricService {
       // Check if biometric authentication is available
       final availabilityResult = await isAvailable();
       if (availabilityResult.isFailure || !availabilityResult.data!) {
-        Logger.warning('BiometricService: Biometric authentication not available');
+        Logger.warning(
+            'BiometricService: Biometric authentication not available');
         return const Failure(
           AuthError(
-            message: 'Biometric authentication is not available on this device.',
+            message:
+                'Biometric authentication is not available on this device.',
             code: 'BIOMETRIC_NOT_AVAILABLE',
           ),
         );
       }
 
       Logger.info('BiometricService: Starting biometric authentication');
-      
+
       final bool authenticated = await _localAuth.authenticate(
         localizedReason: reason,
         options: AuthenticationOptions(
@@ -90,41 +94,47 @@ class BiometricService {
         );
       }
     } on PlatformException catch (e) {
-      Logger.error('BiometricService: Platform exception - ${e.code}: ${e.message}');
-      
+      Logger.error(
+          'BiometricService: Platform exception - ${e.code}: ${e.message}');
+
       switch (e.code) {
         case 'NotEnrolled':
           return const Failure(
             AuthError(
-              message: 'No biometrics are enrolled on this device. Please set up fingerprint or face recognition in your device settings.',
+              message:
+                  'No biometrics are enrolled on this device. Please set up fingerprint or face recognition in your device settings.',
               code: 'BIOMETRIC_NOT_ENROLLED',
             ),
           );
         case 'NotAvailable':
           return const Failure(
             AuthError(
-              message: 'Biometric authentication is not available on this device.',
+              message:
+                  'Biometric authentication is not available on this device.',
               code: 'BIOMETRIC_NOT_AVAILABLE',
             ),
           );
         case 'PasscodeNotSet':
           return const Failure(
             AuthError(
-              message: 'Device passcode is not set. Please set up a screen lock in your device settings.',
+              message:
+                  'Device passcode is not set. Please set up a screen lock in your device settings.',
               code: 'BIOMETRIC_PASSCODE_NOT_SET',
             ),
           );
         case 'LockedOut':
           return const Failure(
             AuthError(
-              message: 'Biometric authentication is temporarily locked. Please try again later or use your passcode.',
+              message:
+                  'Biometric authentication is temporarily locked. Please try again later or use your passcode.',
               code: 'BIOMETRIC_LOCKED_OUT',
             ),
           );
         case 'PermanentlyLockedOut':
           return const Failure(
             AuthError(
-              message: 'Biometric authentication is permanently locked. Please use your passcode.',
+              message:
+                  'Biometric authentication is permanently locked. Please use your passcode.',
               code: 'BIOMETRIC_PERMANENTLY_LOCKED_OUT',
             ),
           );
@@ -143,7 +153,7 @@ class BiometricService {
       );
     }
   }
-  
+
   /// Check if device has enrolled biometrics
   Future<Result<bool>> hasEnrolledBiometrics() async {
     try {
@@ -151,10 +161,10 @@ class BiometricService {
       if (biometricsResult.isFailure) {
         return Failure(biometricsResult.error!);
       }
-      
+
       final hasEnrolled = biometricsResult.data!.isNotEmpty;
       Logger.info('BiometricService: Has enrolled biometrics - $hasEnrolled');
-      
+
       return Success(hasEnrolled);
     } catch (e) {
       Logger.error('BiometricService: Error checking enrolled biometrics - $e');
@@ -163,11 +173,11 @@ class BiometricService {
       );
     }
   }
-  
+
   /// Get user-friendly description of available biometric types
   String getBiometricTypeDescription(List<BiometricType> biometrics) {
     if (biometrics.isEmpty) return 'No biometrics available';
-    
+
     final descriptions = <String>[];
     if (biometrics.contains(BiometricType.fingerprint)) {
       descriptions.add('Fingerprint');
@@ -184,11 +194,11 @@ class BiometricService {
     if (biometrics.contains(BiometricType.weak)) {
       descriptions.add('Weak Biometric');
     }
-    
+
     if (descriptions.isEmpty) return 'Biometric authentication';
     if (descriptions.length == 1) return descriptions.first;
     if (descriptions.length == 2) return descriptions.join(' or ');
-    
+
     return '${descriptions.take(descriptions.length - 1).join(', ')}, or ${descriptions.last}';
   }
 }

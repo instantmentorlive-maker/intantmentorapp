@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../core/repositories/mentor_repository.dart';
+
 import '../../../core/models/user.dart';
+import '../../../core/repositories/mentor_repository.dart';
 
 class MentorDiscoveryScreen extends ConsumerWidget {
   const MentorDiscoveryScreen({super.key});
@@ -63,9 +64,9 @@ class _Filters extends ConsumerWidget {
             DropdownButton<String>(
               value: params.exam,
               hint: const Text('Exam'),
-              items: const [
-                'JEE', 'NEET', 'UPSC', 'SSC', 'Class 12', 'IELTS'
-              ].map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
+              items: const ['JEE', 'NEET', 'UPSC', 'SSC', 'Class 12', 'IELTS']
+                  .map((e) => DropdownMenuItem(value: e, child: Text(e)))
+                  .toList(),
               onChanged: (v) => _update(ref, params.copyWith(exam: v)),
             ),
             const SizedBox(width: 8),
@@ -73,7 +74,11 @@ class _Filters extends ConsumerWidget {
               value: params.subject,
               hint: const Text('Subject'),
               items: const [
-                'Mathematics','Physics','Chemistry','Biology','English'
+                'Mathematics',
+                'Physics',
+                'Chemistry',
+                'Biology',
+                'English'
               ].map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
               onChanged: (v) => _update(ref, params.copyWith(subject: v)),
             ),
@@ -87,9 +92,9 @@ class _Filters extends ConsumerWidget {
                 value: (params.minRating ?? 0).toDouble(),
                 onChanged: (v) => _update(ref, params.copyWith(minRating: v)),
                 divisions: 5,
-                min: 0,
                 max: 5,
-                label: 'Min rating: ${(params.minRating ?? 0).toStringAsFixed(1)}',
+                label:
+                    'Min rating: ${(params.minRating ?? 0).toStringAsFixed(1)}',
               ),
             ),
             const SizedBox(width: 8),
@@ -97,7 +102,8 @@ class _Filters extends ConsumerWidget {
               const Text('Available'),
               Switch(
                 value: params.onlyAvailable ?? false,
-                onChanged: (v) => _update(ref, params.copyWith(onlyAvailable: v)),
+                onChanged: (v) =>
+                    _update(ref, params.copyWith(onlyAvailable: v)),
               ),
             ]),
           ],
@@ -126,15 +132,19 @@ class _MentorTile extends StatelessWidget {
       ),
       child: Row(
         children: [
-          CircleAvatar(radius: 24, child: Text(mentor.name.isNotEmpty ? mentor.name[0] : '?')),
+          CircleAvatar(
+              radius: 24,
+              child: Text(mentor.name.isNotEmpty ? mentor.name[0] : '?')),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(mentor.name, style: const TextStyle(fontWeight: FontWeight.bold)),
+                Text(mentor.name,
+                    style: const TextStyle(fontWeight: FontWeight.bold)),
                 const SizedBox(height: 4),
-                Text(mentor.specializations.join(', '), maxLines: 1, overflow: TextOverflow.ellipsis),
+                Text(mentor.specializations.join(', '),
+                    maxLines: 1, overflow: TextOverflow.ellipsis),
                 const SizedBox(height: 4),
                 Row(
                   children: [
@@ -157,11 +167,16 @@ class _MentorTile extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                 decoration: BoxDecoration(
-                  color: mentor.isAvailable ? Colors.green.withOpacity(0.1) : Colors.red.withOpacity(0.1),
+                  color: mentor.isAvailable
+                      ? Colors.green.withOpacity(0.1)
+                      : Colors.red.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(6),
                 ),
-                child: Text(mentor.isAvailable ? 'Available' : 'Busy',
-                  style: TextStyle(color: mentor.isAvailable ? Colors.green : Colors.red),),
+                child: Text(
+                  mentor.isAvailable ? 'Available' : 'Busy',
+                  style: TextStyle(
+                      color: mentor.isAvailable ? Colors.green : Colors.red),
+                ),
               ),
             ],
           )

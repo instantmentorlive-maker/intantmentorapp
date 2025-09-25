@@ -1,8 +1,27 @@
 # InstantMentor - Real-time Mentoring Platform
 
-A comprehensive Flutter application for real-time mentoring with advanced WebSocket communication features.
+A comprehensive Flutter application for real-time mentoring with advanced WebSocket communication and WebRTC video calling features.
 
 ## 🚀 **Features Implemented**
+
+### ✅ **Video Calling System (NEW!)**
+- **WebRTC Peer-to-Peer Video Calls**
+  - High-quality video and audio communication
+  - WhatsApp-style call interface with animations
+  - Picture-in-picture local video display
+  - Comprehensive call controls (mute, camera, speaker)
+
+- **Complete Call Management**
+  - 11 different call states for full lifecycle management
+  - Call history persistence with Supabase
+  - Incoming/Outgoing/Active call screens
+  - Real-time signaling via WebSocket
+
+- **Professional UI Components**
+  - Material 3 design with smooth animations
+  - Responsive layout for all screen sizes
+  - Accessibility support and high contrast modes
+  - Industry-standard call interface design
 
 ### ✅ **Real-time Communication System**
 - **Instant Call Requests & Accept/Reject Notifications**
@@ -24,6 +43,12 @@ A comprehensive Flutter application for real-time mentoring with advanced WebSoc
   - Minimizable floating status widget for mentors
 
 ### 🏗️ **Technical Architecture**
+
+#### **Video Calling Integration**
+- **WebRTC Implementation**: Peer-to-peer video/audio using flutter_webrtc
+- **Signaling Service**: WebSocket-based call setup and management
+- **Call Controllers**: Comprehensive call lifecycle management
+- **Media Controls**: Real-time audio/video toggle and routing
 
 #### **WebSocket Integration**
 - **Socket.IO Client**: Complete real-time bidirectional communication
@@ -74,6 +99,12 @@ A comprehensive Flutter application for real-time mentoring with advanced WebSoc
    - Navigate to "More" → "WebSocket Demo"
    - Test all communication features
 
+4. **Test Video Calling**
+   - Navigate to "More" → "Video Call Demo"
+   - Test video/audio call initiation
+   - Experience all call screens and controls
+   - Monitor call state transitions
+
 ## 📱 **User Experience**
 
 ### **For Students**
@@ -82,6 +113,7 @@ A comprehensive Flutter application for real-time mentoring with advanced WebSoc
 - **Urgency Levels**: Visual color-coded priority system (Low/Medium/High)
 - **Mentor Availability**: Real-time visibility of mentor status
 - **Call Notifications**: Professional incoming call interface
+- **Video Calling**: Seamless video/audio communication with mentors
 
 ### **For Mentors**
 - **Status Management Widget**: Quick availability updates
@@ -89,8 +121,18 @@ A comprehensive Flutter application for real-time mentoring with advanced WebSoc
 - **Help Request Notifications**: Instant student request alerts
 - **Call Management**: Professional call interface with accept/reject
 - **Real-time Broadcasting**: Automatic status updates to all students
+- **Video Call Controls**: Complete call management with media controls
 
 ## 🌐 **WebSocket Events**
+
+### **Video Call Management**
+- `initiate_call`: Start video/audio calls with WebRTC signaling
+- `accept_call`: Accept incoming calls and establish peer connection
+- `reject_call`: Reject calls with reasons
+- `end_call`: Terminate ongoing calls and cleanup resources
+- `ice_candidate`: Exchange network connectivity information
+- `call_offer`: Send WebRTC offer for call establishment
+- `call_answer`: Respond to call offers
 
 ### **Call Management**
 - `initiate_call`: Start video/audio calls

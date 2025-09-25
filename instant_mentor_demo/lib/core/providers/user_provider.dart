@@ -30,13 +30,12 @@ class UserNotifier extends StateNotifier<User?> {
   }) async {
     // TODO: Implement actual signup logic with your backend
     await Future.delayed(const Duration(seconds: 1)); // Simulated API call
-    
+
     state = User(
       id: DateTime.now().millisecondsSinceEpoch.toString(),
       name: name,
       email: email,
       role: isStudent ? UserRole.student : UserRole.mentor,
-      profileImage: null,
       createdAt: DateTime.now(),
     );
   }

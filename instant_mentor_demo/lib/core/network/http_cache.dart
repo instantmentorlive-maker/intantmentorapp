@@ -1,8 +1,10 @@
 import 'dart:convert';
-import 'package:http_parser/http_parser.dart' as http_parser;
-import 'package:dio/dio.dart';
+
 import 'package:crypto/crypto.dart';
+import 'package:dio/dio.dart';
+import 'package:http_parser/http_parser.dart' as http_parser;
 import 'package:shared_preferences/shared_preferences.dart';
+
 import '../utils/logger.dart';
 
 /// HTTP response cache entry
@@ -53,9 +55,13 @@ class CacheEntry {
         headers: Map<String, dynamic>.from(json['headers']),
         data: json['data'],
         createdAt: DateTime.parse(json['createdAt']),
-        expiresAt: json['expiresAt'] != null ? DateTime.parse(json['expiresAt']) : null,
+        expiresAt: json['expiresAt'] != null
+            ? DateTime.parse(json['expiresAt'])
+            : null,
         etag: json['etag'],
-        lastModified: json['lastModified'] != null ? DateTime.parse(json['lastModified']) : null,
+        lastModified: json['lastModified'] != null
+            ? DateTime.parse(json['lastModified'])
+            : null,
       );
 }
 
@@ -88,7 +94,7 @@ class HttpCache {
     final method = options.method;
     final headers = _normalizeHeaders(options.headers);
     final data = options.data?.toString() ?? '';
-    
+
     final combined = '$method|$uri|$headers|$data';
     return sha256.convert(utf8.encode(combined)).toString();
   }
@@ -100,7 +106,7 @@ class HttpCache {
     normalized.remove('Authorization');
     normalized.remove('User-Agent');
     normalized.remove('X-Request-ID');
-    
+
     final keys = normalized.keys.toList()..sort();
     return keys.map((key) => '$key:${normalized[key]}').join('|');
   }
@@ -109,19 +115,19 @@ class HttpCache {
   static bool _shouldCache(Response response) {
     final statusCode = response.statusCode;
     final headers = response.headers;
-    
+
     // Don't cache error responses
     if (statusCode == null || statusCode >= 400) {
       return false;
     }
-    
+
     // Don't cache if explicitly told not to
     final cacheControl = headers.value('cache-control')?.toLowerCase();
-    if (cacheControl?.contains('no-cache') == true || 
+    if (cacheControl?.contains('no-cache') == true ||
         cacheControl?.contains('no-store') == true) {
       return false;
     }
-    
+
     // Cache GET requests by default
     return response.requestOptions.method.toUpperCase() == 'GET';
   }
@@ -130,7 +136,7 @@ class HttpCache {
   static DateTime? _parseCacheExpiry(Response response) {
     final headers = response.headers;
     final cacheControl = headers.value('cache-control');
-    
+
     if (cacheControl != null) {
       final maxAgeMatch = RegExp(r'max-age=(\d+)').firstMatch(cacheControl);
       if (maxAgeMatch != null) {
@@ -138,30 +144,30 @@ class HttpCache {
         return DateTime.now().add(Duration(seconds: maxAge));
       }
     }
-    
-  final expiresHeader = headers.value('expires');
+
+    final expiresHeader = headers.value('expires');
     if (expiresHeader != null) {
       try {
-    return http_parser.parseHttpDate(expiresHeader);
+        return http_parser.parseHttpDate(expiresHeader);
       } catch (e) {
         Logger.warning('Failed to parse expires header: $expiresHeader');
       }
     }
-    
+
     return null;
   }
 
   /// Store response in cache
   static Future<void> put(Response response) async {
     if (!_shouldCache(response)) return;
-    
+
     try {
       final key = _generateCacheKey(response.requestOptions);
       final headers = response.headers.map;
       final expiresAt = _parseCacheExpiry(response);
       final etag = headers['etag']?.first;
-  final lastModified = headers['last-modified']?.first;
-      
+      final lastModified = headers['last-modified']?.first;
+
       final entry = CacheEntry(
         key: key,
         headers: Map<String, dynamic>.from(headers),
@@ -169,15 +175,17 @@ class HttpCache {
         createdAt: DateTime.now(),
         expiresAt: expiresAt,
         etag: etag,
-  lastModified: lastModified != null ? http_parser.parseHttpDate(lastModified) : null,
+        lastModified: lastModified != null
+            ? http_parser.parseHttpDate(lastModified)
+            : null,
       );
-      
+
       // Store in memory cache first
       await _putMemory(key, entry);
-      
+
       // Store in disk cache for persistence
       await _putDisk(key, entry);
-      
+
       Logger.debug('Cached response for key: ${key.substring(0, 8)}...');
     } catch (e) {
       Logger.error('Failed to cache response: $e');
@@ -187,23 +195,23 @@ class HttpCache {
   /// Get cached response
   static Future<CacheEntry?> get(RequestOptions options) async {
     final key = _generateCacheKey(options);
-    
+
     // Try memory cache first
     CacheEntry? entry = _getMemory(key);
-    
+
     // Try disk cache if not in memory
     entry ??= await _getDisk(key);
-    
+
     if (entry != null) {
       // Move to memory cache if found on disk
       if (!_memoryCache.containsKey(key)) {
         await _putMemory(key, entry);
       }
-      
+
       Logger.debug('Cache hit for key: ${key.substring(0, 8)}...');
       return entry;
     }
-    
+
     Logger.debug('Cache miss for key: ${key.substring(0, 8)}...');
     return null;
   }
@@ -214,13 +222,13 @@ class HttpCache {
     if (entry.isExpired) {
       return false;
     }
-    
+
     // Check cache control headers from original request
     final cacheControl = options.headers['cache-control']?.toLowerCase();
     if (cacheControl?.contains('no-cache') == true) {
       return false;
     }
-    
+
     return true;
   }
 
@@ -231,7 +239,7 @@ class HttpCache {
       final oldestKey = _memoryCache.keys.first;
       _memoryCache.remove(oldestKey);
     }
-    
+
     _memoryCache[key] = entry;
   }
 
@@ -249,11 +257,11 @@ class HttpCache {
   /// Store in disk cache
   static Future<void> _putDisk(String key, CacheEntry entry) async {
     if (_prefs == null) return;
-    
+
     try {
       final json = jsonEncode(entry.toJson());
       await _prefs!.setString('$_diskPrefix$key', json);
-      
+
       // Manage disk cache size
       await _manageDiskCacheSize();
     } catch (e) {
@@ -264,13 +272,13 @@ class HttpCache {
   /// Get from disk cache
   static Future<CacheEntry?> _getDisk(String key) async {
     if (_prefs == null) return null;
-    
+
     try {
       final json = _prefs!.getString('$_diskPrefix$key');
       if (json != null) {
         final data = jsonDecode(json);
         final entry = CacheEntry.fromJson(data);
-        
+
         if (!entry.isExpired) {
           return entry;
         } else {
@@ -281,18 +289,19 @@ class HttpCache {
       Logger.error('Failed to get from disk cache: $e');
       await _prefs!.remove('$_diskPrefix$key');
     }
-    
+
     return null;
   }
 
   /// Manage disk cache size
   static Future<void> _manageDiskCacheSize() async {
     if (_prefs == null) return;
-    
+
     try {
-      final keys = _prefs!.getKeys().where((key) => key.startsWith(_diskPrefix));
+      final keys =
+          _prefs!.getKeys().where((key) => key.startsWith(_diskPrefix));
       final entries = <String, DateTime>{};
-      
+
       for (final key in keys) {
         final json = _prefs!.getString(key);
         if (json != null) {
@@ -305,12 +314,13 @@ class HttpCache {
           }
         }
       }
-      
+
       // Sort by creation time and remove oldest if over size limit
       final sortedKeys = entries.keys.toList()
         ..sort((a, b) => entries[a]!.compareTo(entries[b]!));
-      
-      const maxEntries = (_maxDiskSizeMB * 1024 * 1024) ~/ (1024); // Rough estimate
+
+      const maxEntries =
+          (_maxDiskSizeMB * 1024 * 1024) ~/ (1024); // Rough estimate
       if (sortedKeys.length > maxEntries) {
         final keysToRemove = sortedKeys.take(sortedKeys.length - maxEntries);
         for (final key in keysToRemove) {
@@ -326,11 +336,12 @@ class HttpCache {
   /// Clean up expired entries
   static Future<void> _cleanupExpiredEntries() async {
     if (_prefs == null) return;
-    
+
     try {
-      final keys = _prefs!.getKeys().where((key) => key.startsWith(_diskPrefix));
+      final keys =
+          _prefs!.getKeys().where((key) => key.startsWith(_diskPrefix));
       final expiredKeys = <String>[];
-      
+
       for (final key in keys) {
         final json = _prefs!.getString(key);
         if (json != null) {
@@ -345,14 +356,14 @@ class HttpCache {
           }
         }
       }
-      
+
       for (final key in expiredKeys) {
         await _prefs!.remove(key);
       }
-      
+
       // Also clean memory cache
       _memoryCache.removeWhere((key, entry) => entry.isExpired);
-      
+
       if (expiredKeys.isNotEmpty) {
         Logger.info('Cleaned up ${expiredKeys.length} expired cache entries');
       }
@@ -365,14 +376,15 @@ class HttpCache {
   static Future<void> clear() async {
     try {
       _memoryCache.clear();
-      
+
       if (_prefs != null) {
-        final keys = _prefs!.getKeys().where((key) => key.startsWith(_diskPrefix));
+        final keys =
+            _prefs!.getKeys().where((key) => key.startsWith(_diskPrefix));
         for (final key in keys) {
           await _prefs!.remove(key);
         }
       }
-      
+
       Logger.info('HTTP cache cleared');
     } catch (e) {
       Logger.error('Failed to clear cache: $e');
@@ -384,11 +396,12 @@ class HttpCache {
     final memoryCount = _memoryCache.length;
     int diskCount = 0;
     int expiredCount = 0;
-    
+
     if (_prefs != null) {
-      final keys = _prefs!.getKeys().where((key) => key.startsWith(_diskPrefix));
+      final keys =
+          _prefs!.getKeys().where((key) => key.startsWith(_diskPrefix));
       diskCount = keys.length;
-      
+
       for (final key in keys) {
         final json = _prefs!.getString(key);
         if (json != null) {
@@ -404,7 +417,7 @@ class HttpCache {
         }
       }
     }
-    
+
     return {
       'memoryEntries': memoryCount,
       'diskEntries': diskCount,

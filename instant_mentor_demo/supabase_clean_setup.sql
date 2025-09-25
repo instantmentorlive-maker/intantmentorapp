@@ -16,6 +16,7 @@ CREATE TABLE IF NOT EXISTS user_profiles (
   location TEXT,
   timezone TEXT,
   preferred_language TEXT DEFAULT 'en',
+  preferences JSONB DEFAULT '{}',
   is_mentor BOOLEAN DEFAULT false,
   is_student BOOLEAN DEFAULT true,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL,
@@ -338,6 +339,16 @@ BEGIN
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Add preferences column if it doesn't exist (for existing databases)
+DO $$ 
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
+                 WHERE table_name = 'user_profiles' 
+                 AND column_name = 'preferences') THEN
+    ALTER TABLE user_profiles ADD COLUMN preferences JSONB DEFAULT '{}';
+  END IF;
+END $$;
 
 -- Create trigger for new user signup
 DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;

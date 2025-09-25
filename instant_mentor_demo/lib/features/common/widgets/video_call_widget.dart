@@ -1,9 +1,15 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'dart:async';
-import '../../../core/services/websocket_service.dart';
-import '../../../core/providers/websocket_provider.dart';
+// Conditional import to avoid flutter_webrtc on web (uses stub instead)
+// ignore: uri_does_not_exist
+import 'package:flutter_webrtc/flutter_webrtc.dart'
+    if (dart.library.html) 'package:instant_mentor_demo/features/shared/live_session/webrtc_stub.dart';
+
 import '../../../core/providers/auth_provider.dart';
+import '../../../core/providers/websocket_provider.dart';
+import '../../../core/services/websocket_service.dart';
 
 class VideoCallWidget extends ConsumerStatefulWidget {
   final String? callId;
@@ -30,18 +36,63 @@ class _VideoCallWidgetState extends ConsumerState<VideoCallWidget> {
   bool _isSpeakerOn = false;
   Timer? _callTimer;
   Duration _callDuration = Duration.zero;
+  // Local video rendering
+  final RTCVideoRenderer _localRenderer = RTCVideoRenderer();
+  MediaStream? _localStream;
+  bool _mediaInitializing = false;
+  String? _mediaErrorMessage;
 
   @override
   void initState() {
     super.initState();
     _initializeCall();
     _setupCallEventListener();
+    _initLocalMedia();
   }
 
   @override
   void dispose() {
     _callTimer?.cancel();
+    try {
+      _localStream?.getTracks().forEach((t) => t.stop());
+      _localRenderer.dispose();
+    } catch (_) {}
     super.dispose();
+  }
+
+  Future<void> _initLocalMedia() async {
+    if (_mediaInitializing) return;
+    setState(() => _mediaInitializing = true);
+    try {
+      await _localRenderer.initialize();
+      final constraints = <String, dynamic>{
+        'audio': true,
+        'video': _isCameraOn
+            ? {
+                // For web (and compatible native), provide facingMode to ensure front camera
+                'facingMode': 'user',
+                // Web style optional/ideal constraints
+                'width': {'ideal': 640},
+                'height': {'ideal': 480},
+                'frameRate': {'ideal': 24},
+              }
+            : false,
+      };
+      _localStream = await navigator.mediaDevices.getUserMedia(constraints);
+      _localRenderer.srcObject = _localStream;
+      _mediaErrorMessage = null;
+      // Apply initial mute state if already toggled before stream init
+      if (_isMuted) {
+        for (var t in _localStream!.getAudioTracks()) {
+          t.enabled = false;
+        }
+      }
+    } catch (e) {
+      debugPrint('Failed to init local media: $e');
+      _mediaErrorMessage = 'Camera/Mic access denied or unavailable';
+    } finally {
+      if (mounted) setState(() => _mediaInitializing = false);
+    }
   }
 
   void _initializeCall() {
@@ -207,17 +258,28 @@ class _VideoCallWidgetState extends ConsumerState<VideoCallWidget> {
   }
 
   void _toggleMute() {
-    setState(() {
-      _isMuted = !_isMuted;
-    });
-    // TODO: Implement actual mute functionality with Agora
+    setState(() => _isMuted = !_isMuted);
+    if (_localStream != null) {
+      for (var track in _localStream!.getAudioTracks()) {
+        track.enabled = !_isMuted;
+      }
+    }
   }
 
   void _toggleCamera() {
-    setState(() {
-      _isCameraOn = !_isCameraOn;
-    });
-    // TODO: Implement actual camera toggle with Agora
+    setState(() => _isCameraOn = !_isCameraOn);
+    // Reconfigure local tracks
+    if (_localStream != null) {
+      // Enable/disable existing video tracks
+      for (var track in _localStream!.getVideoTracks()) {
+        track.enabled = _isCameraOn;
+      }
+      if (_isCameraOn && _localStream!.getVideoTracks().isEmpty) {
+        _initLocalMedia();
+      }
+    } else if (_isCameraOn) {
+      _initLocalMedia();
+    }
   }
 
   void _toggleSpeaker() {
@@ -249,8 +311,8 @@ class _VideoCallWidgetState extends ConsumerState<VideoCallWidget> {
 
   String _formatDuration(Duration duration) {
     String twoDigits(int n) => n.toString().padLeft(2, '0');
-    String twoDigitMinutes = twoDigits(duration.inMinutes.remainder(60));
-    String twoDigitSeconds = twoDigits(duration.inSeconds.remainder(60));
+    final String twoDigitMinutes = twoDigits(duration.inMinutes.remainder(60));
+    final String twoDigitSeconds = twoDigits(duration.inSeconds.remainder(60));
 
     if (duration.inHours > 0) {
       return '${twoDigits(duration.inHours)}:$twoDigitMinutes:$twoDigitSeconds';
@@ -262,101 +324,22 @@ class _VideoCallWidgetState extends ConsumerState<VideoCallWidget> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final user = ref.read(authProvider).user;
+    final userMeta = user?.userMetadata ?? {};
+    final avatarUrl = (userMeta['avatar_url'] ?? userMeta['avatarUrl'] ?? '')
+        .toString()
+        .trim();
+    final displayName =
+        (userMeta['full_name'] ?? userMeta['name'] ?? 'You').toString();
 
     return Scaffold(
       backgroundColor: Colors.black,
       body: SafeArea(
         child: Column(
           children: [
-            // Header with call info
-            Container(
-              padding: const EdgeInsets.all(20),
-              child: Column(
-                children: [
-                  // Receiver avatar
-                  Container(
-                    width: 120,
-                    height: 120,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: theme.colorScheme.primary,
-                    ),
-                    child: const Icon(
-                      Icons.person,
-                      size: 60,
-                      color: Colors.white,
-                    ),
-                  ),
+            _buildHeader(theme, avatarUrl, displayName),
 
-                  const SizedBox(height: 16),
-
-                  // Receiver name
-                  Text(
-                    widget.receiverName ?? 'Unknown',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-
-                  const SizedBox(height: 8),
-
-                  // Call status
-                  Text(
-                    _getCallStatusText(),
-                    style: const TextStyle(
-                      color: Colors.white70,
-                      fontSize: 16,
-                    ),
-                  ),
-
-                  // Call duration (only when connected)
-                  if (_callState == CallState.connected) ...[
-                    const SizedBox(height: 8),
-                    Text(
-                      _formatDuration(_callDuration),
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 18,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-
-            // Video area (placeholder)
-            Expanded(
-              child: Container(
-                margin: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: Colors.grey[900],
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: const Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        Icons.videocam,
-                        size: 80,
-                        color: Colors.white54,
-                      ),
-                      SizedBox(height: 16),
-                      Text(
-                        'Video will appear here',
-                        style: TextStyle(
-                          color: Colors.white54,
-                          fontSize: 16,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
+            _buildVideoArea(avatarUrl, displayName),
 
             // Call controls
             Container(
@@ -387,6 +370,160 @@ class _VideoCallWidgetState extends ConsumerState<VideoCallWidget> {
       case CallState.failed:
         return 'Call failed';
     }
+  }
+
+  Widget _buildHeader(ThemeData theme, String avatarUrl, String displayName) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        children: [
+          // Avatar or placeholder
+          Container(
+            width: 120,
+            height: 120,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: theme.colorScheme.primary,
+              image: avatarUrl.isNotEmpty
+                  ? DecorationImage(
+                      image: NetworkImage(avatarUrl),
+                      fit: BoxFit.cover,
+                    )
+                  : null,
+            ),
+            child: avatarUrl.isEmpty
+                ? Text(
+                    displayName.isNotEmpty ? displayName[0].toUpperCase() : '?',
+                    style: const TextStyle(
+                      fontSize: 48,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
+                  )
+                : null,
+          ),
+          const SizedBox(height: 16),
+          Text(
+            widget.receiverName ?? 'Unknown',
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 24,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            _getCallStatusText(),
+            style: const TextStyle(
+              color: Colors.white70,
+              fontSize: 16,
+            ),
+          ),
+          if (_callState == CallState.connected) ...[
+            const SizedBox(height: 8),
+            Text(
+              _formatDuration(_callDuration),
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 18,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildVideoArea(String avatarUrl, String displayName) {
+    return Expanded(
+      child: Container(
+        margin: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: Colors.grey[900],
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: _isCameraOn
+            ? (_mediaInitializing
+                ? const Center(
+                    child: CircularProgressIndicator(color: Colors.white),
+                  )
+                : (_localStream != null
+                    ? Stack(
+                        fit: StackFit.expand,
+                        children: [
+                          RTCVideoView(_localRenderer, mirror: true),
+                          if (_mediaErrorMessage != null)
+                            _buildMediaErrorOverlay(),
+                        ],
+                      )
+                    : _mediaErrorMessage != null
+                        ? _buildMediaErrorOverlay()
+                        : _buildAvatarFallback(avatarUrl, displayName)))
+            : _buildAvatarFallback(avatarUrl, displayName),
+      ),
+    );
+  }
+
+  Widget _buildMediaErrorOverlay() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.videocam_off, color: Colors.white54, size: 48),
+            const SizedBox(height: 12),
+            Text(
+              _mediaErrorMessage ?? 'Media unavailable',
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: Colors.white70, fontSize: 16),
+            ),
+            const SizedBox(height: 8),
+            TextButton(
+              onPressed: () {
+                _initLocalMedia();
+              },
+              child: const Text('Retry', style: TextStyle(color: Colors.white)),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAvatarFallback(String avatarUrl, String displayName) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          CircleAvatar(
+            radius: 48,
+            backgroundColor: Colors.grey[700],
+            backgroundImage:
+                avatarUrl.isNotEmpty ? NetworkImage(avatarUrl) : null,
+            child: avatarUrl.isEmpty
+                ? Text(
+                    displayName.isNotEmpty ? displayName[0].toUpperCase() : '?',
+                    style: const TextStyle(
+                      fontSize: 40,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
+                  )
+                : null,
+          ),
+          const SizedBox(height: 16),
+          Text(
+            _isCameraOn ? 'Initializing camera...' : 'Camera off',
+            style: const TextStyle(
+              color: Colors.white70,
+              fontSize: 16,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _buildCallControls() {

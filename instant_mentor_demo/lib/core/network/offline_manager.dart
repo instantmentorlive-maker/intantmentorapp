@@ -1,8 +1,10 @@
-import 'dart:convert';
 import 'dart:collection';
+import 'dart:convert';
+
+import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:dio/dio.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:connectivity_plus/connectivity_plus.dart';
+
 import '../utils/logger.dart';
 
 /// Offline request queue entry
@@ -22,17 +24,17 @@ class QueuedRequest {
   });
 
   Map<String, dynamic> toJson() => {
-    'id': id,
-    'method': options.method,
-    'path': options.path,
-    'baseUrl': options.baseUrl,
-    'headers': options.headers,
-    'queryParameters': options.queryParameters,
-    'data': options.data,
-    'createdAt': createdAt.toIso8601String(),
-    'priority': priority,
-    'metadata': metadata,
-  };
+        'id': id,
+        'method': options.method,
+        'path': options.path,
+        'baseUrl': options.baseUrl,
+        'headers': options.headers,
+        'queryParameters': options.queryParameters,
+        'data': options.data,
+        'createdAt': createdAt.toIso8601String(),
+        'priority': priority,
+        'metadata': metadata,
+      };
 
   static QueuedRequest fromJson(Map<String, dynamic> json) {
     final options = RequestOptions(
@@ -64,7 +66,7 @@ class OfflineManager {
   static final Connectivity _connectivity = Connectivity();
   static bool _isOnline = true;
   static bool _isInitialized = false;
-  
+
   static final Queue<QueuedRequest> _requestQueue = Queue<QueuedRequest>();
   static final Set<String> _processingIds = <String>{};
 
@@ -78,8 +80,9 @@ class OfflineManager {
       await _checkConnectivity();
       _setupConnectivityListener();
       _isInitialized = true;
-      
-      Logger.info('Offline manager initialized with ${_requestQueue.length} queued requests');
+
+      Logger.info(
+          'Offline manager initialized with ${_requestQueue.length} queued requests');
     } catch (e) {
       Logger.error('Failed to initialize offline manager: $e');
     }
@@ -91,7 +94,7 @@ class OfflineManager {
       final result = await _connectivity.checkConnectivity();
       _isOnline = result != ConnectivityResult.none;
       Logger.debug('Connectivity status: ${_isOnline ? "online" : "offline"}');
-      
+
       if (_isOnline) {
         await _processQueue();
       }
@@ -105,9 +108,9 @@ class OfflineManager {
     _connectivity.onConnectivityChanged.listen((result) async {
       final wasOnline = _isOnline;
       _isOnline = result != ConnectivityResult.none;
-      
+
       Logger.info('Connectivity changed: ${_isOnline ? "online" : "offline"}');
-      
+
       if (!wasOnline && _isOnline) {
         Logger.info('Back online - processing queued requests');
         await _processQueue();
@@ -125,7 +128,7 @@ class OfflineManager {
 
     // Generate unique ID
     final id = '${DateTime.now().millisecondsSinceEpoch}_${options.hashCode}';
-    
+
     final queuedRequest = QueuedRequest(
       id: id,
       options: options,
@@ -140,13 +143,15 @@ class OfflineManager {
     // Maintain queue size limit
     while (_requestQueue.length > _maxQueueSize) {
       final removed = _requestQueue.removeFirst();
-      Logger.warning('Queue size exceeded - removing oldest request: ${removed.id}');
+      Logger.warning(
+          'Queue size exceeded - removing oldest request: ${removed.id}');
     }
 
     // Save to persistent storage
     await _saveQueueToStorage();
 
-    Logger.info('Request queued for offline processing: ${options.method} ${options.path}');
+    Logger.info(
+        'Request queued for offline processing: ${options.method} ${options.path}');
   }
 
   /// Process all queued requests
@@ -154,7 +159,7 @@ class OfflineManager {
     if (!_isOnline || _requestQueue.isEmpty) return;
 
     final requests = List<QueuedRequest>.from(_requestQueue);
-    
+
     // Sort by priority (higher priority first) and then by creation time
     requests.sort((a, b) {
       final priorityComparison = b.priority.compareTo(a.priority);
@@ -166,17 +171,17 @@ class OfflineManager {
 
     for (final request in requests) {
       if (_processingIds.contains(request.id)) continue;
-      
+
       try {
         _processingIds.add(request.id);
         await _processRequest(request);
-        
+
         // Remove from queue on success
         _requestQueue.removeWhere((r) => r.id == request.id);
         Logger.debug('Successfully processed queued request: ${request.id}');
       } catch (e) {
         Logger.error('Failed to process queued request ${request.id}: $e');
-        
+
         // Remove old requests that have exceeded retention time
         if (DateTime.now().difference(request.createdAt) > _maxRetentionTime) {
           _requestQueue.removeWhere((r) => r.id == request.id);
@@ -189,13 +194,14 @@ class OfflineManager {
 
     // Save updated queue
     await _saveQueueToStorage();
-    Logger.info('Finished processing queue. ${_requestQueue.length} requests remaining');
+    Logger.info(
+        'Finished processing queue. ${_requestQueue.length} requests remaining');
   }
 
   /// Process a single queued request
   static Future<void> _processRequest(QueuedRequest request) async {
     final dio = Dio();
-    
+
     // Configure dio with basic settings
     dio.options.connectTimeout = const Duration(seconds: 10);
     dio.options.receiveTimeout = const Duration(seconds: 30);
@@ -203,14 +209,16 @@ class OfflineManager {
 
     try {
       final response = await dio.fetch(request.options);
-      Logger.debug('Queued request successful: ${request.options.method} ${request.options.path} - Status: ${response.statusCode}');
+      Logger.debug(
+          'Queued request successful: ${request.options.method} ${request.options.path} - Status: ${response.statusCode}');
     } catch (e) {
       if (e is DioException) {
         // Don't retry client errors (4xx)
-        if (e.response?.statusCode != null && 
-            e.response!.statusCode! >= 400 && 
+        if (e.response?.statusCode != null &&
+            e.response!.statusCode! >= 400 &&
             e.response!.statusCode! < 500) {
-          Logger.warning('Removing failed client request from queue: ${request.id}');
+          Logger.warning(
+              'Removing failed client request from queue: ${request.id}');
           return; // Don't rethrow, so it gets removed from queue
         }
       }
@@ -226,13 +234,14 @@ class OfflineManager {
       final queueJson = _prefs!.getString(_queueKey);
       if (queueJson != null) {
         final List<dynamic> queueData = jsonDecode(queueJson);
-        
+
         for (final item in queueData) {
           try {
             final request = QueuedRequest.fromJson(item);
-            
+
             // Skip expired requests
-            if (DateTime.now().difference(request.createdAt) <= _maxRetentionTime) {
+            if (DateTime.now().difference(request.createdAt) <=
+                _maxRetentionTime) {
               _requestQueue.add(request);
             }
           } catch (e) {
@@ -274,7 +283,7 @@ class OfflineManager {
 
     for (final request in _requestQueue) {
       final age = now.difference(request.createdAt);
-      
+
       String ageCategory;
       if (age.inMinutes < 5) {
         ageCategory = '<5min';
@@ -285,9 +294,10 @@ class OfflineManager {
       } else {
         ageCategory = '≥1d';
       }
-      
+
       requestsByAge[ageCategory] = (requestsByAge[ageCategory] ?? 0) + 1;
-      requestsByPriority[request.priority] = (requestsByPriority[request.priority] ?? 0) + 1;
+      requestsByPriority[request.priority] =
+          (requestsByPriority[request.priority] ?? 0) + 1;
     }
 
     return {
@@ -304,21 +314,21 @@ class OfflineManager {
   static Future<void> clearQueue() async {
     _requestQueue.clear();
     _processingIds.clear();
-    
+
     if (_prefs != null) {
       await _prefs!.remove(_queueKey);
     }
-    
+
     Logger.info('Request queue cleared');
   }
 
   /// Force process queue (even if offline)
   static Future<void> forceProcessQueue() async {
     if (!_isInitialized) await initialize();
-    
+
     final wasOnline = _isOnline;
     _isOnline = true; // Temporarily mark as online
-    
+
     try {
       await _processQueue();
     } finally {
@@ -351,17 +361,21 @@ class OfflineInterceptor extends Interceptor {
     // Check if error is due to network connectivity
     if (_isNetworkError(err) && !OfflineManager.isOnline) {
       try {
-        final priority = err.requestOptions.extra['offline_priority'] as int? ?? defaultPriority;
-        final metadata = err.requestOptions.extra['offline_metadata'] as Map<String, dynamic>? ?? {};
-        
+        final priority = err.requestOptions.extra['offline_priority'] as int? ??
+            defaultPriority;
+        final metadata = err.requestOptions.extra['offline_metadata']
+                as Map<String, dynamic>? ??
+            {};
+
         await OfflineManager.queueRequest(
           err.requestOptions,
           priority: priority,
           metadata: metadata,
         );
 
-        Logger.info('Request queued for offline processing: ${err.requestOptions.method} ${err.requestOptions.path}');
-        
+        Logger.info(
+            'Request queued for offline processing: ${err.requestOptions.method} ${err.requestOptions.path}');
+
         // Return a custom success response indicating the request was queued
         final response = Response<Map<String, dynamic>>(
           data: {
@@ -372,7 +386,7 @@ class OfflineInterceptor extends Interceptor {
           statusMessage: 'Queued for offline processing',
           requestOptions: err.requestOptions,
         );
-        
+
         return handler.resolve(response);
       } catch (e) {
         Logger.error('Failed to queue request for offline processing: $e');
@@ -385,17 +399,17 @@ class OfflineInterceptor extends Interceptor {
   /// Check if request should be queued
   bool _shouldQueue(DioException error) {
     final method = error.requestOptions.method.toUpperCase();
-    
+
     // Only queue specific HTTP methods
     if (!queueableMethods.contains(method)) {
       return false;
     }
-    
+
     // Don't queue if explicitly disabled
     if (error.requestOptions.extra['offline_disable'] == true) {
       return false;
     }
-    
+
     return true;
   }
 
@@ -417,20 +431,20 @@ extension RequestOfflineOptions on RequestOptions {
   void setOfflinePriority(int priority) {
     extra['offline_priority'] = priority;
   }
-  
+
   /// Set offline metadata
   void setOfflineMetadata(Map<String, dynamic> metadata) {
     extra['offline_metadata'] = metadata;
   }
-  
+
   /// Disable offline queuing for this request
   void disableOfflineQueuing() {
     extra['offline_disable'] = true;
   }
-  
+
   /// Get offline priority
   int get offlinePriority => (extra['offline_priority'] as int?) ?? 0;
-  
+
   /// Check if offline queuing is disabled
   bool get isOfflineQueuingDisabled => extra['offline_disable'] == true;
 }

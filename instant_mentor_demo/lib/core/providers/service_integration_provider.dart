@@ -1,13 +1,13 @@
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:firebase_core/firebase_core.dart';
-import '../config/app_config.dart';
-import '../services/supabase_service.dart';
-import '../services/email_service.dart';
-import '../services/payment_service.dart';
-import '../services/notification_service.dart';
-import '../services/video_call_service.dart';
+
 import '../../firebase_options.dart';
+import '../config/app_config.dart';
+import '../services/email_service.dart';
+import '../services/notification_service.dart';
+import '../services/payment_service.dart';
+import '../services/supabase_service.dart';
 
 /// Provider for managing all backend services
 final serviceIntegrationProvider =
@@ -32,7 +32,7 @@ class ServiceIntegration {
   late final EmailService _email;
   late final PaymentService _payment;
   late final NotificationService _notification;
-  late final VideoCallService _videoCall;
+  // Video call service removed
 
   /// Initialize all services
   Future<void> initialize() async {
@@ -60,8 +60,7 @@ class ServiceIntegration {
       _notification = NotificationService.instance;
       await _notification.initialize();
 
-      _videoCall = VideoCallService.instance;
-      await _videoCall.initialize();
+      // Video call initialization removed
 
       _isInitialized = true;
       debugPrint('Service integration initialized successfully');
@@ -129,12 +128,7 @@ class ServiceIntegration {
       health['notifications'] = false;
     }
 
-    try {
-      // Check Video call service
-      health['videoCall'] = _videoCall.isInitialized;
-    } catch (e) {
-      health['videoCall'] = false;
-    }
+    // Video call service removed from health checks
 
     return health;
   }
@@ -162,11 +156,7 @@ class ServiceIntegration {
         'provider': 'Firebase Cloud Messaging',
         'fcmToken': _notification.fcmToken != null,
       },
-      'videoCall': {
-        'initialized': _videoCall.isInitialized,
-        'provider': 'Agora',
-        'appId': AppConfig.agoraAppId.isNotEmpty,
-      },
+      // Video call status removed
     };
   }
 
@@ -201,18 +191,7 @@ class ServiceIntegration {
   }
 
   /// Test video call token generation
-  Future<bool> testVideoCallToken({
-    required String channelId,
-    required int uid,
-  }) async {
-    try {
-      final token = await _videoCall.generateTokenForTest(channelId, uid);
-      return token != null && token.isNotEmpty;
-    } catch (e) {
-      debugPrint('Video call token test failed: $e');
-      return false;
-    }
-  }
+  // testVideoCallToken removed with video call feature
 
   /// Send test email
   Future<bool> sendTestEmail({
@@ -235,7 +214,7 @@ class ServiceIntegration {
   /// Dispose all services
   Future<void> dispose() async {
     try {
-      await _videoCall.dispose();
+      // Video call dispose removed
       // Other services don't need explicit disposal
       _isInitialized = false;
       debugPrint('Service integration disposed');
@@ -249,7 +228,7 @@ class ServiceIntegration {
   EmailService get email => _email;
   PaymentService get payment => _payment;
   NotificationService get notification => _notification;
-  VideoCallService get videoCall => _videoCall;
+  // videoCall getter removed
 
   bool get isInitialized => _isInitialized;
 }

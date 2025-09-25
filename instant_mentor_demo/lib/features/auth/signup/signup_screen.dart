@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+
+import '../../../core/providers/auth_provider.dart'; // Use Supabase auth provider
 import '../../../core/routing/routing.dart';
 import '../../../core/widgets/loading_overlay.dart';
-import '../../../core/providers/auth_provider.dart'; // Use Supabase auth provider
-import '../../common/widgets/error_handler_widget.dart';
 import '../../common/widgets/enhanced_form_fields.dart';
+import '../../common/widgets/error_handler_widget.dart';
 
 class SignupScreen extends ConsumerStatefulWidget {
   const SignupScreen({super.key});
@@ -270,7 +271,6 @@ class _RoleSelectionButton extends StatelessWidget {
                 color: isSelected
                     ? Colors.transparent
                     : colorScheme.outline.withOpacity(0.3),
-                width: 1,
               ),
               borderRadius: BorderRadius.circular(12),
             ),

@@ -232,7 +232,7 @@ class FeatureCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    Color statusColor = _getStatusColor(status);
+    final Color statusColor = _getStatusColor(status);
 
     return Card(
       elevation: 2,

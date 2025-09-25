@@ -7,7 +7,6 @@ class FeatureFlags {
   // ------------ Compile-time (dart-define) flags ------------
   static const bool realtimeEnabled = bool.fromEnvironment(
     'REALTIME_ENABLED',
-    defaultValue: false,
   );
 
   static const bool demoMode = bool.fromEnvironment(
@@ -17,7 +16,12 @@ class FeatureFlags {
 
   static const String realtimeServerUrl = String.fromEnvironment(
     'REALTIME_SERVER_URL',
-    defaultValue: '',
+  );
+
+  // Logging verbosity (none,error,warn,info,debug). Default: info
+  static const String logLevel = String.fromEnvironment(
+    'LOG_LEVEL',
+    defaultValue: 'info',
   );
 
   // Development helper: automatically accept outgoing calls in real mode
@@ -25,7 +29,6 @@ class FeatureFlags {
   // --dart-define=AUTO_ACCEPT_CALLS=true
   static const bool autoAcceptCalls = bool.fromEnvironment(
     'AUTO_ACCEPT_CALLS',
-    defaultValue: false,
   );
 
   // ------------ Optional (dotenv) fallbacks ------------

@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 
 import 'websocket_service.dart';
@@ -258,7 +257,6 @@ class PresenceService {
     if (_userPresences.containsKey(userId)) {
       _userPresences[userId] = _userPresences[userId]!.copyWith(
         isTyping: false,
-        typingInChatId: null,
       );
     }
 
@@ -475,7 +473,9 @@ class PresenceService {
   /// Clean up resources
   void dispose() {
     _presenceUpdateTimer?.cancel();
-    _typingTimers.values.forEach((timer) => timer.cancel());
+    for (var timer in _typingTimers.values) {
+      timer.cancel();
+    }
     _typingTimers.clear();
     _presenceStreamController.close();
     _typingStreamController.close();

@@ -1,8 +1,10 @@
 import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'wallet_service.dart';
+
 import '../providers/wallet_provider.dart';
+import 'wallet_service.dart';
 
 class SessionBillingService {
   final WalletService walletService;

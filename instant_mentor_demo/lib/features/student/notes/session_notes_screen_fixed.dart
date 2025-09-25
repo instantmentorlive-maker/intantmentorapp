@@ -539,14 +539,13 @@ class SessionNotesScreen extends ConsumerWidget {
                         style: TextStyle(fontWeight: FontWeight.bold)),
                     const SizedBox(height: 8),
                     DropdownButtonFormField<String?>(
-                      value: temp.selectedSubject,
-                      isDense: true,
+                      initialValue: temp.selectedSubject,
                       decoration: const InputDecoration(
                           border: OutlineInputBorder(),
                           hintText: 'All Subjects'),
                       items: [
                         const DropdownMenuItem<String?>(
-                            value: null, child: Text('All Subjects')),
+                            child: Text('All Subjects')),
                         ...subjects.map((s) => DropdownMenuItem<String?>(
                             value: s, child: Text(s))),
                       ],
@@ -560,14 +559,13 @@ class SessionNotesScreen extends ConsumerWidget {
                         style: TextStyle(fontWeight: FontWeight.bold)),
                     const SizedBox(height: 8),
                     DropdownButtonFormField<String?>(
-                      value: temp.selectedMentor,
-                      isDense: true,
+                      initialValue: temp.selectedMentor,
                       decoration: const InputDecoration(
                           border: OutlineInputBorder(),
                           hintText: 'All Mentors'),
                       items: [
                         const DropdownMenuItem<String?>(
-                            value: null, child: Text('All Mentors')),
+                            child: Text('All Mentors')),
                         ...mentors.map((m) => DropdownMenuItem<String?>(
                             value: m, child: Text(m))),
                       ],
@@ -587,9 +585,10 @@ class SessionNotesScreen extends ConsumerWidget {
                           lastDate: DateTime.now(),
                           initialDateRange: temp.dateRange,
                         );
-                        if (picked != null)
+                        if (picked != null) {
                           setState(
                               () => temp = temp.copyWith(dateRange: picked));
+                        }
                       },
                       child: Text(temp.dateRange == null
                           ? 'Select Date Range'
@@ -597,8 +596,7 @@ class SessionNotesScreen extends ConsumerWidget {
                     ),
                     if (temp.dateRange != null)
                       TextButton(
-                        onPressed: () => setState(
-                            () => temp = temp.copyWith(dateRange: null)),
+                        onPressed: () => setState(() => temp = temp.copyWith()),
                         child: const Text('Clear Date Range'),
                       ),
                     const Divider(height: 24),

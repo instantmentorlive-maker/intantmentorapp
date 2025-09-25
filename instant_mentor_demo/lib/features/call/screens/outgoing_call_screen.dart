@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import '../controllers/simple_call_controller.dart';
-import '../models/call_state.dart';
 import '../models/call_data.dart';
+import '../models/call_state.dart';
 
 /// Screen displayed when making an outgoing call
 class OutgoingCallScreen extends ConsumerStatefulWidget {
@@ -360,7 +361,6 @@ class _CallControlButton extends StatelessWidget {
             color: isActive
                 ? Colors.white.withOpacity(0.3)
                 : Colors.red.withOpacity(0.5),
-            width: 1,
           ),
         ),
         child: Icon(

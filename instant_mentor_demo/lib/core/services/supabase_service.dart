@@ -1,6 +1,7 @@
+import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class SupabaseService {
   static SupabaseService? _instance;
@@ -107,7 +108,6 @@ class SupabaseService {
         email: email,
         password: password,
         data: metadata,
-        emailRedirectTo: null, // Disable email confirmation redirect
       );
 
       debugPrint('🟢 SupabaseService: Supabase response received');
@@ -561,10 +561,66 @@ class SupabaseService {
     profileData['id'] = userId;
     profileData['updated_at'] = DateTime.now().toIso8601String();
 
-    final response =
-        await client.from('profiles').upsert(profileData).select().single();
+    try {
+      debugPrint('🔵 SupabaseService: Upserting user profile...');
+      debugPrint('🔵 Data: $profileData');
 
-    return response;
+      final response = await client
+          .from('user_profiles')
+          .upsert(profileData)
+          .select()
+          .single();
+
+      debugPrint('🟢 SupabaseService: Profile upserted successfully');
+
+      // Update auth user metadata with key profile data for video calls
+      try {
+        final userMetadata = <String, dynamic>{};
+
+        // Include key fields that video call widget expects
+        if (profileData['full_name'] != null) {
+          userMetadata['full_name'] = profileData['full_name'];
+        }
+        if (profileData['avatar_url'] != null) {
+          userMetadata['avatar_url'] = profileData['avatar_url'];
+        }
+
+        if (userMetadata.isNotEmpty) {
+          debugPrint(
+              '🔵 SupabaseService: Updating auth user metadata: $userMetadata');
+          await client.auth.updateUser(
+            UserAttributes(data: userMetadata),
+          );
+          debugPrint(
+              '🟢 SupabaseService: Auth user metadata updated successfully');
+        }
+      } catch (e) {
+        debugPrint(
+            '⚠️ SupabaseService: Failed to update auth user metadata: $e');
+        // Don't fail the entire operation if metadata update fails
+      }
+
+      return response;
+    } catch (e) {
+      debugPrint('🔴 SupabaseService: Profile upsert failed: $e');
+
+      // Check for specific database schema errors
+      if (e.toString().contains('column') &&
+          e.toString().contains('does not exist')) {
+        final missingColumn = _extractMissingColumn(e.toString());
+        debugPrint('🚨 Database schema error: Missing column "$missingColumn"');
+        throw Exception(
+            'Database not properly migrated. Missing column: $missingColumn. Please run the database migration script.');
+      }
+
+      rethrow;
+    }
+  }
+
+  String _extractMissingColumn(String error) {
+    // Try to extract column name from error message
+    final match = RegExp(r'column "([^"]+)" does not exist').firstMatch(error);
+    return match?.group(1) ?? 'unknown';
   }
 
   /// Get user profile
@@ -574,10 +630,74 @@ class SupabaseService {
 
     try {
       final response =
-          await client.from('profiles').select().eq('id', userId).single();
+          await client.from('user_profiles').select().eq('id', userId).single();
       return response;
     } catch (e) {
       return null;
+    }
+  }
+
+  /// Update user preference flags (stored in user_profiles.preferences JSONB)
+  Future<void> updateUserPreferences(Map<String, dynamic> patch) async {
+    final userId = currentUser?.id;
+    if (userId == null) throw Exception('Not authenticated');
+
+    try {
+      debugPrint('🔵 SupabaseService: Updating preferences for user $userId');
+      debugPrint('🔵 Patch data: $patch');
+
+      // First, ensure the user profile exists with default preferences
+      await client
+          .from('user_profiles')
+          .upsert({
+            'id': userId,
+            'preferences': patch,
+            'updated_at': DateTime.now().toIso8601String(),
+          }, onConflict: 'id')
+          .select()
+          .maybeSingle();
+
+      debugPrint('🟢 SupabaseService: User preferences updated successfully');
+    } catch (e) {
+      debugPrint('🔴 SupabaseService: Error updating user preferences: $e');
+
+      // Check if it's a column missing error
+      if (e.toString().contains('column "preferences" does not exist')) {
+        debugPrint('🚨 Database schema error: preferences column missing!');
+        throw Exception(
+            'Database not properly migrated. Please run the database migration script first.');
+      }
+
+      // If the above fails, try the merge approach
+      try {
+        debugPrint('🔵 Trying merge approach for preferences...');
+
+        // Fetch current preferences
+        final existing = await client
+            .from('user_profiles')
+            .select('preferences')
+            .eq('id', userId)
+            .maybeSingle();
+
+        final current =
+            (existing?['preferences'] as Map?)?.cast<String, dynamic>() ?? {};
+        final merged = {...current, ...patch};
+
+        await client.from('user_profiles').update({
+          'preferences': merged,
+          'updated_at': DateTime.now().toIso8601String(),
+        }).eq('id', userId);
+
+        debugPrint('🟢 SupabaseService: User preferences merged successfully');
+      } catch (e2) {
+        debugPrint('🔴 SupabaseService: Error merging user preferences: $e2');
+        if (e2.toString().contains('column') &&
+            e2.toString().contains('does not exist')) {
+          throw Exception(
+              'Database schema error: Missing columns. Please run the database migration script.');
+        }
+        throw Exception('Failed to update preferences: $e2');
+      }
     }
   }
 
@@ -677,5 +797,34 @@ class SupabaseService {
       'notes': notes,
       'updated_at': DateTime.now().toIso8601String(),
     }).eq('id', sessionId);
+  }
+
+  /// Upload profile image to Supabase Storage
+  Future<String?> uploadProfileImage({
+    required Uint8List imageBytes,
+    required String fileName,
+  }) async {
+    try {
+      final userId = currentUser?.id;
+      if (userId == null) throw Exception('User must be authenticated');
+
+      // Create a unique file path for the user
+      final filePath = 'profiles/$userId/$fileName';
+
+      // Upload to Supabase Storage
+      await client.storage.from('avatars').uploadBinary(filePath, imageBytes,
+          fileOptions: const FileOptions(
+            upsert: true,
+            contentType: 'image/jpeg',
+          ));
+
+      // Get the public URL
+      final publicUrl = client.storage.from('avatars').getPublicUrl(filePath);
+
+      return publicUrl;
+    } catch (e) {
+      debugPrint('❌ Error uploading profile image: $e');
+      rethrow;
+    }
   }
 }

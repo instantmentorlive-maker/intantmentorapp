@@ -1,8 +1,9 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:developer' as developer;
-import 'package:web_socket_channel/web_socket_channel.dart';
+
 import 'package:web_socket_channel/status.dart' as status;
+import 'package:web_socket_channel/web_socket_channel.dart';
 
 /// Connection states for WebSocket
 enum WebSocketConnectionState {
@@ -136,7 +137,7 @@ class WebSocketConfig {
 class WebSocketClient {
   static WebSocketClient? _instance;
   static WebSocketClient get instance => _instance ??= WebSocketClient._();
-  
+
   WebSocketClient._();
 
   // Core WebSocket components
@@ -146,14 +147,15 @@ class WebSocketClient {
   Timer? _reconnectTimer;
 
   // Connection state
-  WebSocketConnectionState _connectionState = WebSocketConnectionState.disconnected;
+  WebSocketConnectionState _connectionState =
+      WebSocketConnectionState.disconnected;
   String? _currentUrl;
   WebSocketConfig _config = const WebSocketConfig();
-  
+
   // Event streaming
-  final StreamController<WebSocketEvent> _eventController = 
+  final StreamController<WebSocketEvent> _eventController =
       StreamController<WebSocketEvent>.broadcast();
-  
+
   // Statistics tracking
   int _totalConnections = 0;
   int _totalReconnections = 0;
@@ -197,7 +199,8 @@ class WebSocketClient {
   Future<bool> connect(String url, {WebSocketConfig? config}) async {
     if (_connectionState == WebSocketConnectionState.connected ||
         _connectionState == WebSocketConnectionState.connecting) {
-      developer.log('WebSocket already connected or connecting', name: 'WebSocketClient');
+      developer.log('WebSocket already connected or connecting',
+          name: 'WebSocketClient');
       return true;
     }
 
@@ -218,7 +221,8 @@ class WebSocketClient {
       // Wait for connection with timeout
       await Future.any([
         _channel!.ready,
-        Future.delayed(_config.connectionTimeout).then((_) => throw const TimeoutException('Connection timeout')),
+        Future.delayed(_config.connectionTimeout)
+            .then((_) => throw const TimeoutException('Connection timeout')),
       ]);
 
       _connectionState = WebSocketConnectionState.connected;
@@ -227,7 +231,8 @@ class WebSocketClient {
       _connectionStartTime = DateTime.now();
       _lastConnected = DateTime.now();
 
-      developer.log('WebSocket connected successfully', name: 'WebSocketClient');
+      developer.log('WebSocket connected successfully',
+          name: 'WebSocketClient');
 
       // Start listening to messages
       _listenToMessages();
@@ -288,7 +293,8 @@ class WebSocketClient {
   /// Send message to WebSocket server
   void send(dynamic message) {
     if (_connectionState != WebSocketConnectionState.connected) {
-      developer.log('WebSocket not connected, queueing message', name: 'WebSocketClient');
+      developer.log('WebSocket not connected, queueing message',
+          name: 'WebSocketClient');
       _messageQueue.add(message);
       return;
     }
@@ -345,7 +351,8 @@ class WebSocketClient {
 
           _eventController.add(WebSocketEvent.message(data));
         } catch (e) {
-          developer.log('Error processing message: $e', name: 'WebSocketClient');
+          developer.log('Error processing message: $e',
+              name: 'WebSocketClient');
           _addError('Error processing message: $e');
         }
       },
@@ -365,7 +372,8 @@ class WebSocketClient {
         _lastDisconnected = DateTime.now();
         _eventController.add(WebSocketEvent.disconnect());
 
-        if (_config.enableReconnect && _reconnectAttempts < _config.maxReconnectAttempts) {
+        if (_config.enableReconnect &&
+            _reconnectAttempts < _config.maxReconnectAttempts) {
           _scheduleReconnect();
         }
       },
@@ -395,8 +403,9 @@ class WebSocketClient {
     _connectionState = WebSocketConnectionState.reconnecting;
     _eventController.add(WebSocketEvent.reconnect());
 
-    developer.log('Scheduling reconnect attempt $_reconnectAttempts/${_config.maxReconnectAttempts}', 
-                  name: 'WebSocketClient');
+    developer.log(
+        'Scheduling reconnect attempt $_reconnectAttempts/${_config.maxReconnectAttempts}',
+        name: 'WebSocketClient');
 
     _reconnectTimer?.cancel();
     _reconnectTimer = Timer(_config.reconnectDelay, () async {
@@ -414,7 +423,8 @@ class WebSocketClient {
   void _processMessageQueue() {
     if (_messageQueue.isEmpty) return;
 
-    developer.log('Processing ${_messageQueue.length} queued messages', name: 'WebSocketClient');
+    developer.log('Processing ${_messageQueue.length} queued messages',
+        name: 'WebSocketClient');
 
     final messagesToSend = List.from(_messageQueue);
     _messageQueue.clear();
@@ -458,7 +468,7 @@ class WebSocketClient {
 class TimeoutException implements Exception {
   final String message;
   const TimeoutException(this.message);
-  
+
   @override
   String toString() => 'TimeoutException: $message';
 }

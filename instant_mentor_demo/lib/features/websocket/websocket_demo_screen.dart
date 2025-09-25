@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../core/services/websocket_service.dart';
-import '../../core/providers/websocket_provider.dart';
+
 import '../../core/providers/auth_provider.dart';
-import '../common/widgets/websocket_status_widget.dart';
+import '../../core/providers/websocket_provider.dart';
+import '../../core/services/websocket_service.dart';
 import '../common/widgets/realtime_chat_widget.dart';
-import '../common/widgets/video_call_widget.dart';
+import '../common/widgets/websocket_status_widget.dart';
 
 class WebSocketDemoScreen extends ConsumerStatefulWidget {
   const WebSocketDemoScreen({super.key});
@@ -24,7 +24,7 @@ class _WebSocketDemoScreenState extends ConsumerState<WebSocketDemoScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 4, vsync: this);
+    _tabController = TabController(length: 3, vsync: this); // Removed Calls tab
   }
 
   @override
@@ -65,7 +65,6 @@ class _WebSocketDemoScreenState extends ConsumerState<WebSocketDemoScreen>
           tabs: const [
             Tab(text: 'Status', icon: Icon(Icons.network_check)),
             Tab(text: 'Chat', icon: Icon(Icons.chat)),
-            Tab(text: 'Calls', icon: Icon(Icons.videocam)),
             Tab(text: 'Events', icon: Icon(Icons.event)),
           ],
         ),
@@ -75,7 +74,6 @@ class _WebSocketDemoScreenState extends ConsumerState<WebSocketDemoScreen>
         children: [
           _buildStatusTab(),
           _buildChatTab(),
-          _buildCallsTab(),
           _buildEventsTab(),
         ],
       ),
@@ -153,55 +151,7 @@ class _WebSocketDemoScreenState extends ConsumerState<WebSocketDemoScreen>
     );
   }
 
-  Widget _buildCallsTab() {
-    return Column(
-      children: [
-        // Video call controls
-        Container(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: TextField(
-                      decoration: const InputDecoration(
-                        labelText: 'Call Receiver ID',
-                        hintText: 'Enter user ID to call',
-                        border: OutlineInputBorder(),
-                      ),
-                      onChanged: (value) {
-                        _testReceiverId = value;
-                      },
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  ElevatedButton.icon(
-                    onPressed:
-                        _testReceiverId.isNotEmpty ? _initiateVideoCall : null,
-                    icon: const Icon(Icons.videocam),
-                    label: const Text('Video Call'),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              ElevatedButton.icon(
-                onPressed:
-                    _testReceiverId.isNotEmpty ? _initiateAudioCall : null,
-                icon: const Icon(Icons.call),
-                label: const Text('Audio Call'),
-              ),
-            ],
-          ),
-        ),
-
-        // Call events display
-        Expanded(
-          child: _buildCallEventsList(),
-        ),
-      ],
-    );
-  }
+  // Calls tab removed with video call feature
 
   Widget _buildEventsTab() {
     return Column(
@@ -343,54 +293,7 @@ class _WebSocketDemoScreenState extends ConsumerState<WebSocketDemoScreen>
     );
   }
 
-  Widget _buildCallEventsList() {
-    return Consumer(
-      builder: (context, ref, child) {
-        final callEvents = ref.watch(callEventsProvider);
-
-        return callEvents.when(
-          data: (event) => Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(
-                  _getEventIcon(event.event),
-                  size: 64,
-                  color: _getEventColor(event.event),
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  'Last Call Event: ${event.event.name}',
-                  style: Theme.of(context).textTheme.titleMedium,
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  _formatTimestamp(event.timestamp),
-                  style: const TextStyle(color: Colors.grey),
-                ),
-              ],
-            ),
-          ),
-          loading: () => const Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.phone, size: 64, color: Colors.grey),
-                SizedBox(height: 16),
-                Text(
-                  'Waiting for call events...',
-                  style: TextStyle(color: Colors.grey),
-                ),
-              ],
-            ),
-          ),
-          error: (error, _) => Center(
-            child: Text('Error: $error'),
-          ),
-        );
-      },
-    );
-  }
+  // _buildCallEventsList removed (video call feature deprecated)
 
   Color _getEventColor(WebSocketEvent event) {
     switch (event) {
@@ -453,52 +356,9 @@ class _WebSocketDemoScreenState extends ConsumerState<WebSocketDemoScreen>
     );
   }
 
-  void _initiateVideoCall() async {
-    try {
-      final callId = DateTime.now().millisecondsSinceEpoch.toString();
-      final webSocketManager = ref.read(webSocketManagerProvider);
+  // _initiateVideoCall removed
 
-      await webSocketManager.initiateVideoCall(
-        receiverId: _testReceiverId,
-        callData: {'callId': callId},
-      );
-
-      if (mounted) {
-        Navigator.of(context).push(
-          MaterialPageRoute(
-            builder: (context) => VideoCallWidget(
-              callId: callId,
-              receiverId: _testReceiverId,
-              receiverName: 'Test User ($_testReceiverId)',
-              isIncoming: false,
-            ),
-          ),
-        );
-      }
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to initiate call: $e')),
-      );
-    }
-  }
-
-  void _initiateAudioCall() async {
-    try {
-      final webSocketManager = ref.read(webSocketManagerProvider);
-      await webSocketManager.initiateAudioCall(
-        receiverId: _testReceiverId,
-        callData: {'type': 'audio'},
-      );
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Audio call initiated')),
-      );
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to initiate call: $e')),
-      );
-    }
-  }
+  // _initiateAudioCall removed (video/audio call features removed)
 
   void _sendTestMessage() async {
     try {

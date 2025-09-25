@@ -1,9 +1,11 @@
 import 'dart:async';
 import 'dart:typed_data';
+
 import 'package:flutter/foundation.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
-import '../security/encryption_service.dart';
+
 import '../security/biometric_auth_service.dart' as bio;
+import '../security/encryption_service.dart';
 import '../security/key_manager.dart';
 
 part 'security_providers.g.dart';
@@ -42,7 +44,6 @@ class BiometricCapability extends _$BiometricCapability {
       return BiometricCapabilityState(
         capability: capability,
         lastChecked: DateTime.now(),
-        error: null,
       );
     } catch (e) {
       return BiometricCapabilityState(
@@ -62,7 +63,6 @@ class BiometricCapability extends _$BiometricCapability {
       return BiometricCapabilityState(
         capability: capability,
         lastChecked: DateTime.now(),
-        error: null,
       );
     });
   }
@@ -88,7 +88,6 @@ class BiometricSession extends _$BiometricSession {
     return const BiometricSessionState(
       session: null,
       isValid: false,
-      lastAuthenticated: null,
     );
   }
 
@@ -162,14 +161,13 @@ class KeyManagement extends _$KeyManagement {
 
     try {
       await keyManager.initialize();
-      final keys = await keyManager.listKeys(includeExpired: false);
+      final keys = await keyManager.listKeys();
 
       return KeyManagementState(
         keys: keys,
         totalKeys: keys.length,
         activeKeys: keys.where((k) => k.status == KeyStatus.active).length,
         lastUpdated: DateTime.now(),
-        error: null,
       );
     } catch (e) {
       return KeyManagementState(
@@ -234,14 +232,13 @@ class KeyManagement extends _$KeyManagement {
     state = const AsyncValue.loading();
     state = await AsyncValue.guard(() async {
       final keyManager = ref.read(secureKeyManagerProvider);
-      final keys = await keyManager.listKeys(includeExpired: false);
+      final keys = await keyManager.listKeys();
 
       return KeyManagementState(
         keys: keys,
         totalKeys: keys.length,
         activeKeys: keys.where((k) => k.status == KeyStatus.active).length,
         lastUpdated: DateTime.now(),
-        error: null,
       );
     });
   }
@@ -256,7 +253,6 @@ class EncryptionOperations extends _$EncryptionOperations {
       operationsCount: 0,
       encryptionCount: 0,
       decryptionCount: 0,
-      lastOperation: null,
     );
   }
 
@@ -360,7 +356,6 @@ class EncryptionOperations extends _$EncryptionOperations {
       operationsCount: 0,
       encryptionCount: 0,
       decryptionCount: 0,
-      lastOperation: null,
     );
   }
 }

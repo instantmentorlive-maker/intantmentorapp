@@ -3,7 +3,8 @@ import 'package:flutter/material.dart';
 /// Enhanced form validation utilities
 class FormValidators {
   /// Email validation with various options
-  static String? email(String? value, {
+  static String? email(
+    String? value, {
     bool required = true,
     List<String>? allowedDomains,
     List<String>? blockedDomains,
@@ -22,7 +23,8 @@ class FormValidators {
 
     // Check allowed domains
     if (allowedDomains != null && allowedDomains.isNotEmpty) {
-      bool isAllowed = allowedDomains.any((domain) => lowerValue.endsWith(domain));
+      final bool isAllowed =
+          allowedDomains.any((domain) => lowerValue.endsWith(domain));
       if (!isAllowed) {
         return 'Email must end with: ${allowedDomains.join(', ')}';
       }
@@ -30,7 +32,8 @@ class FormValidators {
 
     // Check blocked domains
     if (blockedDomains != null && blockedDomains.isNotEmpty) {
-      bool isBlocked = blockedDomains.any((domain) => lowerValue.endsWith(domain));
+      final bool isBlocked =
+          blockedDomains.any((domain) => lowerValue.endsWith(domain));
       if (isBlocked) {
         return 'Email domain is not allowed: ${blockedDomains.join(', ')}';
       }
@@ -50,14 +53,16 @@ class FormValidators {
   }
 
   /// Role-based email validation
-  static String? roleBasedEmail(String? value, bool isStudent, {bool required = true}) {
-    return isStudent 
+  static String? roleBasedEmail(String? value, bool isStudent,
+      {bool required = true}) {
+    return isStudent
         ? studentEmail(value, required: required)
         : mentorEmail(value, required: required);
   }
 
   /// Password validation with strength requirements
-  static String? password(String? value, {
+  static String? password(
+    String? value, {
     bool required = true,
     int minLength = 6,
     int maxLength = 50,
@@ -90,7 +95,8 @@ class FormValidators {
       return 'Password must contain at least one number';
     }
 
-    if (requireSpecialChars && !RegExp(r'[!@#$%^&*(),.?":{}|<>]').hasMatch(value)) {
+    if (requireSpecialChars &&
+        !RegExp(r'[!@#$%^&*(),.?":{}|<>]').hasMatch(value)) {
       return 'Password must contain at least one special character';
     }
 
@@ -110,7 +116,8 @@ class FormValidators {
   }
 
   /// Confirm password validation
-  static String? confirmPassword(String? value, String? originalPassword, {bool required = true}) {
+  static String? confirmPassword(String? value, String? originalPassword,
+      {bool required = true}) {
     if (value == null || value.isEmpty) {
       return required ? 'Please confirm your password' : null;
     }
@@ -123,7 +130,8 @@ class FormValidators {
   }
 
   /// Name validation
-  static String? name(String? value, {
+  static String? name(
+    String? value, {
     bool required = true,
     int minLength = 2,
     int maxLength = 50,
@@ -135,7 +143,7 @@ class FormValidators {
     }
 
     final trimmed = value.trim();
-    
+
     if (trimmed.length < minLength) {
       return 'Name must be at least $minLength characters long';
     }
@@ -148,7 +156,8 @@ class FormValidators {
       return 'Name cannot contain numbers';
     }
 
-    if (!allowSpecialChars && RegExp(r'[!@#$%^&*(),.?":{}|<>]').hasMatch(trimmed)) {
+    if (!allowSpecialChars &&
+        RegExp(r'[!@#$%^&*(),.?":{}|<>]').hasMatch(trimmed)) {
       return 'Name cannot contain special characters';
     }
 
@@ -168,7 +177,7 @@ class FormValidators {
 
     // Remove all non-digit characters for validation
     final digitsOnly = value.replaceAll(RegExp(r'[^\d]'), '');
-    
+
     if (digitsOnly.length < 10 || digitsOnly.length > 15) {
       return 'Please enter a valid phone number';
     }
@@ -201,7 +210,8 @@ class FormValidators {
   }
 
   /// Combine multiple validators
-  static String? Function(String?) combine(List<String? Function(String?)> validators) {
+  static String? Function(String?) combine(
+      List<String? Function(String?)> validators) {
     return (value) {
       for (final validator in validators) {
         final result = validator(value);

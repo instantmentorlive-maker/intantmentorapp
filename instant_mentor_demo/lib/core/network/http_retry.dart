@@ -59,14 +59,16 @@ class HttpRetryInterceptor extends Interceptor {
     final currentAttempt = (extra['retry_attempt'] as int?) ?? 0;
 
     if (currentAttempt >= config.maxRetries) {
-      Logger.warning('Max retry attempts (${config.maxRetries}) reached for ${err.requestOptions.path}');
+      Logger.warning(
+          'Max retry attempts (${config.maxRetries}) reached for ${err.requestOptions.path}');
       return handler.next(err);
     }
 
     final nextAttempt = currentAttempt + 1;
     final delay = _calculateDelay(nextAttempt);
 
-    Logger.info('Retrying request ${err.requestOptions.path} (attempt $nextAttempt/${config.maxRetries}) after ${delay.inMilliseconds}ms');
+    Logger.info(
+        'Retrying request ${err.requestOptions.path} (attempt $nextAttempt/${config.maxRetries}) after ${delay.inMilliseconds}ms');
 
     // Wait before retrying
     await Future.delayed(delay);
@@ -78,7 +80,7 @@ class HttpRetryInterceptor extends Interceptor {
 
       // Create a new Dio instance to avoid interceptor recursion
       final dio = Dio();
-      
+
       // Copy essential configuration from original request
       dio.options.baseUrl = err.requestOptions.baseUrl;
       dio.options.headers = Map.from(err.requestOptions.headers);
@@ -87,12 +89,14 @@ class HttpRetryInterceptor extends Interceptor {
       dio.options.sendTimeout = err.requestOptions.sendTimeout;
 
       final response = await dio.fetch(retryOptions);
-      
-      Logger.info('Retry successful for ${err.requestOptions.path} on attempt $nextAttempt');
+
+      Logger.info(
+          'Retry successful for ${err.requestOptions.path} on attempt $nextAttempt');
       return handler.resolve(response);
     } catch (e) {
-      Logger.warning('Retry attempt $nextAttempt failed for ${err.requestOptions.path}: $e');
-      
+      Logger.warning(
+          'Retry attempt $nextAttempt failed for ${err.requestOptions.path}: $e');
+
       if (e is DioException) {
         // Update the error with the new attempt count
         e.requestOptions.extra['retry_attempt'] = nextAttempt;
@@ -102,7 +106,6 @@ class HttpRetryInterceptor extends Interceptor {
         final newError = DioException(
           requestOptions: err.requestOptions,
           error: e,
-          type: DioExceptionType.unknown,
           message: e.toString(),
         );
         newError.requestOptions.extra['retry_attempt'] = nextAttempt;
@@ -136,10 +139,11 @@ class HttpRetryInterceptor extends Interceptor {
   /// Calculate delay for retry with exponential backoff and jitter
   Duration _calculateDelay(int attemptNumber) {
     // Exponential backoff: baseDelay * (backoffMultiplier ^ (attemptNumber - 1))
-    final exponentialDelay = config.baseDelay.inMilliseconds * 
+    final exponentialDelay = config.baseDelay.inMilliseconds *
         math.pow(config.backoffMultiplier, attemptNumber - 1);
 
-    var delayMs = math.min(exponentialDelay, config.maxDelay.inMilliseconds).round();
+    var delayMs =
+        math.min(exponentialDelay, config.maxDelay.inMilliseconds).round();
 
     // Add jitter to prevent thundering herd
     if (config.enableJitter) {
@@ -184,15 +188,11 @@ class RetryPolicies {
   static const aggressive = RetryConfig(
     maxRetries: 5,
     baseDelay: Duration(milliseconds: 500),
-    backoffMultiplier: 2.0,
-    retryStatusCodes: [408, 429, 500, 502, 503, 504],
   );
 
   /// Network-focused policy for connection issues
   static const networkFocused = RetryConfig(
     maxRetries: 4,
-    baseDelay: Duration(seconds: 1),
-    backoffMultiplier: 2.0,
     retryStatusCodes: [408, 502, 503, 504],
     retryExceptionTypes: [
       DioExceptionType.connectionTimeout,
@@ -202,9 +202,7 @@ class RetryPolicies {
 
   /// Rate-limit aware policy
   static const rateLimitAware = RetryConfig(
-    maxRetries: 3,
     baseDelay: Duration(seconds: 5),
-    backoffMultiplier: 2.0,
     retryStatusCodes: [429, 503],
   );
 }
@@ -226,11 +224,12 @@ class RetryStats {
     if (attempt == 1) {
       retriedRequests++;
     }
-    
+
     retriesByAttempt[attempt] = (retriesByAttempt[attempt] ?? 0) + 1;
-    
+
     if (statusCode != null) {
-      retriesByStatusCode[statusCode] = (retriesByStatusCode[statusCode] ?? 0) + 1;
+      retriesByStatusCode[statusCode] =
+          (retriesByStatusCode[statusCode] ?? 0) + 1;
     }
   }
 
@@ -242,19 +241,21 @@ class RetryStats {
     failedRetries++;
   }
 
-  double get retryRate => totalRequests > 0 ? (retriedRequests / totalRequests) : 0.0;
-  double get successRate => retriedRequests > 0 ? (successfulRetries / retriedRequests) : 0.0;
+  double get retryRate =>
+      totalRequests > 0 ? (retriedRequests / totalRequests) : 0.0;
+  double get successRate =>
+      retriedRequests > 0 ? (successfulRetries / retriedRequests) : 0.0;
 
   Map<String, dynamic> toJson() => {
-    'totalRequests': totalRequests,
-    'retriedRequests': retriedRequests,
-    'successfulRetries': successfulRetries,
-    'failedRetries': failedRetries,
-    'retryRate': retryRate,
-    'successRate': successRate,
-    'retriesByAttempt': retriesByAttempt,
-    'retriesByStatusCode': retriesByStatusCode,
-  };
+        'totalRequests': totalRequests,
+        'retriedRequests': retriedRequests,
+        'successfulRetries': successfulRetries,
+        'failedRetries': failedRetries,
+        'retryRate': retryRate,
+        'successRate': successRate,
+        'retriesByAttempt': retriesByAttempt,
+        'retriesByStatusCode': retriesByStatusCode,
+      };
 
   void reset() {
     totalRequests = 0;

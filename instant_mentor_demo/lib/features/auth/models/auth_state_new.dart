@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import '../../../core/models/user.dart';
-import '../../../data/repositories/base_repository.dart';
 import '../../../core/providers/repository_providers.dart';
-import '../../../core/utils/result.dart';
 import '../../../core/providers/user_provider.dart';
+import '../../../core/utils/result.dart';
+import '../../../data/repositories/base_repository.dart';
 
 enum AuthStatus { initial, loading, authenticated, unauthenticated, error }
 
@@ -92,7 +93,6 @@ class AuthNotifier extends StateNotifier<AuthState> {
         state = AuthState(
           status: AuthStatus.unauthenticated,
           errorMessage: result.error?.message ?? 'Sign up failed',
-          isStudent: true,
         );
         if (result.error != null) throw result.error!;
       }
@@ -101,7 +101,6 @@ class AuthNotifier extends StateNotifier<AuthState> {
       state = AuthState(
         status: AuthStatus.unauthenticated,
         errorMessage: e.toString(),
-        isStudent: true,
       );
       rethrow;
     }

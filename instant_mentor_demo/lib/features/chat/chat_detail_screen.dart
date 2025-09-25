@@ -1,11 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import '../../core/models/chat.dart';
-import '../../core/providers/chat_providers.dart';
 import '../../core/providers/auth_provider.dart';
+import '../../core/providers/chat_providers.dart';
 import '../../core/providers/chat_state_provider.dart';
-import '../../core/routing/routing.dart';
-import 'package:go_router/go_router.dart';
 
 class ChatDetailScreen extends ConsumerStatefulWidget {
   final ChatThread thread;
@@ -38,16 +37,10 @@ class _ChatDetailScreenState extends ConsumerState<ChatDetailScreen> {
                   style: const TextStyle(fontSize: 12)),
           ],
         ),
-        actions: [
-          IconButton(
-            tooltip: 'Start Session',
-            icon: const Icon(Icons.videocam),
-            onPressed: () {
-              // TODO: Use real session id mapping when integrated
-              context.go(AppRoutes.session(widget.thread.id));
-            },
-          ),
-        ],
+        // Video call action is intentionally omitted here.
+        // Calls should only be initiated from a booked session screen
+        // (LiveSessionScreen) where a valid sessionId is available.
+        actions: const [],
       ),
       body: Column(
         children: [

@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../core/providers/chat_providers.dart';
+
 import '../../../core/models/chat.dart';
+import '../../../core/providers/chat_providers.dart';
 import '../../chat/chat_detail_screen.dart';
 
 class MentorChatScreen extends ConsumerWidget {

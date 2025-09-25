@@ -34,7 +34,7 @@ class ErrorNotifier extends StateNotifier<ErrorState> {
     }
 
     final newHistory = [...state.errorHistory, error];
-    
+
     // Keep only last 10 errors in history
     if (newHistory.length > 10) {
       newHistory.removeAt(0);
@@ -51,8 +51,8 @@ class ErrorNotifier extends StateNotifier<ErrorState> {
     if (kDebugMode) {
       print('ErrorNotifier: Clearing current error');
     }
-    
-    state = state.copyWith(currentError: null);
+
+    state = state.copyWith();
   }
 
   /// Clear all errors
@@ -60,7 +60,7 @@ class ErrorNotifier extends StateNotifier<ErrorState> {
     if (kDebugMode) {
       print('ErrorNotifier: Clearing all errors');
     }
-    
+
     state = const ErrorState();
   }
 

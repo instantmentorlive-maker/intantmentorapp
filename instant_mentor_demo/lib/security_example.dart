@@ -1,8 +1,10 @@
 import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'core/security/encryption_service.dart';
+
 import 'core/security/biometric_auth_service.dart';
+import 'core/security/encryption_service.dart';
 import 'core/security/key_manager.dart';
 import 'features/common/widgets/security_dashboard.dart';
 
@@ -96,7 +98,6 @@ class _SecurityInitializationScreenState
         rotationConfig: const KeyRotationConfig(
           policy: KeyRotationPolicy.timeBasedRotation,
           rotationInterval: Duration(days: 30),
-          retainOldVersions: true,
           maxOldVersions: 2,
         ),
         metadata: {
@@ -288,10 +289,11 @@ class SecurityHomeScreen extends ConsumerWidget {
                     children: [
                       Text(
                         'Security System Active',
-                        style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                          color: Colors.green[700],
-                          fontWeight: FontWeight.bold,
-                        ),
+                        style:
+                            Theme.of(context).textTheme.headlineSmall?.copyWith(
+                                  color: Colors.green[700],
+                                  fontWeight: FontWeight.bold,
+                                ),
                       ),
                       Text(
                         'Advanced encryption, biometric authentication, and key management ready',
@@ -314,14 +316,14 @@ class SecurityHomeScreen extends ConsumerWidget {
               '• Automated key rotation and secure key storage',
               '• Real-time security monitoring and audit logging',
             ].map((feature) => Padding(
-              padding: const EdgeInsets.only(left: 8, bottom: 4),
-              child: Text(
-                feature,
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: Colors.grey[700],
-                ),
-              ),
-            )),
+                  padding: const EdgeInsets.only(left: 8, bottom: 4),
+                  child: Text(
+                    feature,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: Colors.grey[700],
+                        ),
+                  ),
+                )),
           ],
         ),
       ),
@@ -378,10 +380,16 @@ class SecurityHomeScreen extends ConsumerWidget {
                 return Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.surfaceContainerHighest.withOpacity(0.3),
+                    color: Theme.of(context)
+                        .colorScheme
+                        .surfaceContainerHighest
+                        .withOpacity(0.3),
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(
-                      color: Theme.of(context).colorScheme.outline.withOpacity(0.2),
+                      color: Theme.of(context)
+                          .colorScheme
+                          .outline
+                          .withOpacity(0.2),
                     ),
                   ),
                   child: Column(
@@ -474,8 +482,8 @@ class SecurityHomeScreen extends ConsumerWidget {
             Text(
               'Test various security operations with sample data',
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: Colors.grey[600],
-              ),
+                    color: Colors.grey[600],
+                  ),
             ),
             const SizedBox(height: 16),
             Wrap(
@@ -526,23 +534,33 @@ class SecurityHomeScreen extends ConsumerWidget {
               ),
               SizedBox(height: 16),
               Text('🔐 Encryption Services'),
-              Text('• Multiple algorithms (AES, RSA, ChaCha20)', style: TextStyle(fontSize: 12)),
-              Text('• Authenticated encryption with GCM mode', style: TextStyle(fontSize: 12)),
-              Text('• Key derivation with PBKDF2 and Argon2', style: TextStyle(fontSize: 12)),
+              Text('• Multiple algorithms (AES, RSA, ChaCha20)',
+                  style: TextStyle(fontSize: 12)),
+              Text('• Authenticated encryption with GCM mode',
+                  style: TextStyle(fontSize: 12)),
+              Text('• Key derivation with PBKDF2 and Argon2',
+                  style: TextStyle(fontSize: 12)),
               SizedBox(height: 12),
               Text('👆 Biometric Authentication'),
-              Text('• TouchID, FaceID, Fingerprint support', style: TextStyle(fontSize: 12)),
-              Text('• Progressive authentication policies', style: TextStyle(fontSize: 12)),
-              Text('• Session management with timeout', style: TextStyle(fontSize: 12)),
+              Text('• TouchID, FaceID, Fingerprint support',
+                  style: TextStyle(fontSize: 12)),
+              Text('• Progressive authentication policies',
+                  style: TextStyle(fontSize: 12)),
+              Text('• Session management with timeout',
+                  style: TextStyle(fontSize: 12)),
               SizedBox(height: 12),
               Text('🗝️ Key Management'),
-              Text('• Automatic key rotation policies', style: TextStyle(fontSize: 12)),
-              Text('• Secure key storage with hardware backing', style: TextStyle(fontSize: 12)),
+              Text('• Automatic key rotation policies',
+                  style: TextStyle(fontSize: 12)),
+              Text('• Secure key storage with hardware backing',
+                  style: TextStyle(fontSize: 12)),
               Text('• Key exchange protocols', style: TextStyle(fontSize: 12)),
               SizedBox(height: 12),
               Text('🛡️ Security Monitoring'),
-              Text('• Real-time security audits', style: TextStyle(fontSize: 12)),
-              Text('• Threat detection and reporting', style: TextStyle(fontSize: 12)),
+              Text('• Real-time security audits',
+                  style: TextStyle(fontSize: 12)),
+              Text('• Threat detection and reporting',
+                  style: TextStyle(fontSize: 12)),
               Text('• Compliance monitoring', style: TextStyle(fontSize: 12)),
             ],
           ),
@@ -570,7 +588,6 @@ class SecurityHomeScreen extends ConsumerWidget {
       final service = BiometricAuthService.instance;
       final result = await service.authenticate(
         signInTitle: 'Security Demo Authentication',
-        cancelButtonText: 'Cancel',
       );
 
       _showResultDialog(
@@ -582,7 +599,8 @@ class SecurityHomeScreen extends ConsumerWidget {
         result.isAuthenticated,
       );
     } catch (e) {
-      _showResultDialog(context, 'Biometric Authentication', '❌ Error: $e', false);
+      _showResultDialog(
+          context, 'Biometric Authentication', '❌ Error: $e', false);
     }
   }
 
@@ -641,7 +659,8 @@ class SecurityHomeScreen extends ConsumerWidget {
       if (key == null) throw Exception('Key not found');
 
       // Test data
-      const testMessage = 'Hello, this is a confidential message for encryption demo!';
+      const testMessage =
+          'Hello, this is a confidential message for encryption demo!';
       final testData = testMessage.codeUnits;
 
       // Encrypt
@@ -651,7 +670,8 @@ class SecurityHomeScreen extends ConsumerWidget {
       );
 
       // Decrypt
-      final decryptedData = encryptionService.decryptAESGCM(encryptionResult, key);
+      final decryptedData =
+          encryptionService.decryptAESGCM(encryptionResult, key);
       final decryptedMessage = String.fromCharCodes(decryptedData);
 
       _showResultDialog(
@@ -753,8 +773,6 @@ class SecurityHomeScreen extends ConsumerWidget {
         algorithm: 'AES-256',
         expiresIn: const Duration(hours: 1),
         rotationConfig: const KeyRotationConfig(
-          policy: KeyRotationPolicy.manual,
-          retainOldVersions: true,
           maxOldVersions: 2,
         ),
         metadata: {'demo': true, 'purpose': 'rotation_test'},
@@ -783,7 +801,8 @@ class SecurityHomeScreen extends ConsumerWidget {
     }
   }
 
-  void _showResultDialog(BuildContext context, String title, String message, bool success) {
+  void _showResultDialog(
+      BuildContext context, String title, String message, bool success) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
