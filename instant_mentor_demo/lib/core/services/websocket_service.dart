@@ -72,14 +72,30 @@ class WebSocketMessage {
   }) : timestamp = timestamp ?? DateTime.now();
 
   Map<String, dynamic> toJson() {
-    return {
+    final json = <String, dynamic>{
       'id': id,
       'event': event.name,
-      'data': data,
-      'senderId': senderId,
-      'receiverId': receiverId,
       'timestamp': timestamp.toIso8601String(),
     };
+
+    // Filter out null values from data map
+    final filteredData = <String, dynamic>{};
+    data.forEach((key, value) {
+      if (value != null) {
+        filteredData[key] = value;
+      }
+    });
+    json['data'] = filteredData;
+
+    if (senderId != null) {
+      json['senderId'] = senderId!;
+    }
+
+    if (receiverId != null) {
+      json['receiverId'] = receiverId!;
+    }
+
+    return json;
   }
 
   factory WebSocketMessage.fromJson(Map<String, dynamic> json) {
@@ -226,6 +242,10 @@ class WebSocketService {
         'autoConnect': false,
         'timeout': 20000,
         'reconnection': false, // We handle reconnection manually
+        'auth': {
+          'userId': userId,
+          'userRole': userRole,
+        },
         'extraHeaders': {
           'user-id': userId,
           'user-role': userRole,

@@ -320,16 +320,11 @@ class _MentorStatusWidgetState extends ConsumerState<MentorStatusWidget> {
           ),
         );
       }
+      debugPrint('✅ WebSocket status update sent successfully');
     } catch (e) {
-      debugPrint('❌ Failed to update mentor status: $e');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('❌ Failed to update status'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
+      debugPrint('⚠️ WebSocket update failed (local status still updated): $e');
+      // Don't show error to user since local update already worked
+      // The status is still updated locally, just sync might be delayed
     }
   }
 

@@ -17,28 +17,63 @@ final StreamProvider<List<SessionRequest>> sessionRequestsProvider =
 
   final userId = auth.user!.id;
 
+  // Get the mentor profile ID for this user
+  final mentorProfile = await _supabase
+      .from('mentor_profiles')
+      .select('id')
+      .eq('user_id', userId)
+      .maybeSingle();
+
+  if (mentorProfile == null) {
+    // No mentor profile exists yet
+    yield const [];
+    return;
+  }
+
+  final mentorProfileId = mentorProfile['id'];
+
   // Initial fetch
   Future<List<SessionRequest>> fetch() async {
     final rows = await _supabase
         .from('mentoring_sessions')
-        .select(
-            'id, student:student_id(full_name), subject, created_at, status')
-        .eq('mentor_id', userId)
+        .select('id, subject, created_at, status, student_id')
+        .eq('mentor_id', mentorProfileId)
         .eq('status', 'pending')
         .order('created_at', ascending: false);
 
-    return rows.map<SessionRequest>((r) {
-      final student = r['student'] as Map<String, dynamic>?;
-      return SessionRequest(
+    // Fetch student names for each session
+    final List<SessionRequest> requests = [];
+    for (final r in rows) {
+      String studentName = 'Student';
+      final studentId = r['student_id'] as String?;
+
+      if (studentId != null) {
+        try {
+          final studentProfile = await _supabase
+              .from('user_profiles')
+              .select('full_name')
+              .eq('user_id', studentId)
+              .maybeSingle();
+
+          if (studentProfile != null) {
+            studentName = (studentProfile['full_name'] ?? 'Student').toString();
+          }
+        } catch (e) {
+          // If we can't fetch student name, use default
+          studentName = 'Student';
+        }
+      }
+
+      requests.add(SessionRequest(
         id: r['id'] as String,
-        studentName:
-            (student != null ? (student['full_name'] ?? 'Student') : 'Student')
-                .toString(),
+        studentName: studentName,
         subject: (r['subject'] ?? 'General').toString(),
         requestedAt: DateTime.parse(r['created_at'] as String),
         status: (r['status'] ?? 'pending').toString(),
-      );
-    }).toList();
+      ));
+    }
+
+    return requests;
   }
 
   // Emit initial
@@ -53,7 +88,7 @@ final StreamProvider<List<SessionRequest>> sessionRequestsProvider =
       filter: PostgresChangeFilter(
           type: PostgresChangeFilterType.eq,
           column: 'mentor_id',
-          value: userId),
+          value: mentorProfileId),
       callback: (payload) async {
         // On any change refetch list
         ref.invalidate(sessionRequestsProvider);

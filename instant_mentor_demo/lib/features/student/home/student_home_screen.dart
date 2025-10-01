@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
 
+import '../../../core/models/session.dart' as app_session;
 import '../../../core/providers/mentor_provider.dart';
+import '../../../core/providers/sessions_provider.dart';
 import '../../../core/providers/user_provider.dart';
 import '../../../core/routing/app_routes.dart';
 
@@ -96,29 +99,7 @@ class StudentHomeScreen extends ConsumerWidget {
                   .titleLarge
                   ?.copyWith(fontWeight: FontWeight.bold)),
           const SizedBox(height: 12),
-          Card(
-            child: Column(
-              children: [
-                _UpcomingSessionTile(
-                  mentorName: 'Dr. Sarah Smith',
-                  mentorId: 'mentor_2', // Demo mentor ID for Dr. Sarah Smith
-                  subject: 'Mathematics',
-                  time: 'Today, 3:00 PM',
-                  duration: '60 min',
-                  onJoin: () => context.go(AppRoutes.session('demo_session_1')),
-                ),
-                const Divider(height: 1),
-                _UpcomingSessionTile(
-                  mentorName: 'Prof. Raj Kumar',
-                  mentorId: 'mentor_1', // Demo mentor ID for Prof. Raj Kumar
-                  subject: 'Physics',
-                  time: 'Tomorrow, 10:00 AM',
-                  duration: '45 min',
-                  onJoin: () => context.go(AppRoutes.session('demo_session_2')),
-                ),
-              ],
-            ),
-          ),
+          const _UpcomingSessionsWidget(),
 
           const SizedBox(height: 24),
 
@@ -297,6 +278,215 @@ class _MentorCard extends StatelessWidget {
               ],
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _UpcomingSessionsWidget extends ConsumerWidget {
+  const _UpcomingSessionsWidget();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final upcomingSessionsAsync = ref.watch(simpleUpcomingSessionsProvider);
+
+    return upcomingSessionsAsync.when(
+      data: (sessions) {
+        if (sessions.isEmpty) {
+          return Card(
+            child: Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                children: [
+                  Icon(
+                    Icons.calendar_today_outlined,
+                    size: 48,
+                    color: Colors.grey[400],
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    'No upcoming sessions',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          color: Colors.grey[600],
+                        ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Book a session with a mentor to get started!',
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: Colors.grey[500],
+                        ),
+                    textAlign: TextAlign.center,
+                  ),
+                ],
+              ),
+            ),
+          );
+        }
+
+        return Card(
+          child: Column(
+            children: sessions
+                .cast<app_session.Session>()
+                .map<Widget>(
+                    (session) => _buildSessionTile(context, ref, session))
+                .expand((widget) => [widget, const Divider(height: 1)])
+                .take(sessions.length * 2 - 1) // Remove last divider
+                .toList(),
+          ),
+        );
+      },
+      loading: () => Card(
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            children: [
+              const CircularProgressIndicator(),
+              const SizedBox(height: 12),
+              Text(
+                'Loading your sessions...',
+                style: Theme.of(context).textTheme.bodyMedium,
+              ),
+            ],
+          ),
+        ),
+      ),
+      error: (error, stack) => Card(
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            children: [
+              Icon(
+                Icons.error_outline,
+                size: 48,
+                color: Colors.red[400],
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'Failed to load sessions',
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      color: Colors.red[600],
+                    ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Please check your connection and try again.',
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: Colors.grey[600],
+                    ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 12),
+              ElevatedButton(
+                onPressed: () => ref.refresh(simpleUpcomingSessionsProvider),
+                child: const Text('Retry'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSessionTile(
+      BuildContext context, WidgetRef ref, app_session.Session session) {
+    final mentors = ref.watch(mentorsProvider);
+    final matched = mentors.where((m) => m.id == session.mentorId).toList();
+    final mentor = matched.isNotEmpty ? matched.first : null;
+
+    // Handle demo mentors
+    String displayName;
+    if (mentor != null) {
+      displayName = mentor.name;
+    } else if (session.mentorId.startsWith('mentor_')) {
+      // Demo mentor - get name from known demo mentors
+      final demoMentorNames = {
+        'mentor_1': 'Dr. Sarah Smith',
+        'mentor_2': 'Prof. Raj Kumar',
+        'mentor_3': 'Dr. Priya Sharma',
+        'mentor_4': 'Mr. Vikash Singh',
+        'mentor_5': 'Dr. Anjali Gupta',
+      };
+      displayName = demoMentorNames[session.mentorId] ?? 'Demo Mentor';
+    } else {
+      displayName = 'Mentor (${session.mentorId})';
+    }
+
+    final now = DateTime.now();
+    final sessionTime = session.scheduledTime;
+    final isToday = sessionTime.year == now.year &&
+        sessionTime.month == now.month &&
+        sessionTime.day == now.day;
+    final isTomorrow = sessionTime.year == now.year &&
+        sessionTime.month == now.month &&
+        sessionTime.day == now.day + 1;
+
+    String timeText;
+    if (isToday) {
+      timeText = 'Today, ${DateFormat('h:mm a').format(sessionTime)}';
+    } else if (isTomorrow) {
+      timeText = 'Tomorrow, ${DateFormat('h:mm a').format(sessionTime)}';
+    } else {
+      timeText = DateFormat('MMM d, h:mm a').format(sessionTime);
+    }
+
+    // Check if session is starting soon (within 15 minutes)
+    final isStartingSoon = sessionTime.difference(now).inMinutes <= 15 &&
+        sessionTime.difference(now).inMinutes >= -5; // Allow 5 minutes late
+
+    final displayMentorId = mentor?.id ?? session.mentorId;
+    final displaySubject = session.subject;
+
+    return ListTile(
+      leading: GestureDetector(
+        onTap: () => context.go(AppRoutes.mentorProfile(displayMentorId)),
+        child: CircleAvatar(
+          backgroundColor: Theme.of(context).colorScheme.primaryContainer,
+          child: Text(
+            displayName.split(' ').map((n) => n.isNotEmpty ? n[0] : '').join(),
+            style: TextStyle(
+              color: Theme.of(context).colorScheme.onPrimaryContainer,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ),
+      ),
+      title: Text('$displaySubject with $displayName'),
+      subtitle: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('$timeText • ${session.durationMinutes} min'),
+          if (isStartingSoon)
+            Container(
+              margin: const EdgeInsets.only(top: 4),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+              decoration: BoxDecoration(
+                color: Colors.green[100],
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Text(
+                'Starting soon!',
+                style: TextStyle(
+                  fontSize: 11,
+                  color: Colors.green[800],
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+        ],
+      ),
+      trailing: ElevatedButton(
+        onPressed: () => context.go(AppRoutes.session(session.id)),
+        style: ElevatedButton.styleFrom(
+          minimumSize: const Size(60, 32),
+          backgroundColor: isStartingSoon
+              ? Colors.green
+              : Theme.of(context).colorScheme.primary,
+        ),
+        child: Text(
+          isStartingSoon ? 'Join Now' : 'Join',
+          style: const TextStyle(fontSize: 12),
         ),
       ),
     );

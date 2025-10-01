@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/error/app_error.dart';
@@ -16,9 +17,9 @@ class ErrorHandlerWidget extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     // Listen to error state
     ref.listen(errorProvider, (previous, next) {
-      if (next.currentError != null && 
-          (previous?.currentError == null || 
-           previous!.currentError != next.currentError)) {
+      if (next.currentError != null &&
+          (previous?.currentError == null ||
+              previous!.currentError != next.currentError)) {
         _showErrorSnackBar(context, ref, next.currentError!);
       }
     });
@@ -28,7 +29,7 @@ class ErrorHandlerWidget extends ConsumerWidget {
 
   void _showErrorSnackBar(BuildContext context, WidgetRef ref, AppError error) {
     final messenger = ScaffoldMessenger.of(context);
-    
+
     // Clear any existing snackbars
     messenger.clearSnackBars();
 
@@ -60,6 +61,41 @@ class ErrorHandlerWidget extends ConsumerWidget {
                     style: TextStyle(
                       fontSize: 12,
                       color: Colors.white.withOpacity(0.8),
+                    ),
+                  ),
+                ],
+                // Show real error details in debug mode
+                if (kDebugMode && error.originalError != null) ...[
+                  const SizedBox(height: 4),
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withOpacity(0.3),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Debug Info:',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white.withOpacity(0.9),
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          error.originalError.toString(),
+                          style: TextStyle(
+                            fontSize: 10,
+                            color: Colors.white.withOpacity(0.7),
+                            fontFamily: 'monospace',
+                          ),
+                          maxLines: 3,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
                     ),
                   ),
                 ],
@@ -135,7 +171,7 @@ class ErrorUtils {
 
   /// Show a network error
   static void showNetworkError(WidgetRef ref, [String? message]) {
-    final error = message != null 
+    final error = message != null
         ? NetworkError(message: message)
         : NetworkError.noConnection();
     ref.read(errorProvider.notifier).showError(error);
@@ -148,13 +184,15 @@ class ErrorUtils {
   }
 
   /// Show a validation error
-  static void showValidationError(WidgetRef ref, String field, String message, [String? code]) {
+  static void showValidationError(WidgetRef ref, String field, String message,
+      [String? code]) {
     final error = ValidationError(field: field, message: message, code: code);
     ref.read(errorProvider.notifier).showError(error);
   }
 
   /// Handle any error and show appropriate message
-  static void handleAndShowError(WidgetRef ref, dynamic error, [StackTrace? stackTrace]) {
+  static void handleAndShowError(WidgetRef ref, dynamic error,
+      [StackTrace? stackTrace]) {
     ref.read(errorProvider.notifier).handleError(error, stackTrace);
   }
 

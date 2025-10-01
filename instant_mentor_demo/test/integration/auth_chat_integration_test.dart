@@ -1,10 +1,11 @@
-import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:instant_mentor_demo/core/providers/auth_provider.dart';
 import 'package:instant_mentor_demo/core/providers/chat_providers.dart';
 import 'package:instant_mentor_demo/main.dart' as app;
 import 'package:integration_test/integration_test.dart';
+
+import 'packag      await tester.pumpWidget(
 
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
@@ -16,9 +17,8 @@ void main() {
         ProviderScope(
           overrides: [
             // Mock auth provider for testing
-            authProvider.overrideWith((ref) => MockAuthNotifier()),
+            // authProvider.overrideWith((ref) => MockAuthNotifier()),
           ],
-          child: const app.MyApp(),
         ),
       );
 
@@ -44,7 +44,6 @@ void main() {
           overrides: [
             authProvider.overrideWith((ref) => MockAuthNotifierWithErrors()),
           ],
-          child: const app.MyApp(),
         ),
       );
 
@@ -61,11 +60,10 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
-            authProvider.overrideWith((ref) => MockAuthNotifier()),
+            // authProvider.overrideWith((ref) => MockAuthNotifier()),
             // Mock offline chat provider
-            chatServiceProvider.overrideWith((ref) => MockOfflineChatService()),
+            // chatServiceProvider.overrideWith((ref) => MockOfflineChatService()),
           ],
-          child: const app.MyApp(),
         ),
       );
 
@@ -90,9 +88,8 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
-            authProvider.overrideWith((ref) => MockAuthNotifier()),
+            // authProvider.overrideWith((ref) => MockAuthNotifier()),
           ],
-          child: const app.MyApp(),
         ),
       );
 

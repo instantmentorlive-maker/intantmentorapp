@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/providers/auth_provider.dart';
 import '../../../core/providers/user_provider.dart';
+import '../../../core/services/session_chat_manager.dart';
 import '../../mentor/incentives/incentives_bonuses_screen.dart';
 import '../../mentor/performance_analytics/performance_analytics_screen.dart';
 import '../../mentor/profile_management/profile_management_screen.dart';
@@ -246,12 +247,27 @@ class MoreMenuScreen extends ConsumerWidget {
               );
 
               try {
-                // Properly sign out through auth provider
+                // Save any pending chat messages before logout
+                try {
+                  final sessionChatManager = SessionChatManager();
+                  await sessionChatManager.saveAllPendingMessages();
+                  debugPrint('✅ Saved all pending messages before logout');
+                } catch (e) {
+                  debugPrint('⚠️ Failed to save messages before logout: $e');
+                }
+
+                // NOTE: Demo sessions are preserved in SharedPreferences
+                // They will be available after login
+
+                // Clear user-specific auth state
+                ref.read(userProvider.notifier).logout();
+                // Then sign out through auth provider
                 await ref.read(authProvider.notifier).signOut();
-                // Navigation will be handled by router redirect logic automatically
+
                 if (context.mounted) {
                   Navigator.of(context).pop(); // Close loading
-                  // Don't manually navigate - let the router's redirect logic handle it
+                  // Force navigation to login page
+                  context.go('/login');
                 }
               } catch (e) {
                 if (context.mounted) {

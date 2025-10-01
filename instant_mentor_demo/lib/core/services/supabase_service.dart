@@ -1,4 +1,3 @@
-import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -773,7 +772,7 @@ class SupabaseService {
       'duration_minutes': duration.inMinutes,
       'subject': subject,
       'description': description,
-      'status': 'scheduled',
+      'status': 'pending',
       'created_at': DateTime.now().toIso8601String(),
     };
 

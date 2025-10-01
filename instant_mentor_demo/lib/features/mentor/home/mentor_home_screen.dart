@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/providers/user_provider.dart';
+import '../../common/widgets/mentor_status_widget.dart';
 
 import '../../../core/routing/routing.dart';
 
@@ -51,83 +52,148 @@ class MentorHomeScreen extends ConsumerWidget {
                               .withOpacity(0.9),
                         ),
                   ),
-                  const SizedBox(height: 16),
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton.icon(
-                      onPressed: () {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Status changed to Available'),
-                            backgroundColor: Colors.green,
+                  const SizedBox(height: 12),
+                  // Current Status Indicator
+                  Consumer(
+                    builder: (context, ref, child) {
+                      final mentorStatus = ref.watch(mentorStatusProvider);
+                      return Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: Theme.of(context)
+                              .colorScheme
+                              .onPrimary
+                              .withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(
+                            color: Theme.of(context)
+                                .colorScheme
+                                .onPrimary
+                                .withOpacity(0.3),
                           ),
-                        );
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor:
-                            Theme.of(context).colorScheme.onPrimary,
-                        foregroundColor: Theme.of(context).colorScheme.primary,
-                      ),
-                      icon: const Icon(Icons.check_circle),
-                      label: const Text('Go Available'),
-                    ),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Container(
+                              width: 8,
+                              height: 8,
+                              decoration: BoxDecoration(
+                                color: mentorStatus.isAvailable
+                                    ? Colors.green
+                                    : Colors.orange,
+                                shape: BoxShape.circle,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              'Current Status: ${mentorStatus.statusMessage}',
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .bodySmall
+                                  ?.copyWith(
+                                    color:
+                                        Theme.of(context).colorScheme.onPrimary,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  Consumer(
+                    builder: (context, ref, child) {
+                      final mentorStatus = ref.watch(mentorStatusProvider);
+                      final isAvailable = mentorStatus.isAvailable;
+
+                      return SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton.icon(
+                          onPressed: () async {
+                            // Toggle availability status
+                            final newAvailability = !isAvailable;
+                            final newMessage = newAvailability
+                                ? 'Available for sessions'
+                                : 'Currently busy';
+
+                            // Always update local status first
+                            ref
+                                .read(mentorStatusProvider.notifier)
+                                .updateStatus(
+                                  newAvailability,
+                                  newMessage,
+                                );
+
+                            // Show immediate feedback for local status update
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                      '✅ Status changed to ${newAvailability ? 'Available' : 'Busy'}'),
+                                  backgroundColor: newAvailability
+                                      ? Colors.green
+                                      : Colors.orange,
+                                  duration: const Duration(seconds: 2),
+                                ),
+                              );
+                            }
+
+                            // Try to send update via WebSocket (non-blocking)
+                            try {
+                              final webSocketService =
+                                  ref.read(webSocketServiceProvider);
+                              await webSocketService.updateMentorStatus(
+                                isAvailable: newAvailability,
+                                statusMessage: newMessage,
+                                statusData: {
+                                  'userId': ref.read(userProvider)?.id,
+                                  'timestamp': DateTime.now().toIso8601String(),
+                                },
+                              );
+                              debugPrint(
+                                  '✅ WebSocket status update sent successfully');
+                            } catch (e) {
+                              // WebSocket error - don't show error to user since local update worked
+                              debugPrint(
+                                  '⚠️ WebSocket update failed (local status still updated): $e');
+                              // Optional: Could show a subtle warning
+                              // ScaffoldMessenger.of(context).showSnackBar(
+                              //   SnackBar(
+                              //     content: Text('Status updated locally (sync may be delayed)'),
+                              //     backgroundColor: Colors.amber,
+                              //     duration: const Duration(seconds: 1),
+                              //   ),
+                              // );
+                            }
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: isAvailable
+                                ? Colors.orange
+                                : Theme.of(context).colorScheme.onPrimary,
+                            foregroundColor: isAvailable
+                                ? Colors.white
+                                : Theme.of(context).colorScheme.primary,
+                          ),
+                          icon: Icon(
+                            isAvailable
+                                ? Icons.pause_circle
+                                : Icons.check_circle,
+                          ),
+                          label: Text(
+                            isAvailable ? 'Go Busy' : 'Go Available',
+                          ),
+                        ),
+                      );
+                    },
                   ),
                 ],
               ),
             ),
           ),
 
-          const SizedBox(height: 24),
-          // Quick Actions (Book / Ask)
-          Text(
-            'Quick Actions',
-            style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: Card(
-                  child: InkWell(
-                    onTap: () => context.go(AppRoutes.studentBooking),
-                    child: Container(
-                      padding: const EdgeInsets.all(20),
-                      child: const Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.calendar_today,
-                              size: 28, color: Colors.blue),
-                          SizedBox(height: 8),
-                          Text('Book Session'),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Card(
-                  child: InkWell(
-                    onTap: () => context.go(AppRoutes.mentorChat),
-                    child: Container(
-                      padding: const EdgeInsets.all(20),
-                      child: const Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.chat, size: 28, color: Colors.orange),
-                          SizedBox(height: 8),
-                          Text('Ask Mentor'),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
           const SizedBox(height: 24),
 
           // Today's Stats

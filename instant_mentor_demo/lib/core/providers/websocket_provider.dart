@@ -228,11 +228,10 @@ final webSocketConnectionManagerProvider = Provider<void>((ref) {
           debugPrint('🌐 WebSocket: Realtime disabled (skipping auto-connect)');
           return;
         }
-        if (FeatureFlags.demoMode) {
-          debugPrint(
-              '🌐 WebSocket: Demo mode active (skipping real auto-connect)');
-          return;
-        }
+        // Allow WebSocket in demo mode for help requests and other features
+        // Only skip if explicitly configured to do so
+        debugPrint(
+            '🌐 WebSocket: Proceeding with connection (demo mode allowed)');
         try {
           final userId = next.user!.id;
           final userRole = next.user!.userMetadata?['role'] ?? 'student';

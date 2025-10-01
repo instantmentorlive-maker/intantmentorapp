@@ -1,0 +1,6 @@
+@echo off
+echo Running Flutter Web App with HTML renderer...
+flutter build web --web-renderer html --profile
+echo Build complete. Starting local server...
+cd build\web
+python -m http.server 8080

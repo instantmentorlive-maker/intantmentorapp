@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
+import '../../mentor/availability/availability_screen.dart';
 import '../../../core/providers/auth_provider.dart';
+import '../../mentor/profile_management/profile_management_screen.dart'
+    show mentorProfileProvider; // reuse provider
+import 'package:go_router/go_router.dart';
+
 import '../../../core/providers/user_provider.dart';
 import '../../../core/services/supabase_service.dart';
 
@@ -806,27 +810,352 @@ class SettingsScreen extends ConsumerWidget {
   }
 
   void _showAvailabilitySettings(BuildContext context) {
-    _showSnackBar(context, 'Availability settings coming soon!');
+    // Navigate to dedicated availability screen inside a scaffold
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => Scaffold(
+          appBar: AppBar(title: const Text('Availability Settings')),
+          body: const AvailabilityScreen(),
+        ),
+      ),
+    );
   }
 
   void _showPricingSettings(BuildContext context) {
-    _showSnackBar(context, 'Pricing settings coming soon!');
+    final ref = ProviderScope.containerOf(context, listen: false);
+    final profile = ref.read(mentorProfileProvider);
+    final controller =
+        TextEditingController(text: profile['hourlyRate'].toString());
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Pricing'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('Set your hourly rate (USD)'),
+            const SizedBox(height: 12),
+            TextField(
+              controller: controller,
+              keyboardType:
+                  const TextInputType.numberWithOptions(decimal: true),
+              decoration: const InputDecoration(
+                prefixText: '\$',
+                border: OutlineInputBorder(),
+                labelText: 'Hourly Rate',
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          ElevatedButton(
+            onPressed: () {
+              final value = double.tryParse(controller.text.trim());
+              if (value == null || value <= 0) {
+                _showSnackBar(context, 'Enter a valid positive amount');
+                return;
+              }
+              final updated = {...profile, 'hourlyRate': value};
+              ref.read(mentorProfileProvider.notifier).state = updated;
+              ref.read(authProvider.notifier).updateProfile(updated);
+              Navigator.pop(ctx);
+              _showSnackBar(context,
+                  'Hourly rate updated to \$${value.toStringAsFixed(2)}');
+            },
+            child: const Text('Save'),
+          )
+        ],
+      ),
+    );
   }
 
   void _showSubjectsSettings(BuildContext context) {
-    _showSnackBar(context, 'Subjects settings coming soon!');
+    final ref = ProviderScope.containerOf(context, listen: false);
+    final profile = ref.read(mentorProfileProvider);
+    final List<String> subjects = List<String>.from(profile['subjects'] ?? []);
+    final controller = TextEditingController();
+
+    showModalBottomSheet(
+        context: context,
+        isScrollControlled: true,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        builder: (ctx) {
+          return Padding(
+            padding: EdgeInsets.only(
+              left: 16,
+              right: 16,
+              top: 16,
+              bottom: MediaQuery.of(ctx).viewInsets.bottom + 16,
+            ),
+            child: StatefulBuilder(
+              builder: (ctx, setState) => Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Expanded(
+                        child: Text('Subjects & Expertise',
+                            style: TextStyle(
+                                fontSize: 18, fontWeight: FontWeight.w600)),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close),
+                        onPressed: () => Navigator.pop(ctx),
+                      )
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: subjects
+                        .map((s) => Chip(
+                              label: Text(s),
+                              deleteIcon: const Icon(Icons.close, size: 16),
+                              onDeleted: () {
+                                setState(() => subjects.remove(s));
+                              },
+                            ))
+                        .toList(),
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: controller,
+                          decoration: const InputDecoration(
+                            labelText: 'Add subject',
+                            border: OutlineInputBorder(),
+                          ),
+                          onSubmitted: (_) =>
+                              _addSubject(controller, subjects, setState),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      ElevatedButton(
+                        onPressed: () =>
+                            _addSubject(controller, subjects, setState),
+                        child: const Text('Add'),
+                      )
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      icon: const Icon(Icons.save),
+                      label: const Text('Save Subjects'),
+                      onPressed: () {
+                        if (subjects.isEmpty) {
+                          _showSnackBar(context, 'Add at least one subject');
+                          return;
+                        }
+                        final updated = {...profile, 'subjects': subjects};
+                        ref.read(mentorProfileProvider.notifier).state =
+                            updated;
+                        ref.read(authProvider.notifier).updateProfile(updated);
+                        Navigator.pop(ctx);
+                        _showSnackBar(context, 'Subjects updated');
+                      },
+                    ),
+                  )
+                ],
+              ),
+            ),
+          );
+        });
+  }
+
+  void _addSubject(TextEditingController controller, List<String> subjects,
+      void Function(void Function()) setState) {
+    final text = controller.text.trim();
+    if (text.isEmpty) return;
+    if (!subjects.contains(text)) {
+      setState(() => subjects.add(text));
+    }
+    controller.clear();
   }
 
   void _showHelpCenter(BuildContext context) {
-    _showSnackBar(context, 'Help center coming soon!');
+    final helpTopics = [
+      {
+        'title': 'Getting Started',
+        'content':
+            'Learn how to set up your mentor profile and begin accepting sessions.'
+      },
+      {
+        'title': 'Scheduling Sessions',
+        'content':
+            'Tips on managing availability and booking sessions with students.'
+      },
+      {
+        'title': 'Earnings & Payouts',
+        'content':
+            'Understand how hourly rates, session billing, and payouts work.'
+      },
+      {
+        'title': 'Real-time Communication',
+        'content': 'Troubleshoot audio/video or chat connectivity issues.'
+      },
+    ];
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Help Center'),
+        content: SizedBox(
+          width: 400,
+          child: ListView.separated(
+            shrinkWrap: true,
+            itemBuilder: (_, i) => ListTile(
+              contentPadding: EdgeInsets.zero,
+              title: Text(helpTopics[i]['title']!),
+              subtitle: Text(helpTopics[i]['content']!,
+                  style: const TextStyle(fontSize: 12)),
+              leading: const Icon(Icons.help_outline),
+            ),
+            separatorBuilder: (_, __) => const Divider(height: 12),
+            itemCount: helpTopics.length,
+          ),
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx), child: const Text('Close'))
+        ],
+      ),
+    );
   }
 
   void _contactSupport(BuildContext context) {
-    _showSnackBar(context, 'Contact support coming soon!');
+    final subjectController = TextEditingController();
+    final messageController = TextEditingController();
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => Padding(
+        padding: EdgeInsets.only(
+          left: 16,
+          right: 16,
+          top: 16,
+          bottom: MediaQuery.of(ctx).viewInsets.bottom + 16,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Expanded(
+                    child: Text('Contact Support',
+                        style: TextStyle(
+                            fontSize: 18, fontWeight: FontWeight.w600))),
+                IconButton(
+                    onPressed: () => Navigator.pop(ctx),
+                    icon: const Icon(Icons.close))
+              ],
+            ),
+            TextField(
+              controller: subjectController,
+              decoration: const InputDecoration(
+                  labelText: 'Subject', border: OutlineInputBorder()),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: messageController,
+              maxLines: 5,
+              decoration: const InputDecoration(
+                  labelText: 'Message', border: OutlineInputBorder()),
+            ),
+            const SizedBox(height: 16),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                icon: const Icon(Icons.send),
+                label: const Text('Send Message'),
+                onPressed: () {
+                  if (subjectController.text.trim().isEmpty ||
+                      messageController.text.trim().isEmpty) {
+                    _showSnackBar(context, 'Please fill subject & message');
+                    return;
+                  }
+                  // Placeholder: integrate with support ticket API
+                  Navigator.pop(ctx);
+                  _showSnackBar(context, 'Support request sent');
+                },
+              ),
+            )
+          ],
+        ),
+      ),
+    );
   }
 
   void _reportIssue(BuildContext context) {
-    _showSnackBar(context, 'Report issue coming soon!');
+    final titleController = TextEditingController();
+    final descController = TextEditingController();
+    bool includeLogs = true;
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setState) => AlertDialog(
+          title: const Text('Report Issue'),
+          content: SizedBox(
+            width: 420,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextField(
+                    controller: titleController,
+                    decoration: const InputDecoration(
+                        labelText: 'Title', border: OutlineInputBorder()),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: descController,
+                    maxLines: 5,
+                    decoration: const InputDecoration(
+                        labelText: 'Description', border: OutlineInputBorder()),
+                  ),
+                  const SizedBox(height: 12),
+                  SwitchListTile(
+                    value: includeLogs,
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('Include diagnostic info'),
+                    onChanged: (v) => setState(() => includeLogs = v),
+                  )
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('Cancel')),
+            ElevatedButton(
+              onPressed: () {
+                if (titleController.text.trim().isEmpty) {
+                  _showSnackBar(context, 'Provide a title');
+                  return;
+                }
+                // Placeholder: send to backend issue tracker
+                Navigator.pop(ctx);
+                _showSnackBar(context, 'Issue reported. Thank you!');
+              },
+              child: const Text('Submit'),
+            )
+          ],
+        ),
+      ),
+    );
   }
 
   void _checkForUpdates(BuildContext context) {
@@ -918,7 +1247,8 @@ class SettingsScreen extends ConsumerWidget {
                 // Navigation will be handled by router redirect logic automatically
                 if (context.mounted) {
                   Navigator.of(context).pop(); // Close loading
-                  // Don't manually navigate - let the router's redirect logic handle it
+                  // Explicitly navigate to login after logout to ensure redirect works
+                  context.go('/login');
                 }
               } catch (e) {
                 if (context.mounted) {

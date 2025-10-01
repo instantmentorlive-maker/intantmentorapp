@@ -94,20 +94,37 @@ class RealtimeMessage {
   }
 
   Map<String, dynamic> toJson() {
-    return {
+    final json = <String, dynamic>{
       'id': id,
       'senderId': senderId,
-      'recipientId': recipientId,
-      'roomId': roomId,
       'type': type.name,
       'content': content,
-      'metadata': metadata,
       'status': status.name,
       'priority': priority.name,
       'timestamp': timestamp.toIso8601String(),
-      'deliveredAt': deliveredAt?.toIso8601String(),
-      'readAt': readAt?.toIso8601String(),
     };
+
+    if (recipientId != null) {
+      json['recipientId'] = recipientId;
+    }
+
+    if (roomId != null) {
+      json['roomId'] = roomId;
+    }
+
+    if (metadata != null) {
+      json['metadata'] = metadata;
+    }
+
+    if (deliveredAt != null) {
+      json['deliveredAt'] = deliveredAt!.toIso8601String();
+    }
+
+    if (readAt != null) {
+      json['readAt'] = readAt!.toIso8601String();
+    }
+
+    return json;
   }
 
   factory RealtimeMessage.fromJson(Map<String, dynamic> json) {

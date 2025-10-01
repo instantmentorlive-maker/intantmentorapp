@@ -28,7 +28,8 @@ class SchedulingService {
     }
   }
 
-  Future<Map<int, ({TimeOfDay start, TimeOfDay end, bool enabled})>> getWeeklyAvailability(String mentorId) async {
+  Future<Map<int, ({TimeOfDay start, TimeOfDay end, bool enabled})>>
+      getWeeklyAvailability(String mentorId) async {
     final rows = await _db
         .from('mentor_availability')
         .select('day_of_week, start_time, end_time, is_enabled, timezone')
@@ -58,13 +59,16 @@ class SchedulingService {
         .eq('mentor_id', mentorId)
         .eq('day_of_week', weekday)
         .maybeSingle();
-    if (avail == null || (avail['is_enabled'] as bool? ?? false) == false) return [];
+    if (avail == null || (avail['is_enabled'] as bool? ?? false) == false)
+      return [];
 
     // Build day window
     final startTod = _parseTime(avail['start_time'] as String);
     final endTod = _parseTime(avail['end_time'] as String);
-    final dayStart = DateTime(date.year, date.month, date.day, startTod.hour, startTod.minute);
-    final dayEnd = DateTime(date.year, date.month, date.day, endTod.hour, endTod.minute);
+    final dayStart = DateTime(
+        date.year, date.month, date.day, startTod.hour, startTod.minute);
+    final dayEnd =
+        DateTime(date.year, date.month, date.day, endTod.hour, endTod.minute);
 
     // Fetch existing sessions for mentor on that day (exclude cancelled/declined)
     final nextDay = dayStart.add(const Duration(days: 1));
@@ -86,7 +90,8 @@ class SchedulingService {
     bool conflicts(DateTime start, DateTime end) {
       for (final s in existing) {
         final sStart = DateTime.parse(s['scheduled_time'] as String);
-        final sEnd = sStart.add(Duration(minutes: (s['duration_minutes'] as int?) ?? 0));
+        final sEnd =
+            sStart.add(Duration(minutes: (s['duration_minutes'] as int?) ?? 0));
         if (_overlaps(start, end, sStart, sEnd)) return true;
       }
       for (final b in timeOff) {
@@ -98,8 +103,10 @@ class SchedulingService {
     }
 
     final slots = <DateTime>[];
-    for (DateTime t = dayStart; t.add(Duration(minutes: durationMinutes)).isBefore(dayEnd) ||
-        t.add(Duration(minutes: durationMinutes)).isAtSameMomentAs(dayEnd); t = t.add(Duration(minutes: slotMinutes))) {
+    for (DateTime t = dayStart;
+        t.add(Duration(minutes: durationMinutes)).isBefore(dayEnd) ||
+            t.add(Duration(minutes: durationMinutes)).isAtSameMomentAs(dayEnd);
+        t = t.add(Duration(minutes: slotMinutes))) {
       final end = t.add(Duration(minutes: durationMinutes));
       if (t.isAfter(DateTime.now())) {
         if (!conflicts(t, end)) slots.add(t);
@@ -137,7 +144,7 @@ class SchedulingService {
           'duration_minutes': durationMinutes,
           'subject': subject,
           'description': description,
-          'status': 'scheduled',
+          'status': 'pending',
         })
         .select()
         .single();
@@ -150,7 +157,8 @@ class SchedulingService {
     return row;
   }
 
-  static bool _overlaps(DateTime aStart, DateTime aEnd, DateTime bStart, DateTime bEnd) {
+  static bool _overlaps(
+      DateTime aStart, DateTime aEnd, DateTime bStart, DateTime bEnd) {
     return aStart.isBefore(bEnd) && bStart.isBefore(aEnd);
   }
 

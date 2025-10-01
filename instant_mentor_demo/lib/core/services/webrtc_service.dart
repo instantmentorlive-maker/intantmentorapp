@@ -1,11 +1,35 @@
+import 'dart:async';
+import 'package:flutter/foundation.dart';
+import 'package:flutter_webrtc/flutter_webrtc.dart';
+
+import '../config/app_config.dart';
+import 'websocket_service.dart';
+
 // Stub: WebRTCService removed
 class WebRTCService {
   WebRTCService._();
   static final WebRTCService instance = WebRTCService._();
-  bool get isInitialized => false;
-  Future<void> initialize() async {}
-  Future<void> dispose() async {}
-}
+
+  // WebRTC implementation variables
+  RTCPeerConnection? _pc;
+  MediaStream? _localStream;
+  MediaStream? _remoteStream;
+  final localRenderer = RTCVideoRenderer();
+  final remoteRenderer = RTCVideoRenderer();
+  StreamSubscription<WebSocketMessage>? _wsSub;
+  bool _inited = false;
+  String? _peerUserId;
+  String? _currentCallId;
+
+  bool get isInitialized => _inited;
+
+  Future<void> initialize() async {
+    if (_inited) return;
+    await localRenderer.initialize();
+    await remoteRenderer.initialize();
+    _wsSub = WebSocketService.instance.messageStream.listen(_onSignalMessage);
+    _inited = true;
+  }
 
   Future<void> dispose() async {
     await _wsSub?.cancel();
@@ -177,16 +201,24 @@ class WebRTCService {
 
   void _sendSignal(String type, Map<String, dynamic> payload) {
     if (_peerUserId == null || _currentCallId == null) return;
-    _ws.sendWebRTCSignal(
-      receiverId: _peerUserId!,
-      callId: _currentCallId!,
-      sig: type,
-      payload: payload,
+    
+    final message = WebSocketMessage(
+      id: DateTime.now().millisecondsSinceEpoch.toString(),
+      event: WebSocketEvent.systemUpdate, // Using systemUpdate as generic event
+      data: {
+        'sig': type,
+        'callId': _currentCallId,
+        ...payload,
+      },
+      senderId: WebSocketService.instance.currentUserId,
+      receiverId: _peerUserId,
     );
+    
+    WebSocketService.instance.sendMessage(message);
   }
 
   void _onSignalMessage(WebSocketMessage msg) {
-    if (msg.receiverId != _ws.currentUserId) return;
+    if (msg.receiverId != WebSocketService.instance.currentUserId) return;
     final Map<String, dynamic> map = msg.data;
     // Only process true WebRTC signaling relays
     if (!map.containsKey('sig')) return;
@@ -196,7 +228,7 @@ class WebRTCService {
     if (_currentCallId != null && map['callId'] != _currentCallId) return;
 
     final type = map['sig'] as String;
-    final payload = Map<String, dynamic>.from(map['payload'] as Map);
+    final payload = Map<String, dynamic>.from(map['payload'] as Map? ?? {});
     switch (type) {
       case 'webrtc-offer':
         handleRemoteOffer(payload);

@@ -201,9 +201,8 @@ class _EmailFormFieldState extends State<EmailFormField> {
       keyboardType: TextInputType.emailAddress,
       autofocus: widget.autofocus,
       focusNode: _focusNode,
-      validator: _hasInteracted
-          ? (value) => FormValidators.email(value, required: widget.required)
-          : null,
+      validator: (value) =>
+          FormValidators.email(value, required: widget.required),
       onChanged: (value) {
         if (value.isNotEmpty && !_hasInteracted) {
           setState(() {

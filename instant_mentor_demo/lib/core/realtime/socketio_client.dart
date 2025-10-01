@@ -82,7 +82,7 @@ class SocketConfig {
 class SocketIOClient {
   static SocketIOClient? _instance;
   static SocketIOClient get instance => _instance ??= SocketIOClient._();
-  
+
   SocketIOClient._();
 
   // Core Socket.IO components
@@ -91,7 +91,7 @@ class SocketIOClient {
   SocketConfig _config = const SocketConfig();
 
   // Event streaming
-  final StreamController<SocketEvent> _eventController = 
+  final StreamController<SocketEvent> _eventController =
       StreamController<SocketEvent>.broadcast();
   final Map<String, StreamController<dynamic>> _eventStreams = {};
 
@@ -136,7 +136,8 @@ class SocketIOClient {
   Future<bool> connect(String url, {SocketConfig? config}) async {
     if (_connectionState == SocketConnectionState.connected ||
         _connectionState == SocketConnectionState.connecting) {
-      developer.log('Socket.IO already connected or connecting', name: 'SocketIOClient');
+      developer.log('Socket.IO already connected or connecting',
+          name: 'SocketIOClient');
       return true;
     }
 
@@ -204,7 +205,8 @@ class SocketIOClient {
         _totalConnections++;
         _connectionStartTime = DateTime.now();
         _lastConnected = DateTime.now();
-        developer.log('Socket.IO connected successfully', name: 'SocketIOClient');
+        developer.log('Socket.IO connected successfully',
+            name: 'SocketIOClient');
       } else {
         _connectionState = SocketConnectionState.error;
         _addError('Connection failed or timeout');
@@ -239,16 +241,30 @@ class SocketIOClient {
 
   /// Emit event to server
   void emit(String event, [dynamic data]) {
-    if (_connectionState != SocketConnectionState.connected || _socket == null) {
-      developer.log('Socket.IO not connected, cannot emit event: $event', name: 'SocketIOClient');
+    if (_connectionState != SocketConnectionState.connected ||
+        _socket == null) {
+      developer.log('Socket.IO not connected, cannot emit event: $event',
+          name: 'SocketIOClient');
       return;
     }
 
     try {
-      _socket!.emit(event, data);
+      // Filter out null values from data if it's a Map
+      dynamic filteredData = data;
+      if (data is Map<String, dynamic>) {
+        filteredData = <String, dynamic>{};
+        data.forEach((key, value) {
+          if (value != null) {
+            filteredData[key] = value;
+          }
+        });
+      }
+
+      _socket!.emit(event, filteredData);
       _totalEvents++;
       _incrementEventCount(event);
-      developer.log('Event emitted: $event with data: $data', name: 'SocketIOClient');
+      developer.log('Event emitted: $event with data: $filteredData',
+          name: 'SocketIOClient');
     } catch (e) {
       developer.log('Failed to emit event $event: $e', name: 'SocketIOClient');
       _addError('Failed to emit event $event: $e');
@@ -257,14 +273,26 @@ class SocketIOClient {
 
   /// Emit event with acknowledgment
   Future<dynamic> emitWithAck(String event, [dynamic data]) async {
-    if (_connectionState != SocketConnectionState.connected || _socket == null) {
+    if (_connectionState != SocketConnectionState.connected ||
+        _socket == null) {
       throw Exception('Socket.IO not connected');
     }
 
     final completer = Completer<dynamic>();
 
     try {
-      _socket!.emitWithAck(event, data, ack: (response) {
+      // Filter out null values from data if it's a Map
+      dynamic filteredData = data;
+      if (data is Map<String, dynamic>) {
+        filteredData = <String, dynamic>{};
+        data.forEach((key, value) {
+          if (value != null) {
+            filteredData[key] = value;
+          }
+        });
+      }
+
+      _socket!.emitWithAck(event, filteredData, ack: (response) {
         if (!completer.isCompleted) {
           completer.complete(response);
         }
@@ -272,10 +300,11 @@ class SocketIOClient {
 
       _totalEvents++;
       _incrementEventCount(event);
-      
+
       return await completer.future;
     } catch (e) {
-      developer.log('Failed to emit event with ack $event: $e', name: 'SocketIOClient');
+      developer.log('Failed to emit event with ack $event: $e',
+          name: 'SocketIOClient');
       _addError('Failed to emit event with ack $event: $e');
       rethrow;
     }
@@ -284,17 +313,18 @@ class SocketIOClient {
   /// Listen to specific event
   void on(String event, Function(dynamic) callback) {
     if (_socket == null) {
-      developer.log('Socket.IO not initialized, cannot listen to event: $event', name: 'SocketIOClient');
+      developer.log('Socket.IO not initialized, cannot listen to event: $event',
+          name: 'SocketIOClient');
       return;
     }
 
     _socket!.on(event, (data) {
       _totalEvents++;
       _incrementEventCount(event);
-      
+
       // Add to general event stream
       _eventController.add(SocketEvent.create(event, data));
-      
+
       // Add to specific event stream
       if (_eventStreams.containsKey(event)) {
         _eventStreams[event]!.add(data);
@@ -310,12 +340,14 @@ class SocketIOClient {
   /// Stop listening to specific event
   void off(String event) {
     if (_socket == null) {
-      developer.log('Socket.IO not initialized, cannot stop listening to event: $event', name: 'SocketIOClient');
+      developer.log(
+          'Socket.IO not initialized, cannot stop listening to event: $event',
+          name: 'SocketIOClient');
       return;
     }
 
     _socket!.off(event);
-    
+
     // Close specific event stream if exists
     if (_eventStreams.containsKey(event)) {
       _eventStreams[event]!.close();
@@ -374,20 +406,23 @@ class SocketIOClient {
     });
 
     _socket!.onConnectError((error) {
-      developer.log('Socket.IO connection error: $error', name: 'SocketIOClient');
+      developer.log('Socket.IO connection error: $error',
+          name: 'SocketIOClient');
       _connectionState = SocketConnectionState.error;
       _addError('Connection error: $error');
       _eventController.add(SocketEvent.create('connect_error', error));
     });
 
     _socket!.onReconnect((attempt) {
-      developer.log('Socket.IO reconnected after $attempt attempts', name: 'SocketIOClient');
+      developer.log('Socket.IO reconnected after $attempt attempts',
+          name: 'SocketIOClient');
       _connectionState = SocketConnectionState.connected;
       _eventController.add(SocketEvent.create('reconnect', attempt));
     });
 
     _socket!.onReconnectError((error) {
-      developer.log('Socket.IO reconnection error: $error', name: 'SocketIOClient');
+      developer.log('Socket.IO reconnection error: $error',
+          name: 'SocketIOClient');
       _addError('Reconnection error: $error');
       _eventController.add(SocketEvent.create('reconnect_error', error));
     });
@@ -401,7 +436,8 @@ class SocketIOClient {
 
     // Generic message handler
     _socket!.onAny((event, data) {
-      developer.log('Socket.IO event received: $event with data: $data', name: 'SocketIOClient');
+      developer.log('Socket.IO event received: $event with data: $data',
+          name: 'SocketIOClient');
       _eventController.add(SocketEvent.create(event, data));
     });
   }
@@ -436,13 +472,13 @@ class SocketIOClient {
   /// Dispose resources
   Future<void> dispose() async {
     await disconnect();
-    
+
     // Close all event streams
     for (final stream in _eventStreams.values) {
       await stream.close();
     }
     _eventStreams.clear();
-    
+
     await _eventController.close();
     developer.log('Socket.IO client disposed', name: 'SocketIOClient');
   }

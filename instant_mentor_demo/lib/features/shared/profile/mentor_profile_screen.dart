@@ -255,8 +255,12 @@ class MentorProfileScreen extends ConsumerWidget {
 
   // Mock method to get mentor data based on mentorId
   Map<String, dynamic> _getMentorData(String mentorId) {
-    final mentors = {
-      'mentor_1': {
+    // Demo mentor records - include both numeric and 'mentor_X' keys so callers
+    // that pass either format resolve correctly.
+    final mentorRecords = {
+      // Numeric IDs (used in many mock lists)
+      '1': {
+        'id': '1',
         'name': 'Prof. Raj Kumar',
         'initials': 'PRK',
         'description': 'Physics Expert • 10+ years experience',
@@ -270,7 +274,8 @@ class MentorProfileScreen extends ConsumerWidget {
           'Thermodynamics'
         ],
       },
-      'mentor_2': {
+      '2': {
+        'id': '2',
         'name': 'Dr. Sarah Smith',
         'initials': 'DS',
         'description': 'Mathematics Expert • 8+ years experience',
@@ -284,9 +289,118 @@ class MentorProfileScreen extends ConsumerWidget {
           'Algebra'
         ],
       },
+      '3': {
+        'id': '3',
+        'name': 'Dr. Priya Sharma',
+        'initials': 'DPS',
+        'description': 'Chemistry Expert • 6+ years experience',
+        'about':
+            'Chemistry expert with a focus on organic chemistry and practical applications. Skilled at helping students with conceptual understanding and exam preparation.',
+        'specializations': [
+          'Chemistry',
+          'Organic Chemistry',
+          'NEET',
+          'Analytical Chemistry'
+        ],
+      },
+      '4': {
+        'id': '4',
+        'name': 'Mr. Vikash Singh',
+        'initials': 'MVS',
+        'description': 'English Expert • 5+ years experience',
+        'about':
+            'English language expert specializing in grammar, writing skills, and test preparation, including IELTS and creative writing coaching.',
+        'specializations': ['English', 'IELTS', 'Writing', 'Grammar'],
+      },
+      '5': {
+        'id': '5',
+        'name': 'Dr. Anjali Gupta',
+        'initials': 'DAG',
+        'description': 'Biology Expert • 10+ years experience',
+        'about':
+            'Medical researcher and educator with expertise in life sciences and medical entrance preparation.',
+        'specializations': ['Biology', 'Genetics', 'NEET', 'Cell Biology'],
+      },
+      // Direct mentor_X keys matching the provider data
+      'mentor_1': {
+        'id': 'mentor_1',
+        'name': 'Dr. Sarah Smith',
+        'initials': 'DS',
+        'description': 'Mathematics Expert • 8+ years experience',
+        'about':
+            'Experienced mathematics mentor with 8+ years of teaching JEE and NEET aspirants. PhD in Mathematics from IIT Delhi. Specialized in helping students overcome math anxiety and build strong problem-solving skills.',
+        'specializations': [
+          'Mathematics',
+          'JEE',
+          'NEET',
+          'Calculus',
+          'Algebra'
+        ],
+      },
+      'mentor_2': {
+        'id': 'mentor_2',
+        'name': 'Prof. Raj Kumar',
+        'initials': 'PRK',
+        'description': 'Physics Expert • 10+ years experience',
+        'about':
+            'Experienced physics mentor with 10+ years of teaching IIT-JEE and NEET aspirants. PhD in Physics from IIT Bombay. Expert in mechanics, thermodynamics, and electromagnetism.',
+        'specializations': [
+          'Physics',
+          'IIT-JEE',
+          'NEET',
+          'Mechanics',
+          'Thermodynamics'
+        ],
+      },
+      'mentor_3': {
+        'id': 'mentor_3',
+        'name': 'Dr. Priya Sharma',
+        'initials': 'DPS',
+        'description': 'Chemistry Expert • 6+ years experience',
+        'about':
+            'Chemistry expert with a focus on organic chemistry and practical applications. Skilled at helping students with conceptual understanding and exam preparation.',
+        'specializations': [
+          'Chemistry',
+          'Organic Chemistry',
+          'NEET',
+          'Analytical Chemistry'
+        ],
+      },
+      'mentor_4': {
+        'id': 'mentor_4',
+        'name': 'Mr. Vikash Singh',
+        'initials': 'MVS',
+        'description': 'English Expert • 5+ years experience',
+        'about':
+            'English language expert specializing in grammar, writing skills, and test preparation, including IELTS and creative writing coaching.',
+        'specializations': ['English', 'IELTS', 'Writing', 'Grammar'],
+      },
+      'mentor_5': {
+        'id': 'mentor_5',
+        'name': 'Dr. Anjali Gupta',
+        'initials': 'DAG',
+        'description': 'Biology Expert • 10+ years experience',
+        'about':
+            'Medical researcher and educator with expertise in life sciences and medical entrance preparation.',
+        'specializations': ['Biology', 'Genetics', 'NEET', 'Cell Biology'],
+      },
     };
 
-    return mentors[mentorId] ??
-        mentors['mentor_2']!; // Default to Dr. Sarah Smith
+    // If supplied id isn't found, try to fallback by prefixing 'mentor_'
+    if (mentorRecords.containsKey(mentorId) &&
+        mentorRecords[mentorId] != null) {
+      return Map<String, dynamic>.from(mentorRecords[mentorId]!);
+    }
+
+    // Try fallback prefixes
+    final altKey = mentorId.startsWith('mentor_')
+        ? mentorId.substring(7) // Remove 'mentor_' prefix
+        : 'mentor_$mentorId';
+    if (mentorRecords.containsKey(altKey) && mentorRecords[altKey] != null) {
+      return Map<String, dynamic>.from(mentorRecords[altKey]!);
+    }
+
+    // Final fallback: return mentor with id 'mentor_2' (Prof. Raj Kumar - highest rated)
+    return Map<String, dynamic>.from(mentorRecords['mentor_2']!);
   }
 }

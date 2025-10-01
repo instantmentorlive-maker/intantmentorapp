@@ -91,22 +91,42 @@ class RealtimeNotification {
   }
 
   Map<String, dynamic> toJson() {
-    return {
+    final json = <String, dynamic>{
       'id': id,
       'title': title,
       'body': body,
       'type': type.name,
       'priority': priority.name,
-      'userId': userId,
-      'groupId': groupId,
-      'data': data,
-      'imageUrl': imageUrl,
-      'actionUrl': actionUrl,
       'timestamp': timestamp.toIso8601String(),
-      'expiresAt': expiresAt?.toIso8601String(),
       'isRead': isRead,
       'isMuted': isMuted,
     };
+
+    if (userId != null) {
+      json['userId'] = userId;
+    }
+
+    if (groupId != null) {
+      json['groupId'] = groupId;
+    }
+
+    if (data != null) {
+      json['data'] = data;
+    }
+
+    if (imageUrl != null) {
+      json['imageUrl'] = imageUrl;
+    }
+
+    if (actionUrl != null) {
+      json['actionUrl'] = actionUrl;
+    }
+
+    if (expiresAt != null) {
+      json['expiresAt'] = expiresAt!.toIso8601String();
+    }
+
+    return json;
   }
 
   factory RealtimeNotification.fromJson(Map<String, dynamic> json) {
@@ -128,9 +148,8 @@ class RealtimeNotification {
       imageUrl: json['imageUrl'],
       actionUrl: json['actionUrl'],
       timestamp: DateTime.parse(json['timestamp']),
-      expiresAt: json['expiresAt'] != null 
-          ? DateTime.parse(json['expiresAt']) 
-          : null,
+      expiresAt:
+          json['expiresAt'] != null ? DateTime.parse(json['expiresAt']) : null,
       isRead: json['isRead'] ?? false,
       isMuted: json['isMuted'] ?? false,
     );
@@ -170,7 +189,8 @@ class NotificationPreferences {
       'enableEmail': enableEmail,
       'enableSms': enableSms,
       'typePreferences': typePreferences.map((k, v) => MapEntry(k.name, v)),
-      'priorityPreferences': priorityPreferences.map((k, v) => MapEntry(k.name, v)),
+      'priorityPreferences':
+          priorityPreferences.map((k, v) => MapEntry(k.name, v)),
       'mutedUsers': mutedUsers,
       'mutedGroups': mutedGroups,
       'quietHoursStart': quietHoursStart.inMinutes,
@@ -186,19 +206,23 @@ class NotificationPreferences {
       enableSms: json['enableSms'] ?? false,
       typePreferences: Map.fromEntries(
         (json['typePreferences'] as Map<String, dynamic>? ?? {}).entries.map(
-          (e) => MapEntry(
-            NotificationType.values.firstWhere((type) => type.name == e.key),
-            e.value as bool,
-          ),
-        ),
+              (e) => MapEntry(
+                NotificationType.values
+                    .firstWhere((type) => type.name == e.key),
+                e.value as bool,
+              ),
+            ),
       ),
       priorityPreferences: Map.fromEntries(
-        (json['priorityPreferences'] as Map<String, dynamic>? ?? {}).entries.map(
-          (e) => MapEntry(
-            NotificationPriority.values.firstWhere((priority) => priority.name == e.key),
-            e.value as bool,
-          ),
-        ),
+        (json['priorityPreferences'] as Map<String, dynamic>? ?? {})
+            .entries
+            .map(
+              (e) => MapEntry(
+                NotificationPriority.values
+                    .firstWhere((priority) => priority.name == e.key),
+                e.value as bool,
+              ),
+            ),
       ),
       mutedUsers: List<String>.from(json['mutedUsers'] ?? []),
       mutedGroups: List<String>.from(json['mutedGroups'] ?? []),
@@ -211,8 +235,9 @@ class NotificationPreferences {
 /// Real-time notification service
 class RealtimeNotificationService {
   static RealtimeNotificationService? _instance;
-  static RealtimeNotificationService get instance => _instance ??= RealtimeNotificationService._();
-  
+  static RealtimeNotificationService get instance =>
+      _instance ??= RealtimeNotificationService._();
+
   RealtimeNotificationService._();
 
   final SocketIOClient _socketClient = SocketIOClient.instance;
@@ -220,9 +245,9 @@ class RealtimeNotificationService {
   NotificationPreferences _preferences = const NotificationPreferences();
 
   // Notification streams
-  final StreamController<RealtimeNotification> _notificationController = 
+  final StreamController<RealtimeNotification> _notificationController =
       StreamController<RealtimeNotification>.broadcast();
-  
+
   // Notification storage
   final List<RealtimeNotification> _notifications = [];
   final Map<String, RealtimeNotification> _notificationCache = {};
@@ -233,13 +258,14 @@ class RealtimeNotificationService {
   int _mutedNotifications = 0;
 
   /// Get notification stream
-  Stream<RealtimeNotification> get notifications => _notificationController.stream;
+  Stream<RealtimeNotification> get notifications =>
+      _notificationController.stream;
 
   /// Get all notifications
   List<RealtimeNotification> get allNotifications => List.from(_notifications);
 
   /// Get unread notifications
-  List<RealtimeNotification> get unreadNotifications => 
+  List<RealtimeNotification> get unreadNotifications =>
       _notifications.where((n) => !n.isRead).toList();
 
   /// Get unread count
@@ -265,7 +291,8 @@ class RealtimeNotificationService {
       'preferences': _preferences.toJson(),
     });
 
-    developer.log('Notification service initialized for user: $userId', name: 'RealtimeNotificationService');
+    developer.log('Notification service initialized for user: $userId',
+        name: 'RealtimeNotificationService');
     return true;
   }
 
@@ -303,9 +330,11 @@ class RealtimeNotificationService {
 
     try {
       _socketClient.emit('notification:send', notification.toJson());
-      developer.log('Notification sent: ${notification.id}', name: 'RealtimeNotificationService');
+      developer.log('Notification sent: ${notification.id}',
+          name: 'RealtimeNotificationService');
     } catch (e) {
-      developer.log('Failed to send notification: $e', name: 'RealtimeNotificationService');
+      developer.log('Failed to send notification: $e',
+          name: 'RealtimeNotificationService');
       rethrow;
     }
   }
@@ -397,11 +426,12 @@ class RealtimeNotificationService {
     _socketClient.on('notification:received', (data) {
       try {
         final notification = RealtimeNotification.fromJson(data);
-        
+
         // Check if notification should be muted
         if (_shouldMuteNotification(notification)) {
           _mutedNotifications++;
-          developer.log('Notification muted: ${notification.id}', name: 'RealtimeNotificationService');
+          developer.log('Notification muted: ${notification.id}',
+              name: 'RealtimeNotificationService');
           return;
         }
 
@@ -410,9 +440,11 @@ class RealtimeNotificationService {
         _totalNotifications++;
 
         _notificationController.add(notification);
-        developer.log('Notification received: ${notification.id}', name: 'RealtimeNotificationService');
+        developer.log('Notification received: ${notification.id}',
+            name: 'RealtimeNotificationService');
       } catch (e) {
-        developer.log('Error parsing notification: $e', name: 'RealtimeNotificationService');
+        developer.log('Error parsing notification: $e',
+            name: 'RealtimeNotificationService');
       }
     });
 
@@ -426,7 +458,8 @@ class RealtimeNotificationService {
           _notificationCache[notificationId] = _notifications[index];
         }
       } catch (e) {
-        developer.log('Error processing read confirmation: $e', name: 'RealtimeNotificationService');
+        developer.log('Error processing read confirmation: $e',
+            name: 'RealtimeNotificationService');
       }
     });
 
@@ -448,10 +481,11 @@ class RealtimeNotificationService {
           }
         }
 
-        developer.log('Bulk notifications received: ${notifications.length}', 
-                      name: 'RealtimeNotificationService');
+        developer.log('Bulk notifications received: ${notifications.length}',
+            name: 'RealtimeNotificationService');
       } catch (e) {
-        developer.log('Error processing bulk notifications: $e', name: 'RealtimeNotificationService');
+        developer.log('Error processing bulk notifications: $e',
+            name: 'RealtimeNotificationService');
       }
     });
 
@@ -461,9 +495,11 @@ class RealtimeNotificationService {
         final notificationId = data['notificationId'];
         _notifications.removeWhere((n) => n.id == notificationId);
         _notificationCache.remove(notificationId);
-        developer.log('Notification expired: $notificationId', name: 'RealtimeNotificationService');
+        developer.log('Notification expired: $notificationId',
+            name: 'RealtimeNotificationService');
       } catch (e) {
-        developer.log('Error processing expired notification: $e', name: 'RealtimeNotificationService');
+        developer.log('Error processing expired notification: $e',
+            name: 'RealtimeNotificationService');
       }
     });
   }
@@ -473,7 +509,7 @@ class RealtimeNotificationService {
     // Check quiet hours
     final now = DateTime.now();
     final currentTime = Duration(hours: now.hour, minutes: now.minute);
-    
+
     if (_isInQuietHours(currentTime)) {
       return notification.priority != NotificationPriority.critical;
     }
@@ -491,12 +527,14 @@ class RealtimeNotificationService {
     }
 
     // Check muted users
-    if (notification.userId != null && _preferences.mutedUsers.contains(notification.userId)) {
+    if (notification.userId != null &&
+        _preferences.mutedUsers.contains(notification.userId)) {
       return true;
     }
 
     // Check muted groups
-    if (notification.groupId != null && _preferences.mutedGroups.contains(notification.groupId)) {
+    if (notification.groupId != null &&
+        _preferences.mutedGroups.contains(notification.groupId)) {
       return true;
     }
 
@@ -507,12 +545,12 @@ class RealtimeNotificationService {
   bool _isInQuietHours(Duration currentTime) {
     if (_preferences.quietHoursStart <= _preferences.quietHoursEnd) {
       // Same day quiet hours
-      return currentTime >= _preferences.quietHoursStart && 
-             currentTime <= _preferences.quietHoursEnd;
+      return currentTime >= _preferences.quietHoursStart &&
+          currentTime <= _preferences.quietHoursEnd;
     } else {
       // Overnight quiet hours
-      return currentTime >= _preferences.quietHoursStart || 
-             currentTime <= _preferences.quietHoursEnd;
+      return currentTime >= _preferences.quietHoursStart ||
+          currentTime <= _preferences.quietHoursEnd;
     }
   }
 
@@ -541,7 +579,8 @@ class RealtimeNotificationService {
   Map<String, int> _getPriorityStats() {
     final stats = <String, int>{};
     for (final notification in _notifications) {
-      stats[notification.priority.name] = (stats[notification.priority.name] ?? 0) + 1;
+      stats[notification.priority.name] =
+          (stats[notification.priority.name] ?? 0) + 1;
     }
     return stats;
   }
@@ -552,7 +591,8 @@ class RealtimeNotificationService {
   }
 
   /// Get notifications by priority
-  List<RealtimeNotification> getNotificationsByPriority(NotificationPriority priority) {
+  List<RealtimeNotification> getNotificationsByPriority(
+      NotificationPriority priority) {
     return _notifications.where((n) => n.priority == priority).toList();
   }
 
@@ -561,6 +601,7 @@ class RealtimeNotificationService {
     await _notificationController.close();
     _notifications.clear();
     _notificationCache.clear();
-    developer.log('Notification service disposed', name: 'RealtimeNotificationService');
+    developer.log('Notification service disposed',
+        name: 'RealtimeNotificationService');
   }
 }

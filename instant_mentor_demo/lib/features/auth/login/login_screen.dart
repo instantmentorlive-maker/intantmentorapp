@@ -52,6 +52,26 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   @override
   void initState() {
     super.initState();
+
+    // Clear any existing errors when login screen opens
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(authProvider.notifier).clearError();
+    });
+
+    // Clear any existing errors when user starts typing
+    _emailController.addListener(() {
+      final authState = ref.read(authProvider);
+      if (authState.error != null) {
+        ref.read(authProvider.notifier).clearError();
+      }
+    });
+
+    _passwordController.addListener(() {
+      final authState = ref.read(authProvider);
+      if (authState.error != null) {
+        ref.read(authProvider.notifier).clearError();
+      }
+    });
   }
 
   @override

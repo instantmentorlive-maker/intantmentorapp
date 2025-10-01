@@ -166,11 +166,13 @@ final goRouterProvider = Provider<GoRouter>((ref) {
       if (!isAuthenticated) {
         // Allow access to auth pages
         if (location == '/login' || location == '/signup') {
-          // debugPrint('GoRouter: Unauthenticated user on auth page, no redirect');
+          debugPrint(
+              'GoRouter: Unauthenticated user on auth page, no redirect');
           return null;
         }
         // Redirect to login for any other page
-        debugPrint('GoRouter: Unauthenticated user, redirecting to login');
+        debugPrint(
+            'GoRouter: Unauthenticated user at $location, redirecting to login');
         return '/login';
       }
 
@@ -187,10 +189,11 @@ final goRouterProvider = Provider<GoRouter>((ref) {
                   'GoRouter: Authenticated user on auth/root page, redirecting to $targetRoute');
               return targetRoute;
             } else {
-              // User is authenticated but domain user not yet synced, default to student home
+              // User is authenticated but domain user not yet synced, default to mentor home
+              // The auth provider will sync the correct role shortly
               debugPrint(
-                  'GoRouter: User not yet synced, defaulting to student home');
-              return '/student/home';
+                  'GoRouter: User not yet synced, defaulting to mentor home while auth provider syncs user data');
+              return '/mentor/home';
             }
           } catch (e) {
             // Handle any provider read errors during initialization

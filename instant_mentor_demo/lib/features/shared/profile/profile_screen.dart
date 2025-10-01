@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../../core/providers/auth_provider.dart';
@@ -173,6 +174,19 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   @override
   Widget build(BuildContext context) {
     final isStudent = ref.watch(isStudentProvider);
+
+    if (_loadingInitial) {
+      return Scaffold(
+        appBar: AppBar(
+          title: const Text('Profile'),
+          backgroundColor: Theme.of(context).colorScheme.primary,
+          foregroundColor: Theme.of(context).colorScheme.onPrimary,
+        ),
+        body: const Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
 
     return Scaffold(
       appBar: AppBar(
@@ -884,7 +898,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 // Navigation will be handled by router redirect logic automatically
                 if (context.mounted) {
                   Navigator.of(context).pop(); // Close loading
-                  // Don't manually navigate - let the router's redirect logic handle it
+                  // Explicitly navigate to login after logout to ensure redirect works
+                  context.go('/login');
                 }
               } catch (e) {
                 if (context.mounted) {

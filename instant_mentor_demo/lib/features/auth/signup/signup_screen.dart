@@ -31,8 +31,15 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
   }
 
   void _handleSignup() async {
-    if (!(_formKey.currentState?.validate() ?? false)) return;
-    debugPrint('SignupScreen: Creating account with email/password...');
+    debugPrint('SignupScreen: _handleSignup called');
+    if (!(_formKey.currentState?.validate() ?? false)) {
+      debugPrint('SignupScreen: Form validation failed');
+      return;
+    }
+    debugPrint('SignupScreen: Form validation passed, creating account...');
+    debugPrint('SignupScreen: Email: ${_emailController.text}');
+    debugPrint('SignupScreen: Name: ${_nameController.text}');
+    debugPrint('SignupScreen: Role: ${_isStudent ? 'student' : 'mentor'}');
     try {
       await ref.read(authProvider.notifier).signUp(
         email: _emailController.text.trim(),
@@ -42,8 +49,37 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
           'role': _isStudent ? 'student' : 'mentor',
         },
       );
-      // On success, GoRouter redirect should take user to home
+
+      final authState = ref.read(authProvider);
+      if (authState.isAuthenticated) {
+        debugPrint(
+            'SignupScreen: Signup completed successfully - user authenticated');
+        // On success, GoRouter redirect should take user to home
+      } else if (authState.error?.contains('email confirmation') == true) {
+        debugPrint(
+            'SignupScreen: Signup completed - email confirmation required');
+        // Show success message and navigate to login
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                  'Account created! Please check your email to confirm your account.'),
+              backgroundColor: Colors.green,
+            ),
+          );
+          // Navigate back to login after a short delay
+          Future.delayed(const Duration(seconds: 2), () {
+            if (context.mounted) {
+              context.go('/login');
+            }
+          });
+        }
+      } else {
+        debugPrint(
+            'SignupScreen: Signup completed but user not authenticated and no email confirmation message');
+      }
     } catch (error, stackTrace) {
+      debugPrint('SignupScreen: Signup failed with error: $error');
       ErrorUtils.handleAndShowError(ref, error, stackTrace);
     }
   }
@@ -206,7 +242,10 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                   // Signup Button with loading state
                   LoadingButton(
                     isLoading: authState.isLoading,
-                    onPressed: _handleSignup,
+                    onPressed: () {
+                      debugPrint('SignupScreen: Create Account button pressed');
+                      _handleSignup();
+                    },
                     loadingText: 'Creating Account...',
                     child: const Text('Create Account'),
                   ),

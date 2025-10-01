@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/models/user.dart';
 import '../../../core/providers/repository_providers.dart';
+import '../../../core/providers/sessions_provider.dart';
 import '../../../core/providers/user_provider.dart';
 import '../../../core/utils/result.dart';
 import '../../../data/repositories/base_repository.dart';
@@ -55,6 +56,14 @@ class AuthNotifier extends StateNotifier<AuthState> {
           isStudent: session.user.role.isStudent,
         );
         _ref.read(userProvider.notifier).updateUser(session.user);
+        // Migrate any demo sessions created while unauthenticated to this user id
+        try {
+          _ref
+              .read(demoSessionsProvider.notifier)
+              .migrateSessionsToUser(session.user.id);
+        } catch (e) {
+          debugPrint('Failed to migrate demo sessions: $e');
+        }
       } else {
         state = AuthState(status: AuthStatus.unauthenticated);
       }
@@ -89,6 +98,13 @@ class AuthNotifier extends StateNotifier<AuthState> {
           isStudent: session.user.role.isStudent,
         );
         _ref.read(userProvider.notifier).updateUser(session.user);
+        try {
+          _ref
+              .read(demoSessionsProvider.notifier)
+              .migrateSessionsToUser(session.user.id);
+        } catch (e) {
+          debugPrint('Failed to migrate demo sessions after signup: $e');
+        }
       } else {
         state = AuthState(
           status: AuthStatus.unauthenticated,
@@ -127,6 +143,13 @@ class AuthNotifier extends StateNotifier<AuthState> {
           isStudent: session.user.role.isStudent,
         );
         _ref.read(userProvider.notifier).updateUser(session.user);
+        try {
+          _ref
+              .read(demoSessionsProvider.notifier)
+              .migrateSessionsToUser(session.user.id);
+        } catch (e) {
+          debugPrint('Failed to migrate demo sessions after login: $e');
+        }
       } else {
         state = AuthState(
           status: AuthStatus.unauthenticated,

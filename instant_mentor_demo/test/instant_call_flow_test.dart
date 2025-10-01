@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:instant_mentor_demo/features/student/find_mentors/find_mentors_screen.dart';
+import 'package:flutter_test/flutter_test.dart';
 import 'package:instant_mentor_demo/features/payments/payment_checkout_sheet.dart';
+import 'package:instant_mentor_demo/features/student/find_mentors/find_mentors_screen.dart';
 
 void main() {
   group('Instant Call Flow Tests', () {
@@ -10,9 +10,9 @@ void main() {
         (WidgetTester tester) async {
       // Build the FindMentorsScreen wrapped in a ProviderScope and MaterialApp
       await tester.pumpWidget(
-        ProviderScope(
+        const ProviderScope(
           child: MaterialApp(
-            home: const FindMentorsScreen(),
+            home: FindMentorsScreen(),
           ),
         ),
       );

@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+
 import '../providers/video_call_provider.dart';
+import '../routing/routing.dart';
 
 /// Global back button handler that preserves video calls
 /// This widget should wrap the entire app to handle back button presses
@@ -18,9 +20,9 @@ class GlobalBackButtonHandler extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final videoCallState = ref.watch(videoCallProvider);
     final videoCallNotifier = ref.read(videoCallProvider.notifier);
+    final router = ref.read(goRouterProvider);
 
     return PopScope(
-      canPop: true, // Always allow navigation - don't block back button
       onPopInvoked: (didPop) {
         // Only minimize the call if we're in a video call screen and call is not already minimized
         if (didPop && videoCallState.isActive && !videoCallState.isMinimized) {
@@ -49,10 +51,10 @@ class GlobalBackButtonHandler extends ConsumerWidget {
                   textColor: Colors.white,
                   onPressed: () {
                     videoCallNotifier.maximizeCall();
-                    // Navigate back to the session
+                    // Navigate back to the session using the router instance
                     final sessionId =
                         videoCallState.sessionId ?? 'demo_session_1';
-                    context.go('/session/$sessionId');
+                    router.go('/session/$sessionId');
                   },
                 ),
               ),
@@ -68,7 +70,7 @@ class GlobalBackButtonHandler extends ConsumerWidget {
             // Show minimized call overlay if call is active and minimized
             if (videoCallState.isActive && videoCallState.isMinimized)
               _buildMinimizedCallOverlay(
-                  context, videoCallState, videoCallNotifier),
+                  context, videoCallState, videoCallNotifier, router),
           ],
         ),
       ),
@@ -79,6 +81,7 @@ class GlobalBackButtonHandler extends ConsumerWidget {
     BuildContext context,
     VideoCallState callState,
     VideoCallNotifier notifier,
+    GoRouter router,
   ) {
     return Positioned(
       top: MediaQuery.of(context).padding.top + 16,
@@ -97,7 +100,7 @@ class GlobalBackButtonHandler extends ConsumerWidget {
             notifier.maximizeCall();
 
             // Navigate to the session screen after a brief delay to ensure state updates
-            Future.microtask(() => context.go('/session/$sessionId'));
+            Future.microtask(() => router.go('/session/$sessionId'));
           },
           child: Container(
             width: 280,
@@ -176,7 +179,7 @@ class GlobalBackButtonHandler extends ConsumerWidget {
 
                         // Navigate to the session screen after a brief delay to ensure state updates
                         Future.microtask(
-                            () => context.go('/session/$sessionId'));
+                            () => router.go('/session/$sessionId'));
                       },
                       child: Container(
                         padding: const EdgeInsets.all(8),

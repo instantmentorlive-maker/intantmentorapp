@@ -58,6 +58,59 @@ class Session {
       meetingLink: meetingLink ?? this.meetingLink,
     );
   }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'studentId': studentId,
+      'mentorId': mentorId,
+      'subject': subject,
+      'scheduledTime': scheduledTime.toIso8601String(),
+      'durationMinutes': durationMinutes,
+      'amount': amount,
+      'status': status.name,
+      'notes': notes,
+      'attachments': attachments,
+      'createdAt': createdAt.toIso8601String(),
+      'meetingLink': meetingLink,
+    };
+  }
+
+  factory Session.fromJson(Map<String, dynamic> json) {
+    return Session(
+      id: json['id'] as String,
+      studentId: json['studentId'] as String,
+      mentorId: json['mentorId'] as String,
+      subject: json['subject'] as String,
+      scheduledTime: DateTime.parse(json['scheduledTime'] as String),
+      durationMinutes: json['durationMinutes'] as int,
+      amount: (json['amount'] as num).toDouble(),
+      status: _sessionStatusFromName(json['status'] as String?),
+      notes: json['notes'] as String?,
+      attachments: List<String>.from(json['attachments'] ?? []),
+      createdAt: DateTime.parse(json['createdAt'] as String),
+      meetingLink: json['meetingLink'] as String?,
+    );
+  }
+}
+
+SessionStatus _sessionStatusFromName(String? name) {
+  switch (name?.toLowerCase()) {
+    case 'pending':
+      return SessionStatus.pending;
+    case 'confirmed':
+    case 'scheduled':
+      return SessionStatus.confirmed;
+    case 'inprogress':
+    case 'in_progress':
+      return SessionStatus.inProgress;
+    case 'completed':
+      return SessionStatus.completed;
+    case 'cancelled':
+      return SessionStatus.cancelled;
+    default:
+      return SessionStatus.pending;
+  }
 }
 
 class SessionRequest {

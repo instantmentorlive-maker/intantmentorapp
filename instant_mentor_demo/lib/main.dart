@@ -3,11 +3,12 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'core/config/app_config.dart';
-import 'core/logging/app_logger.dart';
 import 'core/debug/provider_observer.dart';
+import 'core/logging/app_logger.dart';
 import 'core/network/network_client.dart';
 import 'core/providers/websocket_provider.dart';
 import 'core/routing/routing.dart';
+import 'core/services/payment_service.dart';
 import 'core/services/supabase_service.dart';
 import 'core/widgets/global_back_button_handler.dart';
 import 'examples/video_call_example.dart';
@@ -47,6 +48,16 @@ Future<void> _initializeApp() async {
 
     // Initialize Supabase
     await SupabaseService.initialize();
+
+    // Initialize Payment Service (Stripe)
+    try {
+      await PaymentService.initialize();
+      AppLogger.info('Payment service initialized successfully');
+    } catch (e) {
+      AppLogger.error(
+          'Payment service initialization failed, continuing without payment features',
+          e);
+    }
 
     // Initialize network client with configuration
     NetworkClient.initialize();

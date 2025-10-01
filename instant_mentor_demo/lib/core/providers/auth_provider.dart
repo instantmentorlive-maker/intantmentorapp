@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../models/user.dart' as domain; // Domain user model
 import '../services/supabase_service.dart';
+import 'sessions_provider.dart'; // demoSessionsProvider
 import 'user_provider.dart'; // Domain user provider
 
 /// Authentication state
@@ -68,13 +69,24 @@ class AuthNotifier extends StateNotifier<AuthState> {
               supabaseUser.email?.split('@').first ??
               'User')
           .toString();
-      final roleString =
-          (meta['role'] ?? meta['user_role'] ?? 'student').toString();
+      final roleString = (meta['role'] ?? meta['user_role'] ?? '').toString();
       domain.UserRole role;
-      try {
-        role = domain.UserRole.fromString(roleString);
-      } catch (_) {
-        role = domain.UserRole.student; // default fallback
+
+      if (roleString.isEmpty || roleString == 'null') {
+        // No role in metadata, default to mentor for existing users
+        // This handles users created before role system was implemented
+        role = domain.UserRole.mentor;
+        debugPrint(
+            '🔍 AuthProvider: No role metadata found, defaulting to mentor for existing user');
+      } else {
+        try {
+          role = domain.UserRole.fromString(roleString);
+        } catch (_) {
+          // Invalid role string, default to mentor
+          role = domain.UserRole.mentor;
+          debugPrint(
+              '🔍 AuthProvider: Invalid role metadata, defaulting to mentor');
+        }
       }
 
       final existing = _ref.read(userProvider);
@@ -90,8 +102,77 @@ class AuthNotifier extends StateNotifier<AuthState> {
                 lastLoginAt: DateTime.now(),
               ),
             );
+
+        // Migrate any demo sessions created while unauthenticated to this user id
+        try {
+          _ref
+              .read(demoSessionsProvider.notifier)
+              .migrateSessionsToUser(supabaseUser.id);
+        } catch (e) {
+          debugPrint('Failed to migrate demo sessions: $e');
+        }
+
+        // Ensure user profile exists in database
+        _ensureUserProfileExists(supabaseUser, fullName, roleString);
       }
     });
+  }
+
+  /// Ensure user profile exists in the database
+  Future<void> _ensureUserProfileExists(
+      User supabaseUser, String fullName, String role) async {
+    try {
+      final existingProfile = await _supabaseService.getUserProfile();
+      if (existingProfile == null) {
+        debugPrint(
+            '🔵 AuthProvider: Creating missing user profile for ${supabaseUser.id}');
+        await _supabaseService.upsertUserProfile(
+          profileData: {
+            'full_name': fullName,
+            'email': supabaseUser.email,
+          },
+        );
+        debugPrint('🟢 AuthProvider: User profile created successfully');
+      }
+
+      // Create mentor profile if user is a mentor
+      if (role == 'mentor') {
+        await _ensureMentorProfileExists(supabaseUser, fullName);
+      }
+    } catch (e) {
+      debugPrint('⚠️ AuthProvider: Failed to ensure user profile exists: $e');
+      // Don't fail auth sync if profile creation fails
+    }
+  }
+
+  /// Ensure mentor profile exists in the database
+  Future<void> _ensureMentorProfileExists(
+      User supabaseUser, String fullName) async {
+    try {
+      // Check if mentor profile exists
+      final existingMentorProfile = await SupabaseService.instance.client
+          .from('mentor_profiles')
+          .select('id')
+          .eq('user_id', supabaseUser.id)
+          .maybeSingle();
+
+      if (existingMentorProfile == null) {
+        debugPrint(
+            '🔵 AuthProvider: Creating missing mentor profile for ${supabaseUser.id}');
+        await SupabaseService.instance.client.from('mentor_profiles').insert({
+          'user_id': supabaseUser.id,
+          'title': 'Mentor',
+          'subjects': [],
+          'years_experience': 0,
+          'hourly_rate': 0,
+          'is_available': true,
+          'is_verified': false,
+        });
+        debugPrint('🟢 AuthProvider: Mentor profile created successfully');
+      }
+    } catch (e) {
+      debugPrint('⚠️ AuthProvider: Failed to ensure mentor profile exists: $e');
+    }
   }
 
   /// Initialize authentication state
@@ -108,6 +189,10 @@ class AuthNotifier extends StateNotifier<AuthState> {
     // Defer user sync to avoid initialization conflicts
     if (currentUser != null) {
       _syncDomainUser(currentUser);
+    } else {
+      // For a clean user experience, don't auto-login with demo account
+      // This prevents error states from appearing on the login screen
+      debugPrint('🔐 AuthProvider: No current user, ready for manual login');
     }
 
     // Listen to auth state changes (Supabase emits AuthState objects via onAuthStateChange)
@@ -165,7 +250,8 @@ class AuthNotifier extends StateNotifier<AuthState> {
         metadata: metadata,
       );
 
-      if (response.user != null) {
+      if (response.user != null && response.session != null) {
+        // User is fully authenticated with a session
         // Send welcome email - TEMPORARILY DISABLED
         // await _emailService.sendWelcomeEmail(
         //   userEmail: email,
@@ -192,6 +278,15 @@ class AuthNotifier extends StateNotifier<AuthState> {
           isLoading: false,
         );
         _syncDomainUser(response.user); // sync domain user model
+      } else if (response.user != null && response.session == null) {
+        // User created but email confirmation required
+        debugPrint(
+            '🟡 AuthProvider: User created but email confirmation required');
+        state = state.copyWith(
+          isLoading: false,
+          error:
+              'Account created successfully! Please check your email and click the confirmation link to complete signup.',
+        );
       }
     } on AuthException catch (e) {
       // Handle AuthException with clean message
@@ -200,24 +295,10 @@ class AuthNotifier extends StateNotifier<AuthState> {
         error: e.message,
       );
     } catch (e) {
-      // Handle other errors with generic message
-      String errorMessage = 'Signup failed. Please try again.';
-
-      // Extract meaningful error message from Supabase errors
-      if (e.toString().contains('User already registered')) {
-        errorMessage =
-            'An account with this email already exists. Please sign in instead.';
-      } else if (e.toString().contains('email rate limit')) {
-        errorMessage =
-            'Too many signup attempts. Please wait before trying again.';
-      } else if (e.toString().contains('password')) {
-        errorMessage =
-            'Password does not meet requirements. Please use at least 6 characters.';
-      }
-
+      // Handle other errors with raw error message for debugging
       state = state.copyWith(
         isLoading: false,
-        error: errorMessage,
+        error: e.toString(),
       );
     }
   }
@@ -250,23 +331,10 @@ class AuthNotifier extends StateNotifier<AuthState> {
         error: e.message,
       );
     } catch (e) {
-      // Handle other errors with generic message
-      String errorMessage = 'Login failed. Please try again.';
-
-      // Extract meaningful error message from Supabase errors
-      if (e.toString().contains('Invalid login credentials')) {
-        errorMessage =
-            'Invalid email or password. Please check your credentials.';
-      } else if (e.toString().contains('Email not confirmed')) {
-        errorMessage = 'Please verify your email address before signing in.';
-      } else if (e.toString().contains('Too many requests')) {
-        errorMessage =
-            'Too many login attempts. Please wait before trying again.';
-      }
-
+      // Handle other errors with raw error message for debugging
       state = state.copyWith(
         isLoading: false,
-        error: errorMessage,
+        error: e.toString(),
       );
     }
   }
@@ -287,11 +355,17 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
     try {
       await _supabaseService.signOut();
-      state = state.copyWith(
+
+      // Clear all auth state
+      state = const AuthState(
+        user: null,
         isAuthenticated: false,
         isLoading: false,
+        error: null,
       );
-      _syncDomainUser(null); // clear domain user
+
+      // Clear domain user
+      _ref.read(userProvider.notifier).logout();
       debugPrint('✅ AuthProvider: Successfully signed out');
     } catch (e) {
       debugPrint('❌ AuthProvider: Sign out failed: $e');
@@ -449,7 +523,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
   /// Update user profile
   Future<void> updateProfile(Map<String, dynamic> profileData) async {
-    state = state.copyWith(isLoading: true, error: null);
+    state = state.copyWith(isLoading: true);
 
     try {
       await _supabaseService.upsertUserProfile(profileData: profileData);

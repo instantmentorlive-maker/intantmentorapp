@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../core/models/user.dart';
+import '../../../core/models/user.dart' as domain;
 import '../../../core/providers/mentor_provider.dart';
+import '../../../core/providers/sessions_provider.dart';
+import '../../../core/providers/user_provider.dart';
 import '../../../core/routing/app_routes.dart';
 import '../../../core/routing/routing.dart';
 import '../../../core/services/payment_service.dart';
@@ -245,7 +247,7 @@ class BookSessionScreen extends ConsumerWidget {
     );
   }
 
-  void _showBookingDialog(BuildContext context, Mentor mentor) {
+  void _showBookingDialog(BuildContext context, domain.Mentor mentor) {
     showDialog(
       context: context,
       builder: (context) => BookingDialog(mentor: mentor),
@@ -253,16 +255,16 @@ class BookSessionScreen extends ConsumerWidget {
   }
 }
 
-class BookingDialog extends StatefulWidget {
-  final Mentor mentor;
+class BookingDialog extends ConsumerStatefulWidget {
+  final domain.Mentor mentor;
 
   const BookingDialog({super.key, required this.mentor});
 
   @override
-  State<BookingDialog> createState() => _BookingDialogState();
+  ConsumerState<BookingDialog> createState() => _BookingDialogState();
 }
 
-class _BookingDialogState extends State<BookingDialog> {
+class _BookingDialogState extends ConsumerState<BookingDialog> {
   String? selectedDuration;
   DateTime? selectedDate;
   TimeOfDay? selectedTime;
@@ -413,7 +415,7 @@ class _BookingDialogState extends State<BookingDialog> {
                 : const Text('Instant Call'),
           ),
         ElevatedButton(
-          onPressed: _canBook() ? () => _bookSession(context) : null,
+          onPressed: _canBook() ? () => _bookSession(context, ref) : null,
           child: const Text('Book Session'),
         ),
       ],
@@ -434,28 +436,85 @@ class _BookingDialogState extends State<BookingDialog> {
         selectedTime != null;
   }
 
-  void _bookSession(BuildContext context) {
-    // Here you would typically call an API to create the session
-    Navigator.of(context).pop();
+  void _bookSession(BuildContext context, WidgetRef ref) async {
+    if (!_canBook()) return;
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Session booked with ${widget.mentor.name}!'),
-            Text(
-                '${selectedDate!.day}/${selectedDate!.month} at ${selectedTime!.format(context)}'),
-            Text('Amount: \$${_calculatePrice().toStringAsFixed(2)}'),
-          ],
+    try {
+      // Get the current user and session service
+      final user = ref.read(userProvider);
+      final sessionService = ref.read(sessionServiceProvider);
+
+      // For demo purposes, create a demo user if none exists
+      final demoUser = user ??
+          domain.User(
+            id: 'demo_student_${DateTime.now().millisecondsSinceEpoch}',
+            name: 'Demo Student',
+            email: 'demo@student.com',
+            role: domain.UserRole.student,
+            createdAt: DateTime.now(),
+          );
+
+      // Calculate scheduled date/time
+      final scheduledDateTime = DateTime(
+        selectedDate!.year,
+        selectedDate!.month,
+        selectedDate!.day,
+        selectedTime!.hour,
+        selectedTime!.minute,
+      );
+
+      // Create the session in database
+      final session = await sessionService.createSession(
+        mentorId: widget.mentor.id,
+        studentId: demoUser.id,
+        scheduledTime: scheduledDateTime,
+        durationMinutes: int.parse(selectedDuration!),
+        amount: _calculatePrice(),
+        subject: 'General', // Default subject for now
+        notes: messageController.text.isEmpty ? null : messageController.text,
+      );
+
+      // Debug: log which mentor we attempted to book
+      print(
+          'Booking attempt - mentorId: ${widget.mentor.id}, mentorName: ${widget.mentor.name}');
+
+      if (session != null) {
+        Navigator.of(context).pop();
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Session booked with ${widget.mentor.name}!'),
+                Text(
+                    '${selectedDate!.day}/${selectedDate!.month} at ${selectedTime!.format(context)}'),
+                Text('Amount: \$${_calculatePrice().toStringAsFixed(2)}'),
+              ],
+            ),
+            backgroundColor: Colors.green,
+          ),
+        );
+
+        // Navigate back to home
+        context.go(AppRoutes.studentHome);
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Failed to book session. Please try again.'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error booking session: $e'),
+          backgroundColor: Colors.red,
         ),
-        backgroundColor: Colors.green,
-      ),
-    );
-
-    // Navigate back to home
-    context.go(AppRoutes.studentHome);
+      );
+    }
   }
 
   Future<void> _startInstantCall(BuildContext context) async {

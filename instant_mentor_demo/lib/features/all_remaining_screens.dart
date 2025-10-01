@@ -4,10 +4,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../core/providers/auth_provider.dart';
 import '../../core/providers/user_provider.dart';
 import '../core/providers/ui_state_provider.dart';
+import '../../core/providers/scheduling_providers.dart';
 
 // ============================================================================
 // MENTOR SCREENS
@@ -386,15 +388,24 @@ class _EarningsTile extends StatelessWidget {
   }
 }
 
-class AvailabilityScreen extends ConsumerWidget {
+class AvailabilityScreen extends ConsumerStatefulWidget {
   const AvailabilityScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final isAvailable = ref.watch(mentorAvailabilityProvider);
+  ConsumerState<AvailabilityScreen> createState() => _AvailabilityScreenState();
+}
 
-    // Create a provider for weekly schedule (simplified for this example)
-    final weeklySchedule = {
+class _AvailabilityScreenState extends ConsumerState<AvailabilityScreen> {
+  late Map<String, bool> weeklySchedule;
+  bool isLoading = false;
+  bool isSaving = false;
+  String? errorMessage;
+
+  @override
+  void initState() {
+    super.initState();
+    // Initialize with default values
+    weeklySchedule = {
       'Monday': true,
       'Tuesday': true,
       'Wednesday': true,
@@ -403,6 +414,128 @@ class AvailabilityScreen extends ConsumerWidget {
       'Saturday': true,
       'Sunday': false,
     };
+    _loadAvailability();
+  }
+
+  Future<void> _loadAvailability() async {
+    setState(() => isLoading = true);
+    try {
+      final authState = ref.read(authProvider);
+      if (authState.user == null) return;
+
+      // Get mentor profile ID
+      final mentorProfile = await Supabase.instance.client
+          .from('mentor_profiles')
+          .select('id')
+          .eq('user_id', authState.user!.id)
+          .maybeSingle();
+
+      if (mentorProfile != null) {
+        final mentorId = mentorProfile['id'] as String;
+
+        // Load existing availability
+        final availability = await ref
+            .read(schedulingServiceProvider)
+            .getWeeklyAvailability(mentorId);
+
+        // Convert to our format (0=Monday, 1=Tuesday, etc.)
+        final days = [
+          'Monday',
+          'Tuesday',
+          'Wednesday',
+          'Thursday',
+          'Friday',
+          'Saturday',
+          'Sunday'
+        ];
+        for (int i = 0; i < days.length; i++) {
+          final dayData = availability[i];
+          if (dayData != null) {
+            weeklySchedule[days[i]] = dayData.enabled;
+          }
+        }
+      }
+    } catch (e) {
+      setState(() => errorMessage = 'Failed to load availability: $e');
+    } finally {
+      setState(() => isLoading = false);
+    }
+  }
+
+  Future<void> _saveAvailability() async {
+    setState(() => isSaving = true);
+    try {
+      final authState = ref.read(authProvider);
+      if (authState.user == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Please log in to save availability')),
+        );
+        return;
+      }
+
+      // Get mentor profile ID
+      final mentorProfile = await Supabase.instance.client
+          .from('mentor_profiles')
+          .select('id')
+          .eq('user_id', authState.user!.id)
+          .maybeSingle();
+
+      if (mentorProfile == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+              content: Text(
+                  'Mentor profile not found. Please complete your profile first.')),
+        );
+        return;
+      }
+
+      final mentorId = mentorProfile['id'] as String;
+
+      // Convert our format to the service format
+      final days = [
+        'Monday',
+        'Tuesday',
+        'Wednesday',
+        'Thursday',
+        'Friday',
+        'Saturday',
+        'Sunday'
+      ];
+      final availabilityMap =
+          <int, ({TimeOfDay start, TimeOfDay end, bool enabled})>{};
+
+      for (int i = 0; i < days.length; i++) {
+        availabilityMap[i] = (
+          start: const TimeOfDay(hour: 9, minute: 0), // Default 9 AM
+          end: const TimeOfDay(hour: 18, minute: 0), // Default 6 PM
+          enabled: weeklySchedule[days[i]] ?? false,
+        );
+      }
+
+      await ref.read(schedulingServiceProvider).setWeeklyAvailability(
+            mentorId: mentorId,
+            days: availabilityMap,
+          );
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Availability saved successfully!')),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to save availability: $e')),
+      );
+    } finally {
+      setState(() => isSaving = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isAvailable = ref.watch(mentorAvailabilityProvider);
+
+    if (isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
@@ -530,20 +663,51 @@ class AvailabilityScreen extends ConsumerWidget {
                 trailing: Switch(
                   value: entry.value,
                   onChanged: (value) {
-                    // For now, just show a snackbar - in full implementation,
-                    // this would use a StateNotifier for the schedule
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text(
-                            'Schedule update for ${entry.key} will be saved'),
-                        duration: const Duration(seconds: 1),
-                      ),
-                    );
+                    setState(() {
+                      weeklySchedule[entry.key] = value;
+                    });
                   },
                 ),
               ),
             );
           }),
+
+          const SizedBox(height: 24),
+
+          // Save Button
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: isSaving ? null : _saveAvailability,
+              style: ElevatedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                backgroundColor: Theme.of(context).primaryColor,
+                foregroundColor: Colors.white,
+              ),
+              child: isSaving
+                  ? const SizedBox(
+                      height: 20,
+                      width: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                      ),
+                    )
+                  : const Text(
+                      'Save Availability',
+                      style:
+                          TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                    ),
+            ),
+          ),
+
+          if (errorMessage != null) ...[
+            const SizedBox(height: 16),
+            Text(
+              errorMessage!,
+              style: const TextStyle(color: Colors.red),
+            ),
+          ],
         ],
       ),
     );
@@ -1026,10 +1190,10 @@ class _LeaderboardTile extends StatelessWidget {
   }
 }
 
-class MentorProfileScreen extends StatelessWidget {
+class LegacyMentorProfileScreen extends StatelessWidget {
   final String mentorId;
 
-  const MentorProfileScreen({super.key, required this.mentorId});
+  const LegacyMentorProfileScreen({super.key, required this.mentorId});
 
   @override
   Widget build(BuildContext context) {

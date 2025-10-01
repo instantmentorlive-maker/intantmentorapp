@@ -61,10 +61,11 @@ class AppConfig {
   static const String agoraAppId = String.fromEnvironment('AGORA_APP_ID');
 
   // Payment
-  static const String stripePublishableKey =
-      String.fromEnvironment('STRIPE_PUBLISHABLE_KEY');
-  static const String stripeSecretKey =
-      String.fromEnvironment('STRIPE_SECRET_KEY');
+  static String get stripePublishableKey =>
+      dotenv.env['STRIPE_PUBLISHABLE_KEY'] ?? '';
+  static String get stripeSecretKey => dotenv.env['STRIPE_SECRET_KEY'] ?? '';
+  static bool get enableStripe =>
+      dotenv.env['ENABLE_STRIPE']?.toLowerCase() == 'true';
 
   // Notifications
   static const String fcmServerKey = String.fromEnvironment('FCM_SERVER_KEY');

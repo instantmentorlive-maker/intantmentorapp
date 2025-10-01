@@ -4,6 +4,10 @@ import 'package:share_plus/share_plus.dart';
 
 import '../../common/widgets/mentor_presence_widgets.dart';
 import '../../payments/payment_checkout_sheet.dart';
+// Use the shared/global MentorProfileScreen to ensure a single source of truth
+import '../../shared/profile/mentor_profile_screen.dart' as shared_profile;
+import '../../../core/repositories/mentor_repository.dart';
+import '../../../core/models/user.dart';
 
 class FindMentorsScreen extends ConsumerStatefulWidget {
   const FindMentorsScreen({super.key});
@@ -31,6 +35,7 @@ class _FindMentorsScreenState extends ConsumerState<FindMentorsScreen>
 
   @override
   Widget build(BuildContext context) {
+    final mentorsAsync = ref.watch(mentorSearchResultsProvider);
     return Scaffold(
       appBar: AppBar(
         title: const Text('Find Mentors'),
@@ -49,77 +54,97 @@ class _FindMentorsScreenState extends ConsumerState<FindMentorsScreen>
           ],
         ),
       ),
-      body: Column(
-        children: [
-          // Search and Filters
-          Container(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              children: [
-                // Search Bar
-                TextField(
-                  controller: _searchController,
-                  decoration: InputDecoration(
-                    hintText: 'Search by name, subject, or expertise...',
-                    prefixIcon: const Icon(Icons.search),
-                    suffixIcon: IconButton(
-                      onPressed: () => _showFilterDialog(),
-                      icon: const Icon(Icons.tune),
+      body: mentorsAsync.when(
+        data: (mentors) => Column(
+          children: [
+            // Search and Filters
+            Container(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                children: [
+                  // Search Bar
+                  TextField(
+                    controller: _searchController,
+                    decoration: InputDecoration(
+                      hintText: 'Search by name, subject, or expertise...',
+                      prefixIcon: const Icon(Icons.search),
+                      suffixIcon: IconButton(
+                        onPressed: () => _showFilterDialog(),
+                        icon: const Icon(Icons.tune),
+                      ),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
                     ),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
+                    onChanged: (value) => setState(() {}),
+                  ),
+
+                  const SizedBox(height: 12),
+
+                  // Quick Filters
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: [
+                        _FilterChip('All Subjects', _selectedSubject == 'All',
+                            () {
+                          setState(() => _selectedSubject = 'All');
+                        }),
+                        _FilterChip(
+                            'Mathematics', _selectedSubject == 'Mathematics',
+                            () {
+                          setState(() => _selectedSubject = 'Mathematics');
+                        }),
+                        _FilterChip('Physics', _selectedSubject == 'Physics',
+                            () {
+                          setState(() => _selectedSubject = 'Physics');
+                        }),
+                        _FilterChip(
+                            'Chemistry', _selectedSubject == 'Chemistry', () {
+                          setState(() => _selectedSubject = 'Chemistry');
+                        }),
+                        _FilterChip('Available Now', _onlineOnly, () {
+                          setState(() => _onlineOnly = !_onlineOnly);
+                        }),
+                      ],
                     ),
                   ),
-                  onChanged: (value) => setState(() {}),
-                ),
-
-                const SizedBox(height: 12),
-
-                // Quick Filters
-                SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: Row(
-                    children: [
-                      _FilterChip('All Subjects', _selectedSubject == 'All',
-                          () {
-                        setState(() => _selectedSubject = 'All');
-                      }),
-                      _FilterChip(
-                          'Mathematics', _selectedSubject == 'Mathematics', () {
-                        setState(() => _selectedSubject = 'Mathematics');
-                      }),
-                      _FilterChip('Physics', _selectedSubject == 'Physics', () {
-                        setState(() => _selectedSubject = 'Physics');
-                      }),
-                      _FilterChip('Chemistry', _selectedSubject == 'Chemistry',
-                          () {
-                        setState(() => _selectedSubject = 'Chemistry');
-                      }),
-                      _FilterChip('Available Now', _onlineOnly, () {
-                        setState(() => _onlineOnly = !_onlineOnly);
-                      }),
-                    ],
-                  ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
 
-          // Real-time Mentor Stats
-          const MentorAvailabilityStats(),
+            // Real-time Mentor Stats
+            const MentorAvailabilityStats(),
 
-          // Mentors List
-          Expanded(
-            child: TabBarView(
-              controller: _tabController,
-              children: [
-                _buildMentorsList(_getAllMentors()),
-                _buildMentorsList(_getTopRatedMentors()),
-                _buildMentorsList(_getAvailableMentors()),
-              ],
+            // Mentors List
+            Expanded(
+              child: TabBarView(
+                controller: _tabController,
+                children: [
+                  _buildMentorsList(_convertMentorsToMap(mentors)),
+                  _buildMentorsList(_getTopRatedMentors(mentors)),
+                  _buildMentorsList(_getAvailableMentors(mentors)),
+                ],
+              ),
             ),
+          ],
+        ),
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (error, stack) => Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.error_outline, size: 48, color: Colors.red),
+              const SizedBox(height: 16),
+              Text('Failed to load mentors: $error'),
+              const SizedBox(height: 16),
+              ElevatedButton(
+                onPressed: () => ref.invalidate(mentorSearchResultsProvider),
+                child: const Text('Retry'),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
@@ -226,112 +251,45 @@ class _FindMentorsScreenState extends ConsumerState<FindMentorsScreen>
     );
   }
 
-  List<Map<String, dynamic>> _getAllMentors() {
-    return [
-      {
-        'id': '1',
-        'name': 'Dr. Sarah Smith',
-        'subjects': 'Mathematics, Statistics',
-        'expertise': 'Calculus, Linear Algebra, JEE Math',
-        'rating': 4.9,
-        'totalSessions': 1250,
-        'experience': '8 years',
-        'price': 55,
-        'isOnline': true,
-        'languages': 'English, Hindi',
-        'education': 'PhD Mathematics - MIT',
-        'bio':
-            'Passionate mathematics teacher with expertise in advanced calculus and competitive exam preparation.',
-        'responseTime': '< 2 hours',
-        'achievements': ['Top Performer', 'JEE Expert', '1000+ Sessions'],
-      },
-      {
-        'id': '2',
-        'name': 'Prof. Raj Kumar',
-        'subjects': 'Physics, Engineering',
-        'expertise': 'Quantum Physics, Mechanics, NEET Physics',
-        'rating': 4.8,
-        'totalSessions': 980,
-        'experience': '12 years',
-        'price': 48,
-        'isOnline': false,
-        'languages': 'English, Hindi, Tamil',
-        'education': 'PhD Physics - IIT Delhi',
-        'bio':
-            'Former IIT professor specializing in conceptual physics and problem-solving techniques.',
-        'responseTime': '< 4 hours',
-        'achievements': ['NEET Expert', 'IIT Faculty', 'Physics Guru'],
-      },
-      {
-        'id': '3',
-        'name': 'Dr. Priya Sharma',
-        'subjects': 'Chemistry, Biochemistry',
-        'expertise': 'Organic Chemistry, NEET Chemistry, Lab Techniques',
-        'rating': 4.7,
-        'totalSessions': 750,
-        'experience': '6 years',
-        'price': 42,
-        'isOnline': true,
-        'languages': 'English, Hindi',
-        'education': 'PhD Chemistry - Delhi University',
-        'bio':
-            'Chemistry expert with focus on organic chemistry and practical applications.',
-        'responseTime': '< 3 hours',
-        'achievements': [
-          'Organic Chemistry Expert',
-          'Lab Specialist',
-          'NEET Guide'
-        ],
-      },
-      {
-        'id': '4',
-        'name': 'Mr. Vikash Singh',
-        'subjects': 'English, Literature',
-        'expertise': 'Grammar, Writing, IELTS, Creative Writing',
-        'rating': 4.6,
-        'totalSessions': 650,
-        'experience': '5 years',
-        'price': 35,
-        'isOnline': true,
-        'languages': 'English, Hindi',
-        'education': 'MA English Literature - JNU',
-        'bio':
-            'English language expert specializing in grammar, writing skills, and test preparation.',
-        'responseTime': '< 1 hour',
-        'achievements': ['IELTS Expert', 'Writing Mentor', 'Grammar Guru'],
-      },
-      {
-        'id': '5',
-        'name': 'Dr. Anjali Gupta',
-        'subjects': 'Biology, Life Sciences',
-        'expertise': 'Cell Biology, Genetics, NEET Biology',
-        'rating': 4.9,
-        'totalSessions': 1100,
-        'experience': '10 years',
-        'price': 50,
-        'isOnline': true,
-        'languages': 'English, Hindi',
-        'education': 'PhD Biology - AIIMS',
-        'bio':
-            'Medical researcher and educator with expertise in life sciences and medical entrance preparation.',
-        'responseTime': '< 2 hours',
-        'achievements': [
-          'Medical Expert',
-          'Research Scholar',
-          'NEET Topper Mentor'
-        ],
-      },
-    ];
+  List<Map<String, dynamic>> _getAllMentors(List<Mentor> mentors) {
+    return _convertMentorsToMap(mentors);
   }
 
-  List<Map<String, dynamic>> _getTopRatedMentors() {
-    return _getAllMentors().where((m) => m['rating'] >= 4.8).toList()
+  List<Map<String, dynamic>> _getTopRatedMentors(List<Mentor> mentors) {
+    final mentorMaps = _convertMentorsToMap(mentors);
+    return mentorMaps.where((m) => m['rating'] >= 4.8).toList()
       ..sort(
           (a, b) => (b['rating'] as double).compareTo(a['rating'] as double));
   }
 
-  List<Map<String, dynamic>> _getAvailableMentors() {
-    return _getAllMentors().where((m) => m['isOnline'] == true).toList();
+  List<Map<String, dynamic>> _getAvailableMentors(List<Mentor> mentors) {
+    final mentorMaps = _convertMentorsToMap(mentors);
+    return mentorMaps.where((m) => m['isOnline'] == true).toList();
+  }
+
+  List<Map<String, dynamic>> _convertMentorsToMap(List<Mentor> mentors) {
+    return mentors
+        .map((mentor) => {
+              'id': mentor.id,
+              'name': mentor.name,
+              'subjects': mentor.specializations.join(', '),
+              'expertise': mentor.qualifications.join(', '),
+              'rating': mentor.rating,
+              'totalSessions': mentor.totalSessions,
+              'experience': '${mentor.yearsOfExperience} years',
+              'price': mentor.hourlyRate.toInt(),
+              'isOnline': mentor.isAvailable,
+              'languages':
+                  'English, Hindi', // Default languages since not in Mentor model
+              'education': mentor.qualifications.join(', '),
+              'bio': mentor.bio,
+              'responseTime':
+                  '< 2 hours', // Default response time since not in Mentor model
+              'achievements': [
+                '${mentor.totalSessions} Sessions'
+              ], // Default achievements
+            })
+        .toList();
   }
 
   @override
@@ -574,10 +532,13 @@ class _MentorCard extends StatelessWidget {
   }
 
   void _viewProfile(BuildContext context, Map<String, dynamic> mentor) {
+    // Navigate to the shared MentorProfileScreen by id so the global lookup
+    // logic is used (prevents mismatches between multiple local/global screens).
+    final id = (mentor['id'] ?? mentor['name']).toString();
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => MentorProfileScreen(mentor: mentor),
+        builder: (context) => shared_profile.MentorProfileScreen(mentorId: id),
       ),
     );
   }
@@ -634,10 +595,10 @@ class _MentorCard extends StatelessWidget {
   }
 }
 
-class MentorProfileScreen extends StatelessWidget {
+class InlineMentorProfileScreen extends StatelessWidget {
   final Map<String, dynamic> mentor;
 
-  const MentorProfileScreen({super.key, required this.mentor});
+  const InlineMentorProfileScreen({super.key, required this.mentor});
 
   @override
   Widget build(BuildContext context) {
@@ -987,7 +948,7 @@ class MentorProfileScreen extends StatelessWidget {
 
   void _showPaymentSheet(BuildContext context, Map<String, dynamic> mentor) {
     final double hourlyRate = (mentor['price'] as num).toDouble();
-    final int minutes = 30; // Default 30-minute session
+    const int minutes = 30; // Default 30-minute session
     final double amount =
         (hourlyRate / 60) * minutes; // Prorated for 30 minutes
 

@@ -7,5 +7,3 @@ class RtcService {
   Future<void> leaveChannel() async {}
   Future<void> dispose() async {}
 }
-
-*** End Patch

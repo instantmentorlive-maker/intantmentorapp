@@ -30,10 +30,6 @@ class RealTimeChatWidget extends ConsumerStatefulWidget {
 class _RealTimeChatWidgetState extends ConsumerState<RealTimeChatWidget> {
   final TextEditingController _messageController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
-  final List<ChatMessage> _messages = [];
-  bool _isTyping = false;
-  final bool _showTypingIndicator = false;
-
   Timer? _typingTimer;
 
   @override
@@ -48,10 +44,15 @@ class _RealTimeChatWidgetState extends ConsumerState<RealTimeChatWidget> {
       final chatService = ref.read(chatServiceProvider);
       final messages = await chatService.fetchMessages(widget.receiverId);
       if (mounted) {
-        setState(() {
-          _messages.clear();
-          _messages.addAll(messages);
-        });
+        // Populate the provider with initial messages
+        ref
+            .read(realtimeChatProvider(widget.receiverId).notifier)
+            .clearMessages();
+        for (final message in messages) {
+          ref
+              .read(realtimeChatProvider(widget.receiverId).notifier)
+              .addMessage(message);
+        }
         _scrollToBottom();
       }
     } catch (e) {
@@ -118,7 +119,7 @@ class _RealTimeChatWidgetState extends ConsumerState<RealTimeChatWidget> {
 
     if (currentUser == null) return;
 
-    // Add message to local list immediately
+    // Add message to provider immediately
     final localMessage = ChatMessage(
       id: DateTime.now().millisecondsSinceEpoch.toString(),
       chatId: widget.receiverId, // Use receiverId as chatId
@@ -129,9 +130,9 @@ class _RealTimeChatWidgetState extends ConsumerState<RealTimeChatWidget> {
       timestamp: DateTime.now(),
     );
 
-    setState(() {
-      _messages.add(localMessage);
-    });
+    ref
+        .read(realtimeChatProvider(widget.receiverId).notifier)
+        .addMessage(localMessage);
 
     _messageController.clear();
     _scrollToBottom();
@@ -160,35 +161,37 @@ class _RealTimeChatWidgetState extends ConsumerState<RealTimeChatWidget> {
       }
 
       // Update message status to sent
-      final messageIndex = _messages.indexWhere((m) => m.id == localMessage.id);
-      if (messageIndex != -1) {
-        setState(() {
-          _messages[messageIndex] = localMessage.copyWith(isSent: true);
-        });
-      }
+      ref.read(realtimeChatProvider(widget.receiverId).notifier).updateMessage(
+            localMessage.id,
+            localMessage.copyWith(isSent: true),
+          );
     } catch (e) {
       debugPrint('Error sending message: $e');
 
       // Update message status to failed
-      final messageIndex = _messages.indexWhere((m) => m.id == localMessage.id);
-      if (messageIndex != -1) {
-        setState(() {
-          _messages[messageIndex] = localMessage.copyWith(isSent: false);
-        });
-      }
+      ref.read(realtimeChatProvider(widget.receiverId).notifier).updateMessage(
+            localMessage.id,
+            localMessage.copyWith(isSent: false),
+          );
     }
   }
 
   void _onTextChanged(String text) {
-    if (text.isNotEmpty && !_isTyping) {
-      _isTyping = true;
+    final isTyping = ref.read(realtimeChatProvider(widget.receiverId)).isTyping;
+
+    if (text.isNotEmpty && !isTyping) {
+      ref
+          .read(realtimeChatProvider(widget.receiverId).notifier)
+          .setIsTyping(true);
       _sendTypingIndicator(true);
     }
 
     _typingTimer?.cancel();
     _typingTimer = Timer(const Duration(seconds: 2), () {
-      if (_isTyping) {
-        _isTyping = false;
+      if (isTyping) {
+        ref
+            .read(realtimeChatProvider(widget.receiverId).notifier)
+            .setIsTyping(false);
         _sendTypingIndicator(false);
       }
     });
@@ -224,6 +227,7 @@ class _RealTimeChatWidgetState extends ConsumerState<RealTimeChatWidget> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final connectionState = ref.watch(webSocketConnectionStateProvider);
+    final chatState = ref.watch(realtimeChatProvider(widget.receiverId));
 
     return Column(
       children: [
@@ -321,13 +325,15 @@ class _RealTimeChatWidgetState extends ConsumerState<RealTimeChatWidget> {
           child: ListView.builder(
             controller: _scrollController,
             padding: const EdgeInsets.all(16),
-            itemCount: _messages.length + (_showTypingIndicator ? 1 : 0),
+            itemCount: chatState.messages.length +
+                (chatState.showTypingIndicator ? 1 : 0),
             itemBuilder: (context, index) {
-              if (index == _messages.length && _showTypingIndicator) {
+              if (index == chatState.messages.length &&
+                  chatState.showTypingIndicator) {
                 return _buildTypingIndicator();
               }
 
-              final message = _messages[index];
+              final message = chatState.messages[index];
               return _buildMessageBubble(message);
             },
           ),

@@ -1,13 +1,14 @@
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
-import '../../../core/services/payment_service.dart';
-import '../../payments/payment_checkout_sheet.dart';
-import '../../../core/providers/video_call_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:file_picker/file_picker.dart';
-import 'package:record/record.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:record/record.dart';
+
+import '../../../core/providers/video_call_provider.dart';
+import '../../../core/services/payment_service.dart';
+import '../../payments/payment_checkout_sheet.dart';
 // Removed unused dart:io import
 
 class QuickDoubtScreen extends ConsumerStatefulWidget {

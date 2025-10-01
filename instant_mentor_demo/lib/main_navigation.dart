@@ -22,10 +22,12 @@ class MainNavigation extends ConsumerWidget {
     if (user == null && authState.isAuthenticated && authState.user != null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         final supaUser = authState.user!;
-        // Try to get role from user metadata or email domain, default to mentor
-        final userRole = (supaUser.userMetadata?['role'] == 'student')
-            ? UserRole.student
-            : UserRole.mentor;
+        // Try to get role from user metadata, check both 'role' and 'user_role' keys
+        final roleString = supaUser.userMetadata?['role'] ??
+            supaUser.userMetadata?['user_role'] ??
+            'student';
+        final userRole =
+            (roleString == 'mentor') ? UserRole.mentor : UserRole.student;
 
         ref.read(userProvider.notifier).updateUser(
               User(
@@ -77,7 +79,8 @@ class MainNavigation extends ConsumerWidget {
   }
 
   String _getScreenTitle(BuildContext context, bool isStudent) {
-    final location = GoRouterState.of(context).uri.path;
+    final location =
+        GoRouter.of(context).routerDelegate.currentConfiguration.uri.path;
     final role = isStudent ? 'Student' : 'Mentor';
 
     switch (location) {
@@ -108,7 +111,8 @@ class MainNavigation extends ConsumerWidget {
 
   Widget _buildBottomNavigation(
       BuildContext context, WidgetRef ref, bool isStudent) {
-    final location = GoRouterState.of(context).uri.path;
+    final location =
+        GoRouter.of(context).routerDelegate.currentConfiguration.uri.path;
 
     if (isStudent) {
       return BottomNavigationBar(
