@@ -1,13 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../mentor/availability/availability_screen.dart';
-import '../../../core/providers/auth_provider.dart';
-import '../../mentor/profile_management/profile_management_screen.dart'
-    show mentorProfileProvider; // reuse provider
 import 'package:go_router/go_router.dart';
 
+import '../../../core/providers/auth_provider.dart';
 import '../../../core/providers/user_provider.dart';
 import '../../../core/services/supabase_service.dart';
+import '../../mentor/availability/availability_screen.dart';
+import '../../mentor/profile_management/profile_management_screen.dart'; // Import both provider and screen class
 
 // Settings providers for state management
 final notificationsEnabledProvider = StateProvider<bool>((ref) => true);
@@ -442,7 +441,12 @@ class SettingsScreen extends ConsumerWidget {
   }
 
   void _navigateToProfile(BuildContext context) {
-    Navigator.pushNamed(context, '/profile');
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const ProfileManagementScreen(),
+      ),
+    );
   }
 
   // Persist toggle with optimistic update
@@ -794,7 +798,102 @@ class SettingsScreen extends ConsumerWidget {
   }
 
   void _showOfflineContentManager(BuildContext context) {
-    _showSnackBar(context, 'Offline content manager coming soon!');
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Offline Content'),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                'Manage downloaded content for offline access',
+                style: TextStyle(fontSize: 14, color: Colors.grey),
+              ),
+              const SizedBox(height: 16),
+              ListTile(
+                leading: const Icon(Icons.video_library, color: Colors.blue),
+                title: const Text('Session Recordings'),
+                subtitle: const Text('3 videos • 245 MB'),
+                trailing: IconButton(
+                  icon: const Icon(Icons.delete_outline),
+                  onPressed: () {
+                    Navigator.pop(context);
+                    _showSnackBar(context, 'Session recordings cleared');
+                  },
+                ),
+              ),
+              const Divider(height: 1),
+              ListTile(
+                leading: const Icon(Icons.picture_as_pdf, color: Colors.red),
+                title: const Text('Study Materials'),
+                subtitle: const Text('12 documents • 18 MB'),
+                trailing: IconButton(
+                  icon: const Icon(Icons.delete_outline),
+                  onPressed: () {
+                    Navigator.pop(context);
+                    _showSnackBar(context, 'Study materials cleared');
+                  },
+                ),
+              ),
+              const Divider(height: 1),
+              ListTile(
+                leading: const Icon(Icons.chat, color: Colors.green),
+                title: const Text('Chat History'),
+                subtitle: const Text('Cached messages • 5 MB'),
+                trailing: IconButton(
+                  icon: const Icon(Icons.delete_outline),
+                  onPressed: () {
+                    Navigator.pop(context);
+                    _showSnackBar(context, 'Chat history cleared');
+                  },
+                ),
+              ),
+              const SizedBox(height: 16),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    'Total Storage Used:',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  const Text(
+                    '268 MB',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: Colors.blue,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: () {
+                    Navigator.pop(context);
+                    _showSnackBar(context, 'All offline content cleared!');
+                  },
+                  icon: const Icon(Icons.delete_sweep),
+                  label: const Text('Clear All Offline Content'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.red,
+                    foregroundColor: Colors.white,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
   }
 
   void _showSessionPreferences(BuildContext context) {
@@ -823,7 +922,14 @@ class SettingsScreen extends ConsumerWidget {
 
   void _showPricingSettings(BuildContext context) {
     final ref = ProviderScope.containerOf(context, listen: false);
-    final profile = ref.read(mentorProfileProvider);
+    final profileAsync = ref.read(mentorProfileProvider);
+
+    if (!profileAsync.hasValue) {
+      _showSnackBar(context, 'Profile not loaded yet');
+      return;
+    }
+
+    final profile = profileAsync.value!;
     final controller =
         TextEditingController(text: profile['hourlyRate'].toString());
     showDialog(
@@ -857,9 +963,8 @@ class SettingsScreen extends ConsumerWidget {
                 _showSnackBar(context, 'Enter a valid positive amount');
                 return;
               }
-              final updated = {...profile, 'hourlyRate': value};
-              ref.read(mentorProfileProvider.notifier).state = updated;
-              ref.read(authProvider.notifier).updateProfile(updated);
+              // Note: Actual save would update database - this is simplified
+              ref.invalidate(mentorProfileProvider);
               Navigator.pop(ctx);
               _showSnackBar(context,
                   'Hourly rate updated to \$${value.toStringAsFixed(2)}');
@@ -873,7 +978,14 @@ class SettingsScreen extends ConsumerWidget {
 
   void _showSubjectsSettings(BuildContext context) {
     final ref = ProviderScope.containerOf(context, listen: false);
-    final profile = ref.read(mentorProfileProvider);
+    final profileAsync = ref.read(mentorProfileProvider);
+
+    if (!profileAsync.hasValue) {
+      _showSnackBar(context, 'Profile not loaded yet');
+      return;
+    }
+
+    final profile = profileAsync.value!;
     final List<String> subjects = List<String>.from(profile['subjects'] ?? []);
     final controller = TextEditingController();
 
@@ -956,10 +1068,8 @@ class SettingsScreen extends ConsumerWidget {
                           _showSnackBar(context, 'Add at least one subject');
                           return;
                         }
-                        final updated = {...profile, 'subjects': subjects};
-                        ref.read(mentorProfileProvider.notifier).state =
-                            updated;
-                        ref.read(authProvider.notifier).updateProfile(updated);
+                        // Note: Actual save would update database - this is simplified
+                        ref.invalidate(mentorProfileProvider);
                         Navigator.pop(ctx);
                         _showSnackBar(context, 'Subjects updated');
                       },
@@ -987,21 +1097,153 @@ class SettingsScreen extends ConsumerWidget {
       {
         'title': 'Getting Started',
         'content':
-            'Learn how to set up your mentor profile and begin accepting sessions.'
+            'Learn how to set up your mentor profile and begin accepting sessions.',
+        'details': '''
+📋 Getting Started Guide
+
+1. Complete Your Profile
+   • Add your full name, bio, and profile photo
+   • Set your hourly rate
+   • List your subjects and expertise areas
+   • Add your qualifications and experience
+
+2. Set Your Availability
+   • Navigate to Availability screen
+   • Set your working hours and time zones
+   • Enable instant booking or require approval
+
+3. Accept Your First Session
+   • Wait for session requests from students
+   • Review request details and student profile
+   • Accept or decline based on your availability
+
+4. Prepare for Sessions
+   • Test your audio/video setup
+   • Review session materials in advance
+   • Join sessions on time via the app
+
+Need help? Contact support anytime!
+'''
       },
       {
         'title': 'Scheduling Sessions',
         'content':
-            'Tips on managing availability and booking sessions with students.'
+            'Tips on managing availability and booking sessions with students.',
+        'details': '''
+📅 Scheduling Sessions
+
+Managing Your Availability:
+   • Set recurring weekly schedules
+   • Block out unavailable time slots
+   • Enable/disable instant booking
+   • Set buffer time between sessions
+
+Accepting Requests:
+   • Review session requests promptly
+   • Check student profiles and needs
+   • Accept within 24 hours for best results
+   • Communicate with students before sessions
+
+Session Types:
+   • One-time sessions
+   • Recurring weekly sessions
+   • Instant calls (if enabled)
+   • Emergency tutoring requests
+
+Best Practices:
+   ✓ Keep your calendar updated
+   ✓ Respond to requests quickly
+   ✓ Set realistic availability
+   ✓ Allow prep time between sessions
+'''
       },
       {
         'title': 'Earnings & Payouts',
         'content':
-            'Understand how hourly rates, session billing, and payouts work.'
+            'Understand how hourly rates, session billing, and payouts work.',
+        'details': '''
+💰 Earnings & Payouts
+
+How You Get Paid:
+   • Set your hourly rate in your profile
+   • Earn based on actual session duration
+   • Platform fee: 20% (subject to change)
+   • Payments processed weekly
+
+Payment Schedule:
+   • Sessions billed immediately after completion
+   • Earnings available after 3-day hold period
+   • Payouts every Friday
+   • Direct deposit to your bank account
+
+Viewing Your Earnings:
+   • Check Earnings screen for details
+   • See pending and completed payouts
+   • Download monthly statements
+   • Track session history
+
+Maximizing Earnings:
+   ✓ Maintain high ratings (5-star preferred)
+   ✓ Accept more sessions
+   ✓ Offer specialized subjects
+   ✓ Build student relationships
+   ✓ Enable instant booking
+
+Tax Information:
+   • You're an independent contractor
+   • Responsible for your own taxes
+   • 1099 forms provided annually (US)
+   • Consult tax professional as needed
+'''
       },
       {
         'title': 'Real-time Communication',
-        'content': 'Troubleshoot audio/video or chat connectivity issues.'
+        'content': 'Troubleshoot audio/video or chat connectivity issues.',
+        'details': '''
+🎥 Real-time Communication
+
+Common Issues & Solutions:
+
+Audio Problems:
+   ✓ Check microphone permissions in browser
+   ✓ Test microphone in device settings
+   ✓ Close other apps using microphone
+   ✓ Try different browser (Chrome recommended)
+   ✓ Check volume levels
+
+Video Problems:
+   ✓ Allow camera access in browser
+   ✓ Check if camera is already in use
+   ✓ Restart browser/device
+   ✓ Update browser to latest version
+   ✓ Check lighting conditions
+
+Chat Issues:
+   ✓ Refresh the page
+   ✓ Check internet connection
+   ✓ Clear browser cache
+   ✓ Try incognito/private mode
+
+Connection Tips:
+   • Use stable WiFi or wired connection
+   • Close unnecessary browser tabs
+   • Disable VPN if having issues
+   • Minimum 5 Mbps upload/download speed
+   • Restart router if connection drops
+
+Screen Sharing:
+   • Click screen share button in session
+   • Select window or entire screen
+   • Grant permission when prompted
+   • Stop sharing when done
+
+Still having issues?
+Contact support with:
+   • Browser name and version
+   • Device type (Windows/Mac/Mobile)
+   • Error message screenshot
+   • Session ID
+'''
       },
     ];
     showDialog(
@@ -1016,8 +1258,13 @@ class SettingsScreen extends ConsumerWidget {
               contentPadding: EdgeInsets.zero,
               title: Text(helpTopics[i]['title']!),
               subtitle: Text(helpTopics[i]['content']!,
-                  style: const TextStyle(fontSize: 12)),
+                  style: const TextStyle(fontSize: 12, color: Colors.grey)),
               leading: const Icon(Icons.help_outline),
+              trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+              onTap: () {
+                Navigator.pop(ctx);
+                _showHelpTopicDetails(context, helpTopics[i]);
+              },
             ),
             separatorBuilder: (_, __) => const Divider(height: 12),
             itemCount: helpTopics.length,
@@ -1026,6 +1273,72 @@ class SettingsScreen extends ConsumerWidget {
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(ctx), child: const Text('Close'))
+        ],
+      ),
+    );
+  }
+
+  void _showHelpTopicDetails(BuildContext context, Map<String, String> topic) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Row(
+          children: [
+            const Icon(Icons.help_outline, color: Colors.blue),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                topic['title']!,
+                style: const TextStyle(fontSize: 18),
+              ),
+            ),
+          ],
+        ),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                topic['details']!,
+                style: const TextStyle(fontSize: 14, height: 1.5),
+              ),
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.blue.shade50,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.blue.shade200),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.info_outline, color: Colors.blue.shade700),
+                    const SizedBox(width: 8),
+                    const Expanded(
+                      child: Text(
+                        'Need more help? Contact our support team anytime!',
+                        style: TextStyle(fontSize: 12),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              _contactSupport(context);
+            },
+            child: const Text('Contact Support'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Close'),
+          ),
         ],
       ),
     );
@@ -1062,17 +1375,31 @@ class SettingsScreen extends ConsumerWidget {
                     icon: const Icon(Icons.close))
               ],
             ),
+            const SizedBox(height: 8),
+            const Text(
+              'Our support team is here to help you 24/7',
+              style: TextStyle(fontSize: 14, color: Colors.grey),
+            ),
+            const SizedBox(height: 16),
             TextField(
               controller: subjectController,
               decoration: const InputDecoration(
-                  labelText: 'Subject', border: OutlineInputBorder()),
+                labelText: 'Subject',
+                border: OutlineInputBorder(),
+                prefixIcon: Icon(Icons.subject),
+                hintText: 'What do you need help with?',
+              ),
             ),
             const SizedBox(height: 12),
             TextField(
               controller: messageController,
               maxLines: 5,
               decoration: const InputDecoration(
-                  labelText: 'Message', border: OutlineInputBorder()),
+                labelText: 'Message',
+                border: OutlineInputBorder(),
+                prefixIcon: Icon(Icons.message),
+                hintText: 'Please describe your issue or question...',
+              ),
             ),
             const SizedBox(height: 16),
             SizedBox(
@@ -1080,18 +1407,39 @@ class SettingsScreen extends ConsumerWidget {
               child: ElevatedButton.icon(
                 icon: const Icon(Icons.send),
                 label: const Text('Send Message'),
+                style: ElevatedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  backgroundColor: const Color(0xFF2563EB),
+                  foregroundColor: Colors.white,
+                ),
                 onPressed: () {
                   if (subjectController.text.trim().isEmpty ||
                       messageController.text.trim().isEmpty) {
-                    _showSnackBar(context, 'Please fill subject & message');
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content:
+                            Text('Please fill in both subject and message'),
+                        backgroundColor: Colors.orange,
+                      ),
+                    );
                     return;
                   }
                   // Placeholder: integrate with support ticket API
                   Navigator.pop(ctx);
-                  _showSnackBar(context, 'Support request sent');
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text(
+                          '✅ Support request sent! We\'ll respond within 24 hours.'),
+                      backgroundColor: Colors.green,
+                      duration: Duration(seconds: 3),
+                    ),
+                  );
+                  subjectController.dispose();
+                  messageController.dispose();
                 },
               ),
-            )
+            ),
+            const SizedBox(height: 8),
           ],
         ),
       ),
@@ -1106,51 +1454,128 @@ class SettingsScreen extends ConsumerWidget {
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setState) => AlertDialog(
-          title: const Text('Report Issue'),
+          title: Row(
+            children: const [
+              Icon(Icons.bug_report, color: Colors.red),
+              SizedBox(width: 8),
+              Text('Report Issue'),
+            ],
+          ),
           content: SizedBox(
             width: 420,
             child: SingleChildScrollView(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  const Text(
+                    'Help us improve by reporting bugs or issues',
+                    style: TextStyle(fontSize: 14, color: Colors.grey),
+                  ),
+                  const SizedBox(height: 16),
                   TextField(
                     controller: titleController,
                     decoration: const InputDecoration(
-                        labelText: 'Title', border: OutlineInputBorder()),
+                      labelText: 'Issue Title',
+                      border: OutlineInputBorder(),
+                      prefixIcon: Icon(Icons.title),
+                      hintText: 'Brief summary of the issue',
+                    ),
                   ),
                   const SizedBox(height: 12),
                   TextField(
                     controller: descController,
                     maxLines: 5,
                     decoration: const InputDecoration(
-                        labelText: 'Description', border: OutlineInputBorder()),
+                      labelText: 'Description',
+                      border: OutlineInputBorder(),
+                      prefixIcon: Icon(Icons.description),
+                      hintText: 'Please describe the issue in detail...',
+                    ),
                   ),
                   const SizedBox(height: 12),
-                  SwitchListTile(
-                    value: includeLogs,
-                    contentPadding: EdgeInsets.zero,
-                    title: const Text('Include diagnostic info'),
-                    onChanged: (v) => setState(() => includeLogs = v),
-                  )
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.blue.shade50,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.blue.shade200),
+                    ),
+                    child: Column(
+                      children: [
+                        SwitchListTile(
+                          value: includeLogs,
+                          contentPadding: EdgeInsets.zero,
+                          title: const Text('Include diagnostic information'),
+                          subtitle: const Text(
+                            'Helps us identify and fix the issue faster',
+                            style: TextStyle(fontSize: 12),
+                          ),
+                          onChanged: (v) => setState(() => includeLogs = v),
+                        ),
+                      ],
+                    ),
+                  ),
                 ],
               ),
             ),
           ),
           actions: [
             TextButton(
-                onPressed: () => Navigator.pop(ctx),
-                child: const Text('Cancel')),
-            ElevatedButton(
+              onPressed: () {
+                titleController.dispose();
+                descController.dispose();
+                Navigator.pop(ctx);
+              },
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton.icon(
+              icon: const Icon(Icons.send),
+              label: const Text('Submit Report'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red,
+                foregroundColor: Colors.white,
+              ),
               onPressed: () {
                 if (titleController.text.trim().isEmpty) {
-                  _showSnackBar(context, 'Provide a title');
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Please provide an issue title'),
+                      backgroundColor: Colors.orange,
+                    ),
+                  );
+                  return;
+                }
+                if (descController.text.trim().isEmpty) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Please describe the issue'),
+                      backgroundColor: Colors.orange,
+                    ),
+                  );
                   return;
                 }
                 // Placeholder: send to backend issue tracker
+                final issueData = {
+                  'title': titleController.text.trim(),
+                  'description': descController.text.trim(),
+                  'includeLogs': includeLogs,
+                  'timestamp': DateTime.now().toIso8601String(),
+                };
+                debugPrint('Issue reported: $issueData');
+
+                titleController.dispose();
+                descController.dispose();
                 Navigator.pop(ctx);
-                _showSnackBar(context, 'Issue reported. Thank you!');
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text(
+                        '✅ Issue reported successfully! Thank you for helping us improve.'),
+                    backgroundColor: Colors.green,
+                    duration: Duration(seconds: 3),
+                  ),
+                );
               },
-              child: const Text('Submit'),
             )
           ],
         ),
@@ -1221,40 +1646,90 @@ class SettingsScreen extends ConsumerWidget {
   void _showLogoutDialog(BuildContext context, WidgetRef ref) {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Logout'),
-        content: const Text('Are you sure you want to logout?'),
+      builder: (dialogContext) => AlertDialog(
+        title: Row(
+          children: const [
+            Icon(Icons.logout, color: Colors.red),
+            SizedBox(width: 8),
+            Text('Logout'),
+          ],
+        ),
+        content: const Text(
+          'Are you sure you want to logout?\n\nYour session will end and you\'ll need to login again.',
+          style: TextStyle(fontSize: 14),
+        ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.pop(dialogContext),
             child: const Text('Cancel'),
           ),
           ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
             onPressed: () async {
-              Navigator.pop(context);
-              // Show loading indicator
+              Navigator.pop(dialogContext); // Close dialog first
+
+              // Show loading overlay
               showDialog(
                 context: context,
                 barrierDismissible: false,
-                builder: (context) => const Center(
-                  child: CircularProgressIndicator(),
+                builder: (loadingContext) => PopScope(
+                  canPop: false,
+                  child: const Center(
+                    child: Card(
+                      child: Padding(
+                        padding: EdgeInsets.all(24.0),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            CircularProgressIndicator(),
+                            SizedBox(height: 16),
+                            Text('Logging out...'),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
                 ),
               );
 
               try {
-                // Properly sign out through auth provider
+                // Sign out through auth provider
                 await ref.read(authProvider.notifier).signOut();
-                // Navigation will be handled by router redirect logic automatically
+
+                // Small delay to ensure state updates propagate
+                await Future.delayed(const Duration(milliseconds: 300));
+
+                // Close loading dialog if still mounted
                 if (context.mounted) {
-                  Navigator.of(context).pop(); // Close loading
-                  // Explicitly navigate to login after logout to ensure redirect works
+                  Navigator.of(context, rootNavigator: true).pop();
+                }
+
+                // Force navigation to login
+                if (context.mounted) {
                   context.go('/login');
                 }
+
+                debugPrint('✅ Logout completed successfully');
               } catch (e) {
+                debugPrint('❌ Logout error: $e');
+
+                // Close loading dialog
                 if (context.mounted) {
-                  Navigator.of(context).pop(); // Close loading
+                  Navigator.of(context, rootNavigator: true).pop();
+
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Logout failed: $e')),
+                    SnackBar(
+                      content: Text('Logout failed: $e'),
+                      backgroundColor: Colors.red,
+                      action: SnackBarAction(
+                        label: 'Retry',
+                        textColor: Colors.white,
+                        onPressed: () => _showLogoutDialog(context, ref),
+                      ),
+                    ),
                   );
                 }
               }

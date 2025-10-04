@@ -17,88 +17,114 @@ final StreamProvider<List<SessionRequest>> sessionRequestsProvider =
 
   final userId = auth.user!.id;
 
-  // Get the mentor profile ID for this user
-  final mentorProfile = await _supabase
-      .from('mentor_profiles')
-      .select('id')
-      .eq('user_id', userId)
-      .maybeSingle();
+  try {
+    // Get the mentor profile ID for this user with timeout
+    final mentorProfile = await _supabase
+        .from('mentor_profiles')
+        .select('id')
+        .eq('user_id', userId)
+        .maybeSingle()
+        .timeout(
+          const Duration(seconds: 5),
+          onTimeout: () => null,
+        );
 
-  if (mentorProfile == null) {
-    // No mentor profile exists yet
-    yield const [];
-    return;
-  }
-
-  final mentorProfileId = mentorProfile['id'];
-
-  // Initial fetch
-  Future<List<SessionRequest>> fetch() async {
-    final rows = await _supabase
-        .from('mentoring_sessions')
-        .select('id, subject, created_at, status, student_id')
-        .eq('mentor_id', mentorProfileId)
-        .eq('status', 'pending')
-        .order('created_at', ascending: false);
-
-    // Fetch student names for each session
-    final List<SessionRequest> requests = [];
-    for (final r in rows) {
-      String studentName = 'Student';
-      final studentId = r['student_id'] as String?;
-
-      if (studentId != null) {
-        try {
-          final studentProfile = await _supabase
-              .from('user_profiles')
-              .select('full_name')
-              .eq('user_id', studentId)
-              .maybeSingle();
-
-          if (studentProfile != null) {
-            studentName = (studentProfile['full_name'] ?? 'Student').toString();
-          }
-        } catch (e) {
-          // If we can't fetch student name, use default
-          studentName = 'Student';
-        }
-      }
-
-      requests.add(SessionRequest(
-        id: r['id'] as String,
-        studentName: studentName,
-        subject: (r['subject'] ?? 'General').toString(),
-        requestedAt: DateTime.parse(r['created_at'] as String),
-        status: (r['status'] ?? 'pending').toString(),
-      ));
+    if (mentorProfile == null) {
+      // No mentor profile exists yet - return empty list (demo mode)
+      print('📋 No mentor profile found, showing empty requests list');
+      yield const [];
+      return;
     }
 
-    return requests;
+    final mentorProfileId = mentorProfile['id'];
+
+    // Initial fetch with timeout
+    Future<List<SessionRequest>> fetch() async {
+      try {
+        final rows = await _supabase
+            .from('mentoring_sessions')
+            .select('id, subject, created_at, status, student_id')
+            .eq('mentor_id', mentorProfileId)
+            .eq('status', 'pending')
+            .order('created_at', ascending: false)
+            .timeout(
+              const Duration(seconds: 5),
+              onTimeout: () => [],
+            );
+
+        // Fetch student names for each session
+        final List<SessionRequest> requests = [];
+        for (final r in rows) {
+          String studentName = 'Student';
+          final studentId = r['student_id'] as String?;
+
+          if (studentId != null) {
+            try {
+              final studentProfile = await _supabase
+                  .from('user_profiles')
+                  .select('full_name')
+                  .eq('user_id', studentId)
+                  .maybeSingle()
+                  .timeout(
+                    const Duration(seconds: 3),
+                    onTimeout: () => null,
+                  );
+
+              if (studentProfile != null) {
+                studentName =
+                    (studentProfile['full_name'] ?? 'Student').toString();
+              }
+            } catch (e) {
+              // If we can't fetch student name, use default
+              studentName = 'Student';
+            }
+          }
+
+          requests.add(SessionRequest(
+            id: r['id'] as String,
+            studentName: studentName,
+            subject: (r['subject'] ?? 'General').toString(),
+            requestedAt: DateTime.parse(r['created_at'] as String),
+            status: (r['status'] ?? 'pending').toString(),
+          ));
+        }
+
+        return requests;
+      } catch (e) {
+        print('❌ Error fetching session requests: $e');
+        return [];
+      }
+    }
+
+    // Emit initial
+    yield await fetch();
+
+    // Subscribe to realtime changes for this mentor's pending sessions
+    final channel = _supabase.channel('public:mentoring_sessions')
+      ..onPostgresChanges(
+        event: PostgresChangeEvent.all,
+        schema: 'public',
+        table: 'mentoring_sessions',
+        filter: PostgresChangeFilter(
+            type: PostgresChangeFilterType.eq,
+            column: 'mentor_id',
+            value: mentorProfileId),
+        callback: (payload) async {
+          // On any change refetch list
+          ref.invalidate(sessionRequestsProvider);
+        },
+      )
+      ..subscribe();
+
+    ref.onDispose(() {
+      _supabase.removeChannel(channel);
+    });
+  } catch (e, st) {
+    // If anything fails, yield empty list instead of hanging
+    print('❌ Session requests provider error: $e');
+    print('Stack trace: $st');
+    yield const [];
   }
-
-  // Emit initial
-  yield await fetch();
-
-  // Subscribe to realtime changes for this mentor's pending sessions
-  final channel = _supabase.channel('public:mentoring_sessions')
-    ..onPostgresChanges(
-      event: PostgresChangeEvent.all,
-      schema: 'public',
-      table: 'mentoring_sessions',
-      filter: PostgresChangeFilter(
-          type: PostgresChangeFilterType.eq,
-          column: 'mentor_id',
-          value: mentorProfileId),
-      callback: (payload) async {
-        // On any change refetch list
-        ref.invalidate(sessionRequestsProvider);
-      },
-    )
-    ..subscribe();
-
-  ref.onDispose(() {
-    _supabase.removeChannel(channel);
-  });
 });
 
 /// Mutation notifier for accepting / declining a session request

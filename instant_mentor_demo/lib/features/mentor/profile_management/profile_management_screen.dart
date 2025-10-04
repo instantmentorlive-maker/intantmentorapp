@@ -1,28 +1,86 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/providers/auth_provider.dart';
 
-// Providers for mentor profile data
-final mentorProfileProvider = StateProvider<Map<String, dynamic>>((ref) => {
-      'name': 'Dr. Sarah Johnson',
-      'email': 'sarah.johnson@email.com',
-      'phone': '+1 (555) 123-4567',
-      'subjects': ['Mathematics', 'Physics', 'Chemistry'],
-      'experience': '8 years',
-      'rating': 4.9,
-      'totalSessions': 1247,
-      'hourlyRate': 45,
-      'availability': 'Mon-Fri 9AM-6PM',
-      'bio':
-          'Experienced mathematics and physics tutor with PhD in Applied Mathematics. Specialized in helping students excel in STEM subjects.',
-      'qualifications': [
-        'PhD in Applied Mathematics - MIT',
-        'MS in Physics - Stanford University',
-        'Certified Online Tutor - TeachOnline Institute'
-      ],
-      'languages': ['English', 'Spanish', 'French'],
-      'teachingStyle': 'Interactive and student-centered approach',
-    });
+final _supabase = Supabase.instance.client;
+
+// Real-time provider that fetches actual user profile data from Supabase
+final mentorProfileProvider = FutureProvider<Map<String, dynamic>>((ref) async {
+  final auth = ref.watch(authProvider);
+
+  if (!auth.isAuthenticated || auth.user == null) {
+    return {};
+  }
+
+  final userId = auth.user!.id;
+  final userEmail = auth.user!.email ?? '';
+
+  try {
+    // Fetch user profile data with timeout
+    final userProfile = await _supabase
+        .from('user_profiles')
+        .select('*')
+        .eq('id', userId)
+        .maybeSingle()
+        .timeout(
+          const Duration(seconds: 5),
+          onTimeout: () => null,
+        );
+
+    // Fetch mentor profile data with timeout
+    final mentorProfile = await _supabase
+        .from('mentor_profiles')
+        .select('*')
+        .eq('user_id', userId)
+        .maybeSingle()
+        .timeout(
+          const Duration(seconds: 5),
+          onTimeout: () => null,
+        );
+
+    // Combine data from both tables
+    return {
+      'name': userProfile?['full_name'] ?? 'User',
+      'email': userEmail,
+      'phone': userProfile?['phone'] ?? '',
+      'subjects': mentorProfile?['subjects'] != null
+          ? (mentorProfile!['subjects'] as List).cast<String>()
+          : <String>[],
+      'experience': mentorProfile?['experience'] ?? '',
+      'rating': mentorProfile?['rating']?.toDouble() ?? 0.0,
+      'totalSessions': mentorProfile?['total_sessions'] ?? 0,
+      'hourlyRate': mentorProfile?['hourly_rate'] ?? 0,
+      'availability': mentorProfile?['availability'] ?? '',
+      'bio': mentorProfile?['bio'] ?? '',
+      'qualifications': mentorProfile?['qualifications'] != null
+          ? (mentorProfile!['qualifications'] as List).cast<String>()
+          : <String>[],
+      'languages': mentorProfile?['languages'] != null
+          ? (mentorProfile!['languages'] as List).cast<String>()
+          : <String>['English'],
+      'teachingStyle': mentorProfile?['teaching_style'] ?? '',
+    };
+  } catch (e) {
+    debugPrint('❌ Error loading profile data: $e');
+    // Return minimal data with user email from auth
+    return {
+      'name': auth.user!.userMetadata?['full_name'] ?? 'User',
+      'email': userEmail,
+      'phone': '',
+      'subjects': <String>[],
+      'experience': '',
+      'rating': 0.0,
+      'totalSessions': 0,
+      'hourlyRate': 0,
+      'availability': '',
+      'bio': '',
+      'qualifications': <String>[],
+      'languages': <String>['English'],
+      'teachingStyle': '',
+    };
+  }
+});
 
 final editingModeProvider = StateProvider<bool>((ref) => false);
 
@@ -87,12 +145,8 @@ class _ProfileManagementScreenState
 
   @override
   Widget build(BuildContext context) {
-    final profile = ref.watch(mentorProfileProvider);
+    final profileAsync = ref.watch(mentorProfileProvider);
     final isEditing = ref.watch(editingModeProvider);
-
-    if (isEditing && !_controllersInitialized) {
-      _populateControllers(profile);
-    }
 
     return Scaffold(
       appBar: AppBar(
@@ -102,186 +156,239 @@ class _ProfileManagementScreenState
         actions: [
           IconButton(
             icon: Icon(isEditing ? Icons.save : Icons.edit),
-            onPressed: () {
-              if (isEditing) {
-                _saveProfile(context);
-              } else {
-                _controllersInitialized = false; // force re-population
-                ref.read(editingModeProvider.notifier).state = true;
-              }
-            },
+            onPressed: profileAsync.hasValue
+                ? () {
+                    if (isEditing) {
+                      _saveProfile(context, profileAsync.value!);
+                    } else {
+                      _controllersInitialized = false; // force re-population
+                      ref.read(editingModeProvider.notifier).state = true;
+                    }
+                  }
+                : null,
           ),
         ],
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildProfileHeader(context, profile, isEditing),
-            const SizedBox(height: 24),
-            _buildSection(
-              context,
-              'Basic Information',
-              [
-                _buildInfoTile('Name', profile['name'], Icons.person, isEditing,
-                    controller: _nameController),
-                _buildInfoTile(
-                    'Email', profile['email'], Icons.email, isEditing,
-                    controller: _emailController),
-                _buildInfoTile(
-                    'Phone', profile['phone'], Icons.phone, isEditing,
-                    controller: _phoneController),
+      body: profileAsync.when(
+        data: (profile) {
+          // Initialize controllers if entering edit mode
+          if (isEditing && !_controllersInitialized) {
+            _populateControllers(profile);
+          }
+
+          return SingleChildScrollView(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildProfileHeader(context, profile, isEditing),
+                const SizedBox(height: 24),
+                _buildSection(
+                  context,
+                  'Basic Information',
+                  [
+                    _buildInfoTile(
+                        'Name', profile['name'], Icons.person, isEditing,
+                        controller: _nameController),
+                    _buildInfoTile(
+                        'Email', profile['email'], Icons.email, isEditing,
+                        controller: _emailController),
+                    _buildInfoTile(
+                        'Phone', profile['phone'], Icons.phone, isEditing,
+                        controller: _phoneController),
+                  ],
+                ),
+                _buildSection(
+                  context,
+                  'Teaching Information',
+                  [
+                    _buildSubjectsTile(profile['subjects'], isEditing,
+                        controller: _subjectsController),
+                    _buildInfoTile('Experience', profile['experience'],
+                        Icons.work, isEditing,
+                        controller: _experienceController),
+                    _buildInfoTile(
+                        'Hourly Rate',
+                        '\$${profile['hourlyRate']}/hour',
+                        Icons.attach_money,
+                        isEditing,
+                        controller: _hourlyRateController),
+                    _buildInfoTile('Availability', profile['availability'],
+                        Icons.schedule, isEditing,
+                        controller: _availabilityController),
+                  ],
+                ),
+                _buildSection(
+                  context,
+                  'Professional Profile',
+                  [
+                    _buildBioTile(profile['bio'], isEditing,
+                        controller: _bioController),
+                    _buildQualificationsTile(
+                        profile['qualifications'], isEditing,
+                        controller: _qualificationsController),
+                    _buildLanguagesTile(profile['languages'], isEditing,
+                        controller: _languagesController),
+                    _buildInfoTile('Teaching Style', profile['teachingStyle'],
+                        Icons.school, isEditing,
+                        controller: _teachingStyleController),
+                  ],
+                ),
+                _buildSection(
+                  context,
+                  'Statistics',
+                  [
+                    _buildStatTile('Rating', '${profile['rating']}/5.0',
+                        Icons.star, Colors.amber),
+                    _buildStatTile(
+                        'Total Sessions',
+                        '${profile['totalSessions']}',
+                        Icons.video_call,
+                        Colors.blue),
+                    _buildStatTile(
+                        'Students Taught',
+                        '${(profile['totalSessions'] * 0.3).round()}',
+                        Icons.people,
+                        Colors.green),
+                  ],
+                ),
+                const SizedBox(height: 24),
               ],
             ),
-            _buildSection(
-              context,
-              'Teaching Information',
-              [
-                _buildSubjectsTile(profile['subjects'], isEditing,
-                    controller: _subjectsController),
-                _buildInfoTile(
-                    'Experience', profile['experience'], Icons.work, isEditing,
-                    controller: _experienceController),
-                _buildInfoTile('Hourly Rate', '\$${profile['hourlyRate']}/hour',
-                    Icons.attach_money, isEditing,
-                    controller: _hourlyRateController),
-                _buildInfoTile('Availability', profile['availability'],
-                    Icons.schedule, isEditing,
-                    controller: _availabilityController),
+          );
+        },
+        loading: () => const Center(
+          child: Padding(
+            padding: EdgeInsets.all(32),
+            child: CircularProgressIndicator(),
+          ),
+        ),
+        error: (error, stack) => Center(
+          child: Padding(
+            padding: const EdgeInsets.all(32),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.error_outline, size: 48, color: Colors.red),
+                const SizedBox(height: 16),
+                Text(
+                  'Failed to load profile',
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  error.toString(),
+                  style: Theme.of(context).textTheme.bodySmall,
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 16),
+                ElevatedButton(
+                  onPressed: () => ref.invalidate(mentorProfileProvider),
+                  child: const Text('Retry'),
+                ),
               ],
             ),
-            _buildSection(
-              context,
-              'Professional Profile',
-              [
-                _buildBioTile(profile['bio'], isEditing,
-                    controller: _bioController),
-                _buildQualificationsTile(profile['qualifications'], isEditing,
-                    controller: _qualificationsController),
-                _buildLanguagesTile(profile['languages'], isEditing,
-                    controller: _languagesController),
-                _buildInfoTile('Teaching Style', profile['teachingStyle'],
-                    Icons.school, isEditing,
-                    controller: _teachingStyleController),
-              ],
-            ),
-            _buildSection(
-              context,
-              'Statistics',
-              [
-                _buildStatTile('Rating', '${profile['rating']}/5.0', Icons.star,
-                    Colors.amber),
-                _buildStatTile('Total Sessions', '${profile['totalSessions']}',
-                    Icons.video_call, Colors.blue),
-                _buildStatTile(
-                    'Students Taught',
-                    '${(profile['totalSessions'] * 0.3).round()}',
-                    Icons.people,
-                    Colors.green),
-              ],
-            ),
-            const SizedBox(height: 24),
-          ],
+          ),
         ),
       ),
     );
   }
 
-  void _saveProfile(BuildContext context) {
-    final original = ref.read(mentorProfileProvider);
+  Future<void> _saveProfile(
+      BuildContext context, Map<String, dynamic> original) async {
+    final auth = ref.read(authProvider);
+    if (!auth.isAuthenticated || auth.user == null) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Not authenticated'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+      return;
+    }
+
+    final userId = auth.user!.id;
 
     // Build updated map
-    final updated = Map<String, dynamic>.from(original)
-      ..update('name', (_) => _nameController.text.trim(),
-          ifAbsent: () => _nameController.text.trim())
-      ..update('email', (_) => _emailController.text.trim(),
-          ifAbsent: () => _emailController.text.trim())
-      ..update('phone', (_) => _phoneController.text.trim(),
-          ifAbsent: () => _phoneController.text.trim())
-      ..update(
-          'subjects',
-          (_) => _subjectsController.text
-              .split(',')
-              .map((e) => e.trim())
-              .where((e) => e.isNotEmpty)
-              .toList(),
-          ifAbsent: () => _subjectsController.text
-              .split(',')
-              .map((e) => e.trim())
-              .where((e) => e.isNotEmpty)
-              .toList())
-      ..update('experience', (_) => _experienceController.text.trim(),
-          ifAbsent: () => _experienceController.text.trim())
-      ..update('hourlyRate', (_) => _parseHourly(_hourlyRateController.text),
-          ifAbsent: () => _parseHourly(_hourlyRateController.text))
-      ..update('availability', (_) => _availabilityController.text.trim(),
-          ifAbsent: () => _availabilityController.text.trim())
-      ..update('bio', (_) => _bioController.text.trim(),
-          ifAbsent: () => _bioController.text.trim())
-      ..update(
-          'qualifications',
-          (_) => _qualificationsController.text
-              .split('\n')
-              .map((e) => e.trim())
-              .where((e) => e.isNotEmpty)
-              .toList(),
-          ifAbsent: () => _qualificationsController.text
-              .split('\n')
-              .map((e) => e.trim())
-              .where((e) => e.isNotEmpty)
-              .toList())
-      ..update(
-          'languages',
-          (_) => _languagesController.text
-              .split(',')
-              .map((e) => e.trim())
-              .where((e) => e.isNotEmpty)
-              .toList(),
-          ifAbsent: () => _languagesController.text
-              .split(',')
-              .map((e) => e.trim())
-              .where((e) => e.isNotEmpty)
-              .toList())
-      ..update('teachingStyle', (_) => _teachingStyleController.text.trim(),
-          ifAbsent: () => _teachingStyleController.text.trim());
+    final updated = {
+      'full_name': _nameController.text.trim(),
+      'phone': _phoneController.text.trim(),
+      'subjects': _subjectsController.text
+          .split(',')
+          .map((e) => e.trim())
+          .where((e) => e.isNotEmpty)
+          .toList(),
+      'experience': _experienceController.text.trim(),
+      'hourly_rate': _parseHourly(_hourlyRateController.text),
+      'availability': _availabilityController.text.trim(),
+      'bio': _bioController.text.trim(),
+      'qualifications': _qualificationsController.text
+          .split('\n')
+          .map((e) => e.trim())
+          .where((e) => e.isNotEmpty)
+          .toList(),
+      'languages': _languagesController.text
+          .split(',')
+          .map((e) => e.trim())
+          .where((e) => e.isNotEmpty)
+          .toList(),
+      'teaching_style': _teachingStyleController.text.trim(),
+    };
 
-    final hasChanges = !_mapShallowEquals(original, updated);
+    try {
+      // Update user_profiles table
+      await _supabase
+          .from('user_profiles')
+          .update({
+            'full_name': updated['full_name'],
+            'phone': updated['phone'],
+          })
+          .eq('id', userId)
+          .timeout(const Duration(seconds: 10));
 
-    // Update local provider state
-    ref.read(mentorProfileProvider.notifier).state = updated;
+      // Update mentor_profiles table
+      await _supabase
+          .from('mentor_profiles')
+          .update({
+            'subjects': updated['subjects'],
+            'experience': updated['experience'],
+            'hourly_rate': updated['hourly_rate'],
+            'availability': updated['availability'],
+            'bio': updated['bio'],
+            'qualifications': updated['qualifications'],
+            'languages': updated['languages'],
+            'teaching_style': updated['teaching_style'],
+          })
+          .eq('user_id', userId)
+          .timeout(const Duration(seconds: 10));
 
-    // Persist via auth provider (best-effort)
-    ref.read(authProvider.notifier).updateProfile(updated);
+      // Refresh the profile provider to fetch updated data
+      ref.invalidate(mentorProfileProvider);
 
-    ref.read(editingModeProvider.notifier).state = false;
-    _controllersInitialized = false; // reset to ensure fresh load next edit
+      ref.read(editingModeProvider.notifier).state = false;
+      _controllersInitialized = false; // reset to ensure fresh load next edit
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(hasChanges
-            ? 'Profile updated successfully!'
-            : 'No changes to save'),
-        backgroundColor: hasChanges ? Colors.green : Colors.orange,
-      ),
-    );
-  }
-
-  bool _mapShallowEquals(Map a, Map b) {
-    if (a.length != b.length) return false;
-    for (final key in a.keys) {
-      final av = a[key];
-      final bv = b[key];
-      if (av is List && bv is List) {
-        if (av.length != bv.length) return false;
-        for (int i = 0; i < av.length; i++) {
-          if (av[i] != bv[i]) return false;
-        }
-      } else if (av != bv) {
-        return false;
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Profile updated successfully!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint('❌ Error saving profile: $e');
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to save profile: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
       }
     }
-    return true;
   }
 
   num _parseHourly(String input) {

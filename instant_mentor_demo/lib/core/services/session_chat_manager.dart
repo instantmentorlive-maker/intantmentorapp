@@ -1,5 +1,7 @@
 import 'dart:async';
+import 'dart:convert';
 import 'package:flutter/foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../models/chat.dart';
 import 'chat_service.dart';
 
@@ -16,6 +18,85 @@ class SessionChatManager {
   final Map<String, Map<String, dynamic>> _sessionInfo =
       {}; // Store session metadata
 
+  // Track if persistence has been loaded
+  bool _isLoaded = false;
+  Future<void>? _loadingFuture;
+
+  // SharedPreferences keys
+  static const String _sessionChatsKey = 'session_chats';
+  static const String _sessionThreadsKey = 'session_threads';
+
+  /// Ensure persistence is loaded before any operations
+  Future<void> _ensureLoaded() async {
+    if (_isLoaded) return;
+
+    // If already loading, wait for it
+    if (_loadingFuture != null) {
+      await _loadingFuture;
+      return;
+    }
+
+    // Start loading
+    _loadingFuture = _loadPersistedSessions();
+    await _loadingFuture;
+    _isLoaded = true;
+  }
+
+  /// Load persisted session data from SharedPreferences
+  Future<void> _loadPersistedSessions() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+
+      // Load session chats
+      final chatsJson = prefs.getString(_sessionChatsKey);
+      if (chatsJson != null) {
+        final Map<String, dynamic> chatsMap = json.decode(chatsJson);
+        chatsMap.forEach((sessionKey, messagesJson) {
+          final List<dynamic> messagesList = messagesJson as List<dynamic>;
+          _sessionChats[sessionKey] = messagesList
+              .map((msgJson) =>
+                  ChatMessage.fromJson(msgJson as Map<String, dynamic>))
+              .toList();
+        });
+        debugPrint('📦 Loaded ${_sessionChats.length} persisted session chats');
+      }
+
+      // Load session threads
+      final threadsJson = prefs.getString(_sessionThreadsKey);
+      if (threadsJson != null) {
+        final Map<String, dynamic> threadsMap = json.decode(threadsJson);
+        _sessionChatThreads.addAll(threadsMap.cast<String, String>());
+        debugPrint(
+            '📦 Loaded ${_sessionChatThreads.length} persisted session threads');
+      }
+    } catch (e) {
+      debugPrint('❌ Failed to load persisted sessions: $e');
+    }
+  }
+
+  /// Save all session data to SharedPreferences
+  Future<void> _persistSessions() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+
+      // Convert session chats to JSON
+      final Map<String, dynamic> chatsMap = {};
+      _sessionChats.forEach((sessionKey, messages) {
+        chatsMap[sessionKey] = messages.map((msg) => msg.toJson()).toList();
+      });
+      await prefs.setString(_sessionChatsKey, json.encode(chatsMap));
+
+      // Save session threads
+      await prefs.setString(
+          _sessionThreadsKey, json.encode(_sessionChatThreads));
+
+      debugPrint(
+          '💾 Persisted ${_sessionChats.length} session chats to storage');
+    } catch (e) {
+      debugPrint('❌ Failed to persist sessions: $e');
+    }
+  }
+
   /// Initialize chat for a session between student and mentor
   Future<List<ChatMessage>> initializeSessionChat({
     required String sessionKey,
@@ -23,6 +104,9 @@ class SessionChatManager {
     required String mentorId,
     String? mentorName,
   }) async {
+    // Ensure persisted data is loaded first
+    await _ensureLoaded();
+
     debugPrint(
         '🚀 SessionChatManager: Initializing session chat for $sessionKey');
 
@@ -71,6 +155,7 @@ class SessionChatManager {
 
       // Cache the messages
       _sessionChats[sessionKey] = finalMessages;
+      await _persistSessions();
       debugPrint(
           '✅ Session chat initialized with ${finalMessages.length} total messages');
 
@@ -97,6 +182,7 @@ class SessionChatManager {
     required String senderName,
     required String content,
   }) async {
+    await _ensureLoaded();
     debugPrint('💾 SessionChatManager: Sending message in session $sessionKey');
 
     // Create local message immediately
@@ -113,7 +199,16 @@ class SessionChatManager {
     // Add to local cache immediately
     if (_sessionChats.containsKey(sessionKey)) {
       _sessionChats[sessionKey]!.add(localMessage);
+      debugPrint(
+          '📥 Added message to cache. Total messages in $sessionKey: ${_sessionChats[sessionKey]!.length}');
+    } else {
+      debugPrint(
+          '⚠️ Session key $sessionKey not found in cache. Initializing new list.');
+      _sessionChats[sessionKey] = [localMessage];
     }
+
+    // Persist to storage
+    await _persistSessions();
 
     // Try to save to database
     try {
@@ -137,6 +232,9 @@ class SessionChatManager {
           }
         }
 
+        // Persist to storage
+        await _persistSessions();
+
         debugPrint('✅ Message saved to database successfully');
         return updatedMessage;
       } else {
@@ -151,12 +249,17 @@ class SessionChatManager {
   }
 
   /// Get messages for a session
-  List<ChatMessage> getSessionMessages(String sessionKey) {
-    return List.from(_sessionChats[sessionKey] ?? []);
+  Future<List<ChatMessage>> getSessionMessages(String sessionKey) async {
+    await _ensureLoaded();
+    final messages = _sessionChats[sessionKey] ?? [];
+    debugPrint(
+        '📤 SessionChatManager.getSessionMessages($sessionKey): returning ${messages.length} messages');
+    return List.from(messages);
   }
 
   /// Refresh messages from database for a session
   Future<List<ChatMessage>> refreshSessionMessages(String sessionKey) async {
+    await _ensureLoaded();
     final chatThreadId = _sessionChatThreads[sessionKey];
     if (chatThreadId == null || chatThreadId.startsWith('demo_')) {
       debugPrint('⚠️ No real chat thread to refresh for session $sessionKey');
@@ -170,6 +273,7 @@ class SessionChatManager {
 
       // Update cache
       _sessionChats[sessionKey] = List.from(messages);
+      await _persistSessions();
       debugPrint(
           '✅ Refreshed ${messages.length} messages for session $sessionKey');
 
@@ -217,6 +321,28 @@ class SessionChatManager {
     _sessionChats.remove(sessionKey);
     _sessionChatThreads.remove(sessionKey);
     debugPrint('🗑️ Cleared cache for session $sessionKey');
+  }
+
+  /// Initialize a demo session with pre-existing messages
+  /// Only initializes if the session doesn't already have persisted messages
+  Future<void> initializeDemoSession(
+      String sessionKey, List<ChatMessage> messages) async {
+    await _ensureLoaded();
+
+    // Check if session already has messages (from persistence)
+    if (_sessionChats.containsKey(sessionKey) &&
+        _sessionChats[sessionKey]!.isNotEmpty) {
+      debugPrint(
+          '✅ Demo session $sessionKey already has ${_sessionChats[sessionKey]!.length} persisted messages, skipping initialization');
+      return;
+    }
+
+    // No persisted messages, initialize with provided messages
+    _sessionChats[sessionKey] = List.from(messages);
+    _sessionChatThreads[sessionKey] = 'demo_$sessionKey';
+    await _persistSessions();
+    debugPrint(
+        '🎭 Initialized demo session $sessionKey with ${messages.length} messages');
   }
 
   /// Create welcome messages for a new chat

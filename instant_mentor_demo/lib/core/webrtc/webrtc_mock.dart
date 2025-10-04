@@ -60,6 +60,14 @@ class MockMediaDevices {
 
     return MediaStream();
   }
+
+  Future<MediaStream> getDisplayMedia(Map<String, dynamic> constraints) async {
+    // Simulate screen sharing prompt delay
+    await Future.delayed(const Duration(milliseconds: 300));
+
+    // Return mock screen sharing stream
+    return MediaStream();
+  }
 }
 
 // Mock Navigator class - different name to avoid conflict

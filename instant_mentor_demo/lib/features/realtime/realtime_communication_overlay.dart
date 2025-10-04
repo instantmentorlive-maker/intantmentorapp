@@ -22,8 +22,10 @@ class RealtimeCommunicationOverlay extends ConsumerWidget {
     final userRole = user?.userMetadata?['role'];
     final goRouter = ref.watch(goRouterProvider);
     final currentRoute = goRouter.routerDelegate.currentConfiguration.uri.path;
-    final isOnHomePage =
-        currentRoute == '/student/home' || currentRoute == '/mentor/home';
+
+    // Debug logging to verify route detection
+    print(
+        '🔍 RealtimeCommunicationOverlay: currentRoute = $currentRoute, userRole = $userRole');
 
     // Note: Do NOT call GoRouterState.of(context) here because this widget
     // is inserted via MaterialApp.router's `builder` and the provided
@@ -43,23 +45,23 @@ class RealtimeCommunicationOverlay extends ConsumerWidget {
           child: CallNotificationWidget(),
         ),
 
-        // Mentor-specific widgets - now ONLY on home page (bug fix)
-        if (userRole == 'mentor' && isOnHomePage) ...[
-          const Positioned(
-            bottom: 20,
-            right: 16,
-            child: _MinimizableMentorStatus(),
-          ),
-        ],
+        // Mentor-specific widgets - DISABLED FOR TESTING
+        // if (userRole == 'mentor' && currentRoute == '/mentor/home') ...[
+        //   const Positioned(
+        //     bottom: 20,
+        //     right: 16,
+        //     child: _MinimizableMentorStatus(),
+        //   ),
+        // ],
 
-        // Student-specific widgets - only show on home page
-        if (userRole == 'student' && isOnHomePage) ...[
-          Positioned(
-            bottom: 20,
-            right: 16,
-            child: _FloatingHelpButton(),
-          ),
-        ],
+        // Student-specific widgets - DISABLED FOR TESTING
+        // if (userRole == 'student' && currentRoute == '/student/home') ...[
+        //   Positioned(
+        //     bottom: 20,
+        //     right: 16,
+        //     child: _FloatingHelpButton(),
+        //   ),
+        // ],
       ],
     );
   }
@@ -104,63 +106,73 @@ class _MinimizableMentorStatusState
           : Semantics(
               button: true,
               label: 'Show mentor status panel',
-              child: FloatingActionButton(
+              child: _CircleIconButton(
                 key: const ValueKey('mentor_status_fab'),
                 onPressed: _toggle,
-                tooltip: 'Mentor Status',
                 backgroundColor: Theme.of(context).colorScheme.primary,
-                child: const Icon(Icons.person, color: Colors.white),
+                icon: Icons.person,
+                semanticLabel: 'Open mentor status panel',
               ),
             ),
     );
   }
 
   Widget _buildExpanded(BuildContext context) {
-    // Start animation if just expanded
     if (!_controller.isAnimating && !_controller.isCompleted) {
       _controller.forward(from: 0);
     }
+
+    final theme = Theme.of(context);
+    final hasOverlay = Overlay.maybeOf(context) != null;
+
     return Material(
       key: const ValueKey('mentor_status_panel'),
       elevation: 8,
       borderRadius: BorderRadius.circular(16),
       clipBehavior: Clip.antiAlias,
       child: Container(
-        width: 340,
         height: 420,
         decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.surface,
+          color: theme.colorScheme.surface,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: Theme.of(context).colorScheme.primary.withOpacity(0.25),
+            color: theme.colorScheme.primary.withOpacity(0.25),
           ),
         ),
         child: Stack(
           children: [
             const Positioned.fill(
-              child: Padding(
-                padding: EdgeInsets.only(top: 8.0),
-                child: MentorStatusWidget(),
+              child: MentorStatusWidget(),
+            ),
+            Positioned(
+              top: 12,
+              right: 12,
+              child: Semantics(
+                button: true,
+                label: 'Close mentor status panel',
+                child: IconButton(
+                  tooltip: hasOverlay ? 'Close mentor status' : null,
+                  splashRadius: 20,
+                  onPressed: _toggle,
+                  icon: const Icon(Icons.close),
+                ),
               ),
             ),
             Positioned(
-              top: 4,
-              right: 4,
-              child: IconButton(
-                tooltip: 'Close mentor status',
-                onPressed: _toggle,
-                icon: const Icon(Icons.close),
-                splashRadius: 20,
-              ),
-            ),
-            Positioned(
-              bottom: 8,
-              right: 8,
-              child: FloatingActionButton.small(
-                heroTag: 'mentor_status_minimize',
-                tooltip: 'Minimize',
-                onPressed: _toggle,
-                child: const Icon(Icons.arrow_downward),
+              bottom: 12,
+              right: 12,
+              child: Tooltip(
+                message:
+                    hasOverlay ? 'Minimize' : 'Minimize mentor status panel',
+                child: _CircleIconButton(
+                  key: const ValueKey('mentor_status_minimize'),
+                  onPressed: _toggle,
+                  backgroundColor: theme.colorScheme.primary,
+                  icon: Icons.arrow_downward,
+                  semanticLabel: 'Minimize mentor status panel',
+                  size: 48,
+                  elevation: 4,
+                ),
               ),
             ),
           ],
@@ -178,6 +190,48 @@ class _MinimizableMentorStatusState
       }
       _isExpanded = !_isExpanded;
     });
+  }
+}
+
+class _CircleIconButton extends StatelessWidget {
+  const _CircleIconButton({
+    required this.onPressed,
+    required this.backgroundColor,
+    required this.icon,
+    required this.semanticLabel,
+    this.size = 56,
+    this.elevation = 6,
+    super.key,
+  });
+
+  final VoidCallback onPressed;
+  final Color backgroundColor;
+  final IconData icon;
+  final double size;
+  final double elevation;
+  final String semanticLabel;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      label: semanticLabel,
+      child: Material(
+        color: backgroundColor,
+        elevation: elevation,
+        shape: const CircleBorder(),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onPressed,
+          customBorder: const CircleBorder(),
+          child: SizedBox(
+            width: size,
+            height: size,
+            child: Icon(icon, color: Colors.white),
+          ),
+        ),
+      ),
+    );
   }
 }
 

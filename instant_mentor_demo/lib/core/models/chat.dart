@@ -141,6 +141,39 @@ class ChatThread {
   }
 
   ChatMessage? get lastMessage => messages.isNotEmpty ? messages.last : null;
+
+  // JSON serialization for local storage
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'studentId': studentId,
+      'studentName': studentName,
+      'mentorId': mentorId,
+      'mentorName': mentorName,
+      'messages': messages.map((m) => m.toJson()).toList(),
+      'lastActivity': lastActivity.toIso8601String(),
+      'unreadCount': unreadCount,
+      'subject': subject,
+    };
+  }
+
+  // JSON deserialization for local storage
+  factory ChatThread.fromJson(Map<String, dynamic> json) {
+    return ChatThread(
+      id: json['id'],
+      studentId: json['studentId'],
+      studentName: json['studentName'],
+      mentorId: json['mentorId'],
+      mentorName: json['mentorName'],
+      messages: (json['messages'] as List?)
+              ?.map((m) => ChatMessage.fromJson(m))
+              .toList() ??
+          [],
+      lastActivity: DateTime.parse(json['lastActivity']),
+      unreadCount: json['unreadCount'] ?? 0,
+      subject: json['subject'],
+    );
+  }
 }
 
 class ResourceTemplate {

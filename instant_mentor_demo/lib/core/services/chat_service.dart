@@ -1,5 +1,7 @@
 import 'dart:async';
+import 'dart:convert';
 import 'package:flutter/foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/chat.dart';
 import 'supabase_service.dart';
@@ -16,14 +18,77 @@ class ChatService {
   factory ChatService() => _instance;
   static ChatService get instance => _instance;
 
-  ChatService._internal();
+  ChatService._internal() {
+    _loadPersistedData();
+  }
 
   // Get Supabase client
   SupabaseClient get _client => SupabaseService.instance.client;
 
-  // Add field to store mock messages temporarily
+  // Add field to store mock messages temporarily (now persisted)
   final Map<String, List<ChatMessage>> _mockMessages = {};
   final Map<String, ChatThread> _mockThreads = {};
+
+  // Keys for SharedPreferences
+  static const String _messagesKey = 'chat_messages_cache';
+  static const String _threadsKey = 'chat_threads_cache';
+
+  /// Load persisted chat data from SharedPreferences
+  Future<void> _loadPersistedData() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+
+      // Load messages
+      final messagesJson = prefs.getString(_messagesKey);
+      if (messagesJson != null) {
+        final Map<String, dynamic> messagesData = json.decode(messagesJson);
+        messagesData.forEach((chatId, messagesList) {
+          _mockMessages[chatId] = (messagesList as List)
+              .map((msgJson) => ChatMessage.fromJson(msgJson))
+              .toList();
+        });
+        debugPrint('✅ Loaded ${_mockMessages.length} chat threads from cache');
+      }
+
+      // Load threads
+      final threadsJson = prefs.getString(_threadsKey);
+      if (threadsJson != null) {
+        final Map<String, dynamic> threadsData = json.decode(threadsJson);
+        threadsData.forEach((threadId, threadJson) {
+          _mockThreads[threadId] = ChatThread.fromJson(threadJson);
+        });
+        debugPrint(
+            '✅ Loaded ${_mockThreads.length} chat threads metadata from cache');
+      }
+    } catch (e) {
+      debugPrint('⚠️ Failed to load persisted chat data: $e');
+    }
+  }
+
+  /// Save chat data to SharedPreferences
+  Future<void> _persistData() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+
+      // Save messages
+      final messagesData = <String, dynamic>{};
+      _mockMessages.forEach((chatId, messages) {
+        messagesData[chatId] = messages.map((msg) => msg.toJson()).toList();
+      });
+      await prefs.setString(_messagesKey, json.encode(messagesData));
+
+      // Save threads
+      final threadsData = <String, dynamic>{};
+      _mockThreads.forEach((threadId, thread) {
+        threadsData[threadId] = thread.toJson();
+      });
+      await prefs.setString(_threadsKey, json.encode(threadsData));
+
+      debugPrint('💾 Chat data persisted to local storage');
+    } catch (e) {
+      debugPrint('⚠️ Failed to persist chat data: $e');
+    }
+  }
 
   String _getMentorName(String mentorId) {
     // Map mentor IDs to names
@@ -86,6 +151,9 @@ class ChatService {
           lastActivity: DateTime.now(),
           messages: [],
         );
+
+        // Persist the new thread immediately
+        _persistData();
       }
 
       return mockThreadId;
@@ -350,6 +418,9 @@ class ChatService {
 
       // Store in local mock storage
       _mockMessages[chatId] = (_mockMessages[chatId] ?? [])..add(newMessage);
+
+      // Persist to local storage immediately
+      await _persistData();
 
       // Try to update database if available (don't fail if it doesn't work)
       try {

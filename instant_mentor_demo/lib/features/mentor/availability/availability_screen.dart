@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../common/widgets/mentor_status_widget.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:convert';
+
 import '../../../core/providers/user_provider.dart';
+import '../../common/widgets/mentor_status_widget.dart';
 
 class AvailabilityScreen extends ConsumerStatefulWidget {
   const AvailabilityScreen({super.key});
@@ -28,20 +31,64 @@ class _AvailabilityScreenState extends ConsumerState<AvailabilityScreen> {
   @override
   void initState() {
     super.initState();
-    // Initialize with current mentor status
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final mentorStatus = ref.read(mentorStatusProvider);
-      if (isAvailable != mentorStatus.isAvailable) {
+    // Load saved settings from SharedPreferences
+    _loadSavedSettings();
+  }
+
+  /// Load saved availability settings from SharedPreferences
+  Future<void> _loadSavedSettings() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final userId = ref.read(userProvider)?.id ?? 'default';
+
+      // Load availability status
+      final savedIsAvailable = prefs.getBool('availability_status_$userId');
+      if (savedIsAvailable != null) {
         setState(() {
-          isAvailable = mentorStatus.isAvailable;
+          isAvailable = savedIsAvailable;
         });
       }
-    });
+
+      // Load weekly schedule
+      final savedScheduleJson = prefs.getString('weekly_schedule_$userId');
+      if (savedScheduleJson != null) {
+        final Map<String, dynamic> decodedSchedule =
+            json.decode(savedScheduleJson);
+        setState(() {
+          weeklySchedule
+              .updateAll((key, value) => decodedSchedule[key] ?? value);
+        });
+      }
+
+      // Sync with mentor status provider
+      final mentorStatus = ref.read(mentorStatusProvider);
+      if (isAvailable != mentorStatus.isAvailable) {
+        ref.read(mentorStatusProvider.notifier).updateStatus(
+              isAvailable,
+              isAvailable ? 'Available for sessions' : 'Currently busy',
+            );
+      }
+
+      debugPrint('✅ Loaded saved availability settings for user: $userId');
+    } catch (e) {
+      debugPrint('⚠️ Error loading saved settings: $e');
+    }
   }
 
   /// Save availability settings and update mentor status
   Future<void> _saveAvailabilitySettings() async {
     try {
+      final userId = ref.read(userProvider)?.id ?? 'default';
+      final prefs = await SharedPreferences.getInstance();
+
+      // Save to SharedPreferences for persistence
+      await prefs.setBool('availability_status_$userId', isAvailable);
+      await prefs.setString(
+          'weekly_schedule_$userId', json.encode(weeklySchedule));
+
+      debugPrint(
+          '💾 Saved to SharedPreferences: isAvailable=$isAvailable, schedule=$weeklySchedule');
+
       // Update the mentor status based on current availability
       final statusMessage =
           isAvailable ? 'Available for sessions' : 'Currently busy';
@@ -59,7 +106,7 @@ class _AvailabilityScreenState extends ConsumerState<AvailabilityScreen> {
           isAvailable: isAvailable,
           statusMessage: statusMessage,
           statusData: {
-            'userId': ref.read(userProvider)?.id,
+            'userId': userId,
             'timestamp': DateTime.now().toIso8601String(),
             'weeklySchedule': weeklySchedule,
             'availableDays': weeklySchedule.entries
@@ -68,7 +115,7 @@ class _AvailabilityScreenState extends ConsumerState<AvailabilityScreen> {
                 .toList(),
           },
         );
-        debugPrint('✅ Availability settings saved successfully');
+        debugPrint('✅ Availability settings saved successfully via WebSocket');
       } catch (e) {
         debugPrint(
             '⚠️ WebSocket update failed (local settings still saved): $e');
@@ -119,11 +166,11 @@ class _AvailabilityScreenState extends ConsumerState<AvailabilityScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Row(
+            content: const Row(
               children: [
-                const Icon(Icons.error_outline, color: Colors.white),
-                const SizedBox(width: 8),
-                const Expanded(
+                Icon(Icons.error_outline, color: Colors.white),
+                SizedBox(width: 8),
+                Expanded(
                   child: Text(
                     '❌ Failed to save settings',
                     style: TextStyle(fontWeight: FontWeight.w600),
