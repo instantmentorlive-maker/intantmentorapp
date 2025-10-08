@@ -538,7 +538,7 @@ void _showMentorDetails(
                       icon: const Icon(Icons.video_call),
                       label: Text(
                         presence?.isAvailable == true
-                            ? 'Start Session (\$${mentor.hourlyRate.toInt()}/hr)'
+                            ? 'Start Session (₹${mentor.hourlyRate.toInt()}/hr)'
                             : 'Schedule Session',
                       ),
                       style: ElevatedButton.styleFrom(
@@ -602,7 +602,7 @@ void _showQuickConnectDialog(BuildContext context, Mentor mentor) {
             ),
           ),
           const SizedBox(height: 16),
-          Text('Rate: \$${mentor.hourlyRate.toInt()}/hour'),
+          Text('Rate: ₹${mentor.hourlyRate.toInt()}/hour'),
           const Text('Minimum session: 15 minutes'),
         ],
       ),

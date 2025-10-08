@@ -9,6 +9,7 @@ import '../../features/mentor/availability/availability_screen.dart';
 import '../../features/mentor/chat/mentor_chat_screen.dart';
 import '../../features/mentor/earnings/earnings_screen.dart';
 import '../../features/mentor/home/mentor_home_screen.dart';
+import '../../features/mentor/onboarding/mentor_onboarding_screen.dart';
 import '../../features/mentor/requests/session_requests_screen.dart';
 import '../../features/shared/live_session/live_session_screen.dart';
 import '../../features/shared/more/more_menu_screen.dart';
@@ -108,6 +109,10 @@ final goRouterProvider = Provider<GoRouter>((ref) {
             builder: (context, state) => const MentorHomeScreen(),
           ),
           GoRoute(
+            path: '/mentor/onboarding',
+            builder: (context, state) => const MentorOnboardingScreen(),
+          ),
+          GoRoute(
             path: '/mentor/requests',
             builder: (context, state) => const SessionRequestsScreen(),
           ),
@@ -178,6 +183,12 @@ final goRouterProvider = Provider<GoRouter>((ref) {
 
       // Handle authenticated users
       if (isAuthenticated) {
+        // Check for new mentor signup and redirect to onboarding first
+        if (authState.isNewMentorSignup && location != '/mentor/onboarding') {
+          debugPrint('GoRouter: New mentor signup, redirecting to onboarding');
+          return '/mentor/onboarding';
+        }
+
         // Redirect from auth pages to appropriate home based on user role
         if (location == '/login' || location == '/signup' || location == '/') {
           try {

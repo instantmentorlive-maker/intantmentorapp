@@ -53,11 +53,9 @@ class MockMediaDevices {
     // Simulate camera access delay
     await Future.delayed(const Duration(milliseconds: 500));
 
-    // Simulate permission denied for demo
-    if (constraints['video'] != false) {
-      throw Exception('NotAllowedError: Permission denied');
-    }
-
+    // ✅ FIXED: Now successfully returns mock stream instead of throwing error
+    // This allows the video call UI to work properly in demo mode
+    debugPrint('✅ Mock camera access granted');
     return MediaStream();
   }
 
@@ -66,6 +64,7 @@ class MockMediaDevices {
     await Future.delayed(const Duration(milliseconds: 300));
 
     // Return mock screen sharing stream
+    debugPrint('✅ Mock screen sharing started');
     return MediaStream();
   }
 }

@@ -9,6 +9,7 @@ import '../../features/mentor/availability/availability_screen.dart';
 import '../../features/mentor/chat/mentor_chat_screen.dart';
 import '../../features/mentor/earnings/earnings_screen.dart';
 import '../../features/mentor/home/mentor_home_screen.dart';
+import '../../features/mentor/onboarding/mentor_onboarding_screen.dart';
 import '../../features/mentor/requests/session_requests_screen.dart';
 import '../../features/shared/live_session/live_session_screen.dart';
 import '../../features/shared/more/more_menu_screen.dart';
@@ -34,6 +35,10 @@ final goRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/signup',
         builder: (context, state) => const SignupScreen(),
+      ),
+      GoRoute(
+        path: '/mentor/onboarding',
+        builder: (context, state) => const MentorOnboardingScreen(),
       ),
       ShellRoute(
         builder: (context, state, child) => MainNavigation(child: child),
@@ -132,6 +137,15 @@ final goRouterProvider = Provider<GoRouter>((ref) {
         debugPrint(
             'GoRouter: Mentor accessing student path, redirecting to mentor home');
         return '/mentor/home';
+      }
+
+      // Check if mentor needs onboarding before accessing mentor pages (except onboarding itself)
+      if (!authState.isStudent &&
+          location.startsWith('/mentor/') &&
+          location != '/mentor/onboarding') {
+        // TODO: Add async check for onboarding completion
+        // For now, we'll skip this check to avoid infinite redirects
+        // The mentor onboarding screen will handle completion detection
       }
 
       debugPrint('GoRouter: No redirect needed');

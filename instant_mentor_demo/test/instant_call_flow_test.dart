@@ -24,7 +24,7 @@ void main() {
       final instantCallButtons = find.text('Instant Call');
 
       // Verify that instant call buttons exist
-      expect(instantCallButtons, findsAtLeastOneWidget);
+      expect(instantCallButtons, findsAtLeast(1));
 
       // Tap the first instant call button
       await tester.tap(instantCallButtons.first);
@@ -58,7 +58,7 @@ void main() {
 
       // Find and tap an instant call button
       final instantCallButtons = find.text('Instant Call');
-      expect(instantCallButtons, findsAtLeastOneWidget);
+      expect(instantCallButtons, findsWidgets);
 
       await tester.tap(instantCallButtons.first);
       await tester.pumpAndSettle();
@@ -107,10 +107,9 @@ void main() {
       // Verify payment details are displayed correctly
       expect(find.text('Mentor: $testMentorName'), findsOneWidget);
       expect(
-          find.text('\$${testHourlyRate.toStringAsFixed(2)}'), findsOneWidget);
+          find.text('₹${testHourlyRate.toStringAsFixed(2)}'), findsOneWidget);
       expect(find.text(testMinutes.toString()), findsOneWidget);
-      expect(find.text('\$${testAmount.toStringAsFixed(2)}'),
-          findsAtLeastOneWidget);
+      expect(find.text('₹${testAmount.toStringAsFixed(2)}'), findsWidgets);
     });
   });
 }

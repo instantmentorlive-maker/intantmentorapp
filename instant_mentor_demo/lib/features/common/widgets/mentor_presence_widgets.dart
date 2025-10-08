@@ -206,7 +206,7 @@ class MentorPresenceCard extends ConsumerWidget {
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
                       Text(
-                        '\$${hourlyRate.toInt()}/hr',
+                        '₹${hourlyRate.toInt()}/hr',
                         style: TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.bold,

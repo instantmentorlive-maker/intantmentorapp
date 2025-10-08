@@ -29,6 +29,10 @@ class ChatService {
   final Map<String, List<ChatMessage>> _mockMessages = {};
   final Map<String, ChatThread> _mockThreads = {};
 
+  // Stream controllers for real-time updates
+  final Map<String, StreamController<List<ChatMessage>>> _messageControllers =
+      {};
+
   // Keys for SharedPreferences
   static const String _messagesKey = 'chat_messages_cache';
   static const String _threadsKey = 'chat_threads_cache';
@@ -355,44 +359,54 @@ class ChatService {
   }
 
   Stream<List<ChatMessage>> watchMessages(String chatId) async* {
-    yield await fetchMessages(chatId);
-
-    final channel = _client.channel('public:chat_messages:$chatId')
-      ..onPostgresChanges(
-        event: PostgresChangeEvent.all,
-        schema: 'public',
-        table: 'chat_messages',
-        filter: PostgresChangeFilter(
-            type: PostgresChangeFilterType.eq,
-            column: 'chat_id',
-            value: chatId),
-        callback: (_) {},
-      )
-      ..subscribe();
-
-    final controller = StreamController<List<ChatMessage>>();
-    void refetch() async {
-      try {
-        controller.add(await fetchMessages(chatId));
-      } catch (e) {
-        debugPrint('watchMessages refetch error: $e');
-      }
+    // Get or create stream controller for this chat
+    if (!_messageControllers.containsKey(chatId)) {
+      _messageControllers[chatId] =
+          StreamController<List<ChatMessage>>.broadcast();
     }
 
-    _client.channel('public:chat_messages_refresh_$chatId')
-      ..onPostgresChanges(
-        event: PostgresChangeEvent.all,
-        schema: 'public',
-        table: 'chat_messages',
-        filter: PostgresChangeFilter(
-            type: PostgresChangeFilterType.eq,
-            column: 'chat_id',
-            value: chatId),
-        callback: (_) => refetch(),
-      )
-      ..subscribe();
+    final controller = _messageControllers[chatId]!;
+
+    // Emit initial messages
+    final initialMessages = await fetchMessages(chatId);
+    yield initialMessages;
+
+    // Listen to future updates from the controller
     yield* controller.stream;
-    await channel.unsubscribe();
+
+    // Try to set up database subscription (optional, falls back to manual updates)
+    try {
+      final channel = _client.channel('public:chat_messages:$chatId')
+        ..onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'chat_messages',
+          filter: PostgresChangeFilter(
+              type: PostgresChangeFilterType.eq,
+              column: 'chat_id',
+              value: chatId),
+          callback: (_) async {
+            controller.add(await fetchMessages(chatId));
+          },
+        )
+        ..subscribe();
+    } catch (e) {
+      debugPrint(
+          'Database subscription not available, using manual updates: $e');
+    }
+  }
+
+  /// Notify listeners that messages have changed for a specific chat
+  void _notifyMessagesChanged(String chatId) async {
+    if (_messageControllers.containsKey(chatId)) {
+      try {
+        final messages = await fetchMessages(chatId);
+        _messageControllers[chatId]!.add(messages);
+        debugPrint('✅ Notified ${messages.length} messages for chat $chatId');
+      } catch (e) {
+        debugPrint('⚠️ Failed to notify messages changed: $e');
+      }
+    }
   }
 
   Future<void> sendTextMessage({
@@ -421,6 +435,9 @@ class ChatService {
 
       // Persist to local storage immediately
       await _persistData();
+
+      // ✅ Notify stream listeners about the new message
+      _notifyMessagesChanged(chatId);
 
       // Try to update database if available (don't fail if it doesn't work)
       try {

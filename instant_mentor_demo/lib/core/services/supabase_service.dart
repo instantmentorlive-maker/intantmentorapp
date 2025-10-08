@@ -261,7 +261,26 @@ class SupabaseService {
 
   /// Sign out
   Future<void> signOut() async {
-    await client.auth.signOut();
+    try {
+      debugPrint('🔐 SupabaseService: Signing out from Supabase...');
+
+      // Sign out with scope parameter to clear all sessions
+      await client.auth.signOut(scope: SignOutScope.global);
+
+      debugPrint('✅ SupabaseService: Successfully signed out from Supabase');
+    } catch (e) {
+      debugPrint('❌ SupabaseService: Sign out error: $e');
+
+      // Try local signout as fallback
+      try {
+        await client.auth.signOut(scope: SignOutScope.local);
+        debugPrint('✅ SupabaseService: Local signout completed as fallback');
+      } catch (fallbackError) {
+        debugPrint(
+            '❌ SupabaseService: Local signout also failed: $fallbackError');
+        rethrow;
+      }
+    }
   }
 
   /// Reset password
@@ -633,6 +652,35 @@ class SupabaseService {
       return response;
     } catch (e) {
       return null;
+    }
+  }
+
+  /// Check if mentor has completed onboarding
+  Future<bool> isMentorOnboardingCompleted() async {
+    final userId = currentUser?.id;
+    if (userId == null) return false;
+
+    try {
+      final response = await client
+          .from('user_profiles')
+          .select('onboarding_completed')
+          .eq('id', userId)
+          .single();
+
+      final onboardingCompleted = response['onboarding_completed'] as bool?;
+      debugPrint(
+          '🔍 SupabaseService: Mentor onboarding completed: $onboardingCompleted');
+      return onboardingCompleted ?? false;
+    } catch (e) {
+      debugPrint('⚠️ SupabaseService: Error checking onboarding status: $e');
+      // If column doesn't exist, assume onboarding is not completed
+      if (e.toString().contains('column') &&
+          e.toString().contains('does not exist')) {
+        debugPrint(
+            '📝 SupabaseService: onboarding_completed column not found, assuming false');
+        return false;
+      }
+      return false;
     }
   }
 

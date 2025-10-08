@@ -13,33 +13,41 @@ class EarningsScreen extends StatelessWidget {
           // Earnings Overview
           const Row(
             children: [
-              Expanded(child: _EarningsCard('Today', '\$250', Colors.green)),
+              Expanded(child: _EarningsCard('Today', '₹250', Colors.green)),
               SizedBox(width: 12),
-              Expanded(child: _EarningsCard('This Week', '\$1,250', Colors.blue)),
+              Expanded(
+                  child: _EarningsCard('This Week', '₹1,250', Colors.blue)),
               SizedBox(width: 12),
-              Expanded(child: _EarningsCard('This Month', '\$4,800', Colors.purple)),
+              Expanded(
+                  child: _EarningsCard('This Month', '₹4,800', Colors.purple)),
             ],
           ),
-          
+
           const SizedBox(height: 24),
           Text(
             'Recent Earnings',
-            style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+            style: Theme.of(context)
+                .textTheme
+                .titleLarge
+                ?.copyWith(fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 12),
-          
+
           const Card(
             child: Column(
               children: [
-                _EarningsTile('Alex Johnson', 'Mathematics', 50.0, 'Today, 2:00 PM'),
+                _EarningsTile(
+                    'Alex Johnson', 'Mathematics', 50.0, 'Today, 2:00 PM'),
                 Divider(height: 1),
-                _EarningsTile('Maria Garcia', 'Mathematics', 37.5, 'Today, 10:00 AM'),
+                _EarningsTile(
+                    'Maria Garcia', 'Mathematics', 37.5, 'Today, 10:00 AM'),
                 Divider(height: 1),
-                _EarningsTile('James Wilson', 'Physics', 50.0, 'Yesterday, 4:00 PM'),
+                _EarningsTile(
+                    'James Wilson', 'Physics', 50.0, 'Yesterday, 4:00 PM'),
               ],
             ),
           ),
-          
+
           const SizedBox(height: 24),
           SizedBox(
             width: double.infinity,
@@ -75,7 +83,9 @@ class _EarningsCard extends StatelessWidget {
         padding: const EdgeInsets.all(16),
         child: Column(
           children: [
-            Text(amount, style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: color)),
+            Text(amount,
+                style: TextStyle(
+                    fontSize: 18, fontWeight: FontWeight.bold, color: color)),
             Text(title, style: const TextStyle(fontSize: 12)),
           ],
         ),
@@ -108,8 +118,9 @@ class _EarningsTile extends StatelessWidget {
         ],
       ),
       trailing: Text(
-        '+\$${amount.toStringAsFixed(2)}',
-        style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.green, fontSize: 16),
+        '+₹${amount.toStringAsFixed(2)}',
+        style: const TextStyle(
+            fontWeight: FontWeight.bold, color: Colors.green, fontSize: 16),
       ),
     );
   }

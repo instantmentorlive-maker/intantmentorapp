@@ -313,7 +313,7 @@ class _TransactionTile extends StatelessWidget {
         ],
       ),
       trailing: Text(
-        '${isCredit ? '+' : ''}\$${transaction.amount.abs().toStringAsFixed(2)}',
+        '${isCredit ? '+' : ''}₹${transaction.amount.abs().toStringAsFixed(2)}',
         style: TextStyle(
           fontWeight: FontWeight.bold,
           color: isCredit ? Colors.green : Colors.red,
@@ -376,7 +376,7 @@ class _TransactionTile extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _DetailRow(
-                'Amount', '\$${transaction.amount.abs().toStringAsFixed(2)}'),
+                'Amount', '₹${transaction.amount.abs().toStringAsFixed(2)}'),
             _DetailRow('Type', _getTransactionTypeText(transaction.type)),
             _DetailRow(
                 'Date',

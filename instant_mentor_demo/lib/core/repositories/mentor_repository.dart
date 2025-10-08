@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/user.dart';
+import '../providers/mentor_provider.dart';
 import '../services/supabase_service.dart';
 
 class MentorSearchParams {
@@ -151,7 +152,42 @@ final mentorSearchParamsProvider = StateProvider<MentorSearchParams>((ref) {
 
 final mentorSearchResultsProvider =
     FutureProvider.autoDispose<List<Mentor>>((ref) async {
-  final repo = ref.watch(mentorRepositoryProvider);
+  // For demo mode, use the mock mentors from mentorsProvider
+  // instead of querying the database which may not exist yet
+  final mentorsProviderImport = ref.watch(mentorsProvider);
+
+  // Apply basic filtering if search params are provided
   final params = ref.watch(mentorSearchParamsProvider);
-  return repo.searchMentors(params);
+  var filteredMentors = mentorsProviderImport;
+
+  if (params.query != null && params.query!.isNotEmpty) {
+    final query = params.query!.toLowerCase();
+    filteredMentors = filteredMentors
+        .where((m) =>
+            m.name.toLowerCase().contains(query) ||
+            m.specializations.any((s) => s.toLowerCase().contains(query)) ||
+            m.bio.toLowerCase().contains(query))
+        .toList();
+  }
+
+  if (params.onlyAvailable == true) {
+    filteredMentors = filteredMentors.where((m) => m.isAvailable).toList();
+  }
+
+  if (params.minRating != null) {
+    filteredMentors =
+        filteredMentors.where((m) => m.rating >= params.minRating!).toList();
+  }
+
+  // Sort results
+  if (params.sort == 'rating_desc') {
+    filteredMentors.sort((a, b) => b.rating.compareTo(a.rating));
+  } else if (params.sort == 'experience_desc') {
+    filteredMentors
+        .sort((a, b) => b.yearsOfExperience.compareTo(a.yearsOfExperience));
+  } else if (params.sort == 'price_asc') {
+    filteredMentors.sort((a, b) => a.hourlyRate.compareTo(b.hourlyRate));
+  }
+
+  return filteredMentors;
 });

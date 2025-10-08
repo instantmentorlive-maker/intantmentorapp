@@ -1,10 +1,14 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'dart:convert';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/providers/user_provider.dart';
 import '../../common/widgets/mentor_status_widget.dart';
+
+final _supabase = Supabase.instance.client;
 
 class AvailabilityScreen extends ConsumerStatefulWidget {
   const AvailabilityScreen({super.key});
@@ -27,86 +31,157 @@ class _AvailabilityScreenState extends ConsumerState<AvailabilityScreen> {
 
   // Track if there are unsaved changes
   bool _hasUnsavedChanges = false;
+  bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
-    // Load saved settings from SharedPreferences
     _loadSavedSettings();
   }
 
-  /// Load saved availability settings from SharedPreferences
+  /// Load saved availability settings from database or local storage
   Future<void> _loadSavedSettings() async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final userId = ref.read(userProvider)?.id ?? 'default';
+      final user = ref.read(userProvider);
+      bool settingsLoaded = false;
 
-      // Load availability status
-      final savedIsAvailable = prefs.getBool('availability_status_$userId');
-      if (savedIsAvailable != null) {
-        setState(() {
-          isAvailable = savedIsAvailable;
-        });
+      // Try to load from Supabase database first (for authenticated users)
+      if (user != null) {
+        try {
+          final response = await _supabase
+              .from('mentor_profiles')
+              .select('is_available, weekly_schedule')
+              .eq('user_id', user.id)
+              .maybeSingle()
+              .timeout(const Duration(seconds: 5));
+
+          if (response != null && mounted) {
+            setState(() {
+              // Load availability status
+              if (response['is_available'] != null) {
+                isAvailable = response['is_available'] as bool;
+              }
+
+              // Load weekly schedule
+              if (response['weekly_schedule'] != null) {
+                final savedSchedule =
+                    response['weekly_schedule'] as Map<String, dynamic>;
+                savedSchedule.forEach((day, value) {
+                  if (weeklySchedule.containsKey(day)) {
+                    weeklySchedule[day] = value as bool;
+                  }
+                });
+              }
+            });
+            settingsLoaded = true;
+            debugPrint('✅ Loaded availability settings from database');
+          }
+        } catch (e) {
+          debugPrint('⚠️ Database load failed: $e');
+        }
       }
 
-      // Load weekly schedule
-      final savedScheduleJson = prefs.getString('weekly_schedule_$userId');
-      if (savedScheduleJson != null) {
-        final Map<String, dynamic> decodedSchedule =
-            json.decode(savedScheduleJson);
-        setState(() {
-          weeklySchedule
-              .updateAll((key, value) => decodedSchedule[key] ?? value);
-        });
+      // Fallback to SharedPreferences (for demo mode or offline)
+      if (!settingsLoaded) {
+        try {
+          final prefs = await SharedPreferences.getInstance();
+          final savedIsAvailable = prefs.getBool('mentor_availability') ?? true;
+          final savedScheduleJson = prefs.getString('mentor_weekly_schedule');
+
+          setState(() {
+            isAvailable = savedIsAvailable;
+
+            // Load weekly schedule from SharedPreferences
+            if (savedScheduleJson != null) {
+              final savedSchedule =
+                  jsonDecode(savedScheduleJson) as Map<String, dynamic>;
+              savedSchedule.forEach((day, value) {
+                if (weeklySchedule.containsKey(day)) {
+                  weeklySchedule[day] = value as bool;
+                }
+              });
+            }
+          });
+          debugPrint('✅ Loaded availability settings from SharedPreferences');
+          settingsLoaded = true;
+        } catch (e) {
+          debugPrint('⚠️ SharedPreferences load failed: $e');
+        }
       }
 
-      // Sync with mentor status provider
-      final mentorStatus = ref.read(mentorStatusProvider);
-      if (isAvailable != mentorStatus.isAvailable) {
-        ref.read(mentorStatusProvider.notifier).updateStatus(
-              isAvailable,
-              isAvailable ? 'Available for sessions' : 'Currently busy',
-            );
-      }
+      // Update UI and sync with provider
+      if (mounted) {
+        setState(() => _isLoading = false);
 
-      debugPrint('✅ Loaded saved availability settings for user: $userId');
+        // Sync with mentor status provider
+        final mentorStatus = ref.read(mentorStatusProvider);
+        if (isAvailable != mentorStatus.isAvailable) {
+          ref.read(mentorStatusProvider.notifier).updateStatus(
+                isAvailable,
+                isAvailable ? 'Available for sessions' : 'Currently busy',
+              );
+        }
+      }
     } catch (e) {
-      debugPrint('⚠️ Error loading saved settings: $e');
+      debugPrint('❌ Error loading saved settings: $e');
+      setState(() => _isLoading = false);
     }
   }
 
   /// Save availability settings and update mentor status
   Future<void> _saveAvailabilitySettings() async {
     try {
-      final userId = ref.read(userProvider)?.id ?? 'default';
-      final prefs = await SharedPreferences.getInstance();
-
-      // Save to SharedPreferences for persistence
-      await prefs.setBool('availability_status_$userId', isAvailable);
-      await prefs.setString(
-          'weekly_schedule_$userId', json.encode(weeklySchedule));
-
-      debugPrint(
-          '💾 Saved to SharedPreferences: isAvailable=$isAvailable, schedule=$weeklySchedule');
+      final user = ref.read(userProvider);
+      if (user == null) {
+        throw Exception('User not authenticated');
+      }
 
       // Update the mentor status based on current availability
       final statusMessage =
           isAvailable ? 'Available for sessions' : 'Currently busy';
 
-      // Update the mentor status provider
+      // 1. Try to save to Supabase database (PERSISTENT STORAGE)
+      try {
+        await _supabase
+            .from('mentor_profiles')
+            .update({
+              'is_available': isAvailable,
+              'weekly_schedule': weeklySchedule,
+              'updated_at': DateTime.now().toIso8601String(),
+            })
+            .eq('user_id', user.id)
+            .timeout(const Duration(seconds: 10));
+
+        debugPrint('✅ Availability settings saved to database');
+      } catch (e) {
+        debugPrint('⚠️ Database save failed: $e');
+      }
+
+      // 1.1. Always save to SharedPreferences as fallback (DEMO MODE SUPPORT)
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setBool('mentor_availability', isAvailable);
+        await prefs.setString(
+            'mentor_weekly_schedule', jsonEncode(weeklySchedule));
+        debugPrint('✅ Availability settings saved to SharedPreferences');
+      } catch (e) {
+        debugPrint('⚠️ SharedPreferences save failed: $e');
+      }
+
+      // 2. Update the mentor status provider (LOCAL STATE)
       ref.read(mentorStatusProvider.notifier).updateStatus(
             isAvailable,
             statusMessage,
           );
 
-      // Send update via WebSocket
+      // 3. Send update via WebSocket (REAL-TIME SYNC)
       try {
         final webSocketService = ref.read(webSocketServiceProvider);
         await webSocketService.updateMentorStatus(
           isAvailable: isAvailable,
           statusMessage: statusMessage,
           statusData: {
-            'userId': userId,
+            'userId': user.id,
             'timestamp': DateTime.now().toIso8601String(),
             'weeklySchedule': weeklySchedule,
             'availableDays': weeklySchedule.entries
@@ -115,10 +190,10 @@ class _AvailabilityScreenState extends ConsumerState<AvailabilityScreen> {
                 .toList(),
           },
         );
-        debugPrint('✅ Availability settings saved successfully via WebSocket');
+        debugPrint('✅ Availability settings synced via WebSocket');
       } catch (e) {
         debugPrint(
-            '⚠️ WebSocket update failed (local settings still saved): $e');
+            '⚠️ WebSocket update failed (database settings still saved): $e');
       }
 
       // Reset unsaved changes flag
@@ -201,6 +276,23 @@ class _AvailabilityScreenState extends ConsumerState<AvailabilityScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Show loading indicator while loading saved settings
+    if (_isLoading) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(32.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              CircularProgressIndicator(),
+              SizedBox(height: 16),
+              Text('Loading availability settings...'),
+            ],
+          ),
+        ),
+      );
+    }
+
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(

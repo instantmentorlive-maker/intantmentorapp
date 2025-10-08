@@ -2,12 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:share_plus/share_plus.dart';
 
+import '../../../core/models/user.dart';
+import '../../../core/repositories/mentor_repository.dart';
 import '../../common/widgets/mentor_presence_widgets.dart';
 import '../../payments/payment_checkout_sheet.dart';
 // Use the shared/global MentorProfileScreen to ensure a single source of truth
 import '../../shared/profile/mentor_profile_screen.dart' as shared_profile;
-import '../../../core/repositories/mentor_repository.dart';
-import '../../../core/models/user.dart';
 
 class FindMentorsScreen extends ConsumerStatefulWidget {
   const FindMentorsScreen({super.key});
@@ -382,7 +382,7 @@ class _MentorCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
                     Text(
-                      '\$${mentor['price']}/hr',
+                      '₹${mentor['price']}/hr',
                       style: TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
@@ -552,21 +552,21 @@ class _MentorCard extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Rate: \$${mentor['price']}/hour'),
+            Text('Rate: ₹${mentor['price']}/hour'),
             const SizedBox(height: 16),
             DropdownButtonFormField<String>(
               decoration: const InputDecoration(labelText: 'Duration'),
               items: [
                 DropdownMenuItem(
                     value: '30',
-                    child: Text(
-                        '30 minutes - \$${(mentor['price'] / 2).toInt()}')),
+                    child:
+                        Text('30 minutes - ₹${(mentor['price'] / 2).toInt()}')),
                 DropdownMenuItem(
-                    value: '60', child: Text('1 hour - \$${mentor['price']}')),
+                    value: '60', child: Text('1 hour - ₹${mentor['price']}')),
                 DropdownMenuItem(
                     value: '90',
                     child: Text(
-                        '1.5 hours - \$${(mentor['price'] * 1.5).toInt()}')),
+                        '1.5 hours - ₹${(mentor['price'] * 1.5).toInt()}')),
               ],
               onChanged: (value) {},
             ),
@@ -663,7 +663,7 @@ class InlineMentorProfileScreen extends StatelessWidget {
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        '\$${mentor['price']}/hour',
+                        '₹${mentor['price']}/hour',
                         style: TextStyle(
                           fontSize: 20,
                           fontWeight: FontWeight.bold,
@@ -795,15 +795,14 @@ class InlineMentorProfileScreen extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Rate: \$${mentor['price']}/hour'),
+            Text('Rate: ₹${mentor['price']}/hour'),
             const SizedBox(height: 16),
             const Text('Select Duration:'),
             const SizedBox(height: 8),
             Column(
               children: [
                 ListTile(
-                  title:
-                      Text('30 minutes - \$${(mentor['price'] / 2).toInt()}'),
+                  title: Text('30 minutes - ₹${(mentor['price'] / 2).toInt()}'),
                   leading: Radio<int>(
                     value: 30,
                     groupValue: 60,
@@ -811,7 +810,7 @@ class InlineMentorProfileScreen extends StatelessWidget {
                   ),
                 ),
                 ListTile(
-                  title: Text('1 hour - \$${mentor['price']}'),
+                  title: Text('1 hour - ₹${mentor['price']}'),
                   leading: Radio<int>(
                     value: 60,
                     groupValue: 60,
@@ -990,7 +989,7 @@ class InlineMentorProfileScreen extends StatelessWidget {
             children: [
               const CircularProgressIndicator(),
               const SizedBox(height: 16),
-              Text('Processing payment of \$${amount.toStringAsFixed(2)}...'),
+              Text('Processing payment of ₹${amount.toStringAsFixed(2)}...'),
               const SizedBox(height: 8),
               const Text(
                 'Demo mode - payment simulation',
@@ -1025,7 +1024,7 @@ class InlineMentorProfileScreen extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Amount: \$${amount.toStringAsFixed(2)}'),
+                Text('Amount: ₹${amount.toStringAsFixed(2)}'),
                 Text('Mentor: ${mentor['name']}'),
                 const Text('Session: 30 minutes'),
                 const SizedBox(height: 16),
@@ -1205,7 +1204,7 @@ class _FilterDialogState extends State<FilterDialog> {
               },
             ),
             const SizedBox(height: 16),
-            Text('Maximum Price: \$${_maxPrice.toInt()}/hour'),
+            Text('Maximum Price: ₹${_maxPrice.toInt()}/hour'),
             Slider(
               value: _maxPrice,
               min: 10,

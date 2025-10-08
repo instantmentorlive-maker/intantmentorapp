@@ -13,7 +13,7 @@ serve(async (req) => {
   }
 
   try {
-    const { sessionId, amount, currency = 'USD', paymentMethod } = await req.json()
+    const { sessionId, amount, currency = 'INR', paymentMethod } = await req.json()
 
     // Validate required fields
     if (!sessionId || !amount) {

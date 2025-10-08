@@ -1,3 +1,2 @@
-// Conditional WebRTC exports - use mock on web to avoid compilation issues
-export 'package:flutter_webrtc/flutter_webrtc.dart'
-    if (dart.library.html) 'webrtc_mock.dart';
+// Use real flutter_webrtc package (v1.2.0+) which has proper Dart SDK compatibility
+export 'package:flutter_webrtc/flutter_webrtc.dart';

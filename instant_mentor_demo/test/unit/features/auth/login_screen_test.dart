@@ -25,7 +25,7 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
-            authProvider.overrideWith(() => mockAuthNotifier),
+            authProvider.overrideWith((ref) => mockAuthNotifier),
           ],
           child: const MaterialApp(
             home: LoginScreen(),
@@ -51,7 +51,7 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
-            authProvider.overrideWith(() => mockAuthNotifier),
+            authProvider.overrideWith((ref) => mockAuthNotifier),
           ],
           child: const MaterialApp(
             home: LoginScreen(),
@@ -78,7 +78,7 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
-            authProvider.overrideWith(() => mockAuthNotifier),
+            authProvider.overrideWith((ref) => mockAuthNotifier),
           ],
           child: const MaterialApp(
             home: LoginScreen(),

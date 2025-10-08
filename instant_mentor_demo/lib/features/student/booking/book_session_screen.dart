@@ -200,7 +200,7 @@ class BookSessionScreen extends ConsumerWidget {
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Text(
-                        '\$${mentor.hourlyRate}/hr',
+                        '₹${mentor.hourlyRate}/hr',
                         style: TextStyle(
                           fontWeight: FontWeight.bold,
                           color: Theme.of(context).colorScheme.primary,
@@ -283,7 +283,7 @@ class _BookingDialogState extends ConsumerState<BookingDialog> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text('Subject: ${widget.mentor.specializations.first}'),
-            Text('Rate: \$${widget.mentor.hourlyRate}/hour'),
+            Text('Rate: ₹${widget.mentor.hourlyRate}/hour'),
             const SizedBox(height: 16),
 
             // Duration Selection
@@ -297,17 +297,17 @@ class _BookingDialogState extends ConsumerState<BookingDialog> {
                 DropdownMenuItem(
                   value: '30',
                   child: Text(
-                      '30 minutes - \$${(widget.mentor.hourlyRate * 0.5).toStringAsFixed(2)}'),
+                      '30 minutes - ₹${(widget.mentor.hourlyRate * 0.5).toStringAsFixed(2)}'),
                 ),
                 DropdownMenuItem(
                   value: '60',
                   child: Text(
-                      '1 hour - \$${widget.mentor.hourlyRate.toStringAsFixed(2)}'),
+                      '1 hour - ₹${widget.mentor.hourlyRate.toStringAsFixed(2)}'),
                 ),
                 DropdownMenuItem(
                   value: '90',
                   child: Text(
-                      '1.5 hours - \$${(widget.mentor.hourlyRate * 1.5).toStringAsFixed(2)}'),
+                      '1.5 hours - ₹${(widget.mentor.hourlyRate * 1.5).toStringAsFixed(2)}'),
                 ),
               ],
               onChanged: (value) => setState(() => selectedDuration = value),
@@ -381,7 +381,7 @@ class _BookingDialogState extends ConsumerState<BookingDialog> {
                       style: Theme.of(context).textTheme.titleMedium,
                     ),
                     Text(
-                      '\$${price.toStringAsFixed(2)}',
+                      '₹${price.toStringAsFixed(2)}',
                       style: Theme.of(context).textTheme.titleMedium?.copyWith(
                             fontWeight: FontWeight.bold,
                             color: Theme.of(context).colorScheme.primary,
@@ -479,7 +479,17 @@ class _BookingDialogState extends ConsumerState<BookingDialog> {
           'Booking attempt - mentorId: ${widget.mentor.id}, mentorName: ${widget.mentor.name}');
 
       if (session != null) {
+        print('✅ Session booked successfully: ${session.id}');
+        print('   Mentor: ${widget.mentor.name} (${widget.mentor.id})');
+        print('   Student: ${demoUser.name} (${demoUser.id})');
+        print('   Scheduled: ${scheduledDateTime.toString()}');
+
         Navigator.of(context).pop();
+
+        // Manually refresh the upcoming sessions providers to ensure UI updates
+        // These are already imported from sessions_provider.dart
+        ref.invalidate(upcomingSessionsProvider);
+        ref.invalidate(simpleUpcomingSessionsProvider);
 
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -490,7 +500,7 @@ class _BookingDialogState extends ConsumerState<BookingDialog> {
                 Text('Session booked with ${widget.mentor.name}!'),
                 Text(
                     '${selectedDate!.day}/${selectedDate!.month} at ${selectedTime!.format(context)}'),
-                Text('Amount: \$${_calculatePrice().toStringAsFixed(2)}'),
+                Text('Amount: ₹${_calculatePrice().toStringAsFixed(2)}'),
               ],
             ),
             backgroundColor: Colors.green,

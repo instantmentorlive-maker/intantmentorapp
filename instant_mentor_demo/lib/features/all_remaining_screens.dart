@@ -7,9 +7,9 @@ import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../core/providers/auth_provider.dart';
+import '../../core/providers/scheduling_providers.dart';
 import '../../core/providers/user_provider.dart';
 import '../core/providers/ui_state_provider.dart';
-import '../../core/providers/scheduling_providers.dart';
 
 // ============================================================================
 // MENTOR SCREENS
@@ -275,13 +275,13 @@ class EarningsScreen extends StatelessWidget {
           // Earnings Overview
           const Row(
             children: [
-              Expanded(child: _EarningsCard('Today', '\$250', Colors.green)),
+              Expanded(child: _EarningsCard('Today', '₹250', Colors.green)),
               SizedBox(width: 12),
               Expanded(
-                  child: _EarningsCard('This Week', '\$1,250', Colors.blue)),
+                  child: _EarningsCard('This Week', '₹1,250', Colors.blue)),
               SizedBox(width: 12),
               Expanded(
-                  child: _EarningsCard('This Month', '\$4,800', Colors.purple)),
+                  child: _EarningsCard('This Month', '₹4,800', Colors.purple)),
             ],
           ),
 
@@ -380,7 +380,7 @@ class _EarningsTile extends StatelessWidget {
         ],
       ),
       trailing: Text(
-        '+\$${amount.toStringAsFixed(2)}',
+        '+₹${amount.toStringAsFixed(2)}',
         style: const TextStyle(
             fontWeight: FontWeight.bold, color: Colors.green, fontSize: 16),
       ),
@@ -1095,39 +1095,111 @@ class MoreMenuScreen extends ConsumerWidget {
   void _showLogoutDialog(BuildContext context, WidgetRef ref) {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Logout'),
-        content: const Text('Are you sure you want to logout?'),
+      builder: (dialogContext) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.logout, color: Colors.red),
+            SizedBox(width: 8),
+            Text('Logout'),
+          ],
+        ),
+        content: const Text(
+          'Are you sure you want to logout?\n\nYour session will end and you\'ll need to login again.',
+          style: TextStyle(fontSize: 14),
+        ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.pop(dialogContext),
             child: const Text('Cancel'),
           ),
           ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
             onPressed: () async {
-              Navigator.pop(context);
+              // Close dialog first
+              Navigator.pop(dialogContext);
+
               // Show loading indicator
+              if (!context.mounted) return;
+
+              // Use a simpler loading approach
+              final navigator = Navigator.of(context, rootNavigator: true);
               showDialog(
                 context: context,
                 barrierDismissible: false,
-                builder: (context) => const Center(
-                  child: CircularProgressIndicator(),
+                builder: (loadingContext) => PopScope(
+                  canPop: false,
+                  child: Container(
+                    color: Colors.black54,
+                    child: const Center(
+                      child: Card(
+                        child: Padding(
+                          padding: EdgeInsets.all(24.0),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              CircularProgressIndicator(),
+                              SizedBox(height: 16),
+                              Text('Logging out...'),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
                 ),
               );
 
               try {
-                // Properly sign out through auth provider
+                debugPrint('🚀 Starting logout process...');
+
+                // Sign out through auth provider
                 await ref.read(authProvider.notifier).signOut();
-                // Navigation will be handled by router redirect logic automatically
-                if (context.mounted) {
-                  Navigator.of(context).pop(); // Close loading
-                  // Don't manually navigate - let the router's redirect logic handle it
+
+                debugPrint('✅ Logout successful, waiting for state update...');
+
+                // Give auth state time to update
+                await Future.delayed(const Duration(milliseconds: 500));
+
+                // Try to close loading dialog safely
+                try {
+                  if (navigator.mounted) {
+                    navigator.pop();
+                  }
+                } catch (e) {
+                  debugPrint('⚠️ Could not close loading dialog: $e');
                 }
-              } catch (e) {
+
+                // Let GoRouter's redirect handle navigation automatically
+                // No need to manually navigate - the auth state change will trigger redirect
+                debugPrint('✅ Logout completed, GoRouter will handle redirect');
+              } catch (e, stackTrace) {
+                debugPrint('❌ Logout error: $e');
+                debugPrint('Stack trace: $stackTrace');
+
+                // Close loading dialog
+                try {
+                  if (navigator.mounted) {
+                    navigator.pop();
+                  }
+                } catch (_) {
+                  // Ignore if can't close
+                }
+
+                // Show error
                 if (context.mounted) {
-                  Navigator.of(context).pop(); // Close loading
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Logout failed: $e')),
+                    SnackBar(
+                      content: Text('Logout failed: $e'),
+                      backgroundColor: Colors.red,
+                      action: SnackBarAction(
+                        label: 'Retry',
+                        textColor: Colors.white,
+                        onPressed: () => _showLogoutDialog(context, ref),
+                      ),
+                    ),
                   );
                 }
               }

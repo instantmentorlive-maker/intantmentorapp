@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -5,7 +7,9 @@ import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:record/record.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../../core/providers/auth_provider.dart';
 import '../../../core/providers/video_call_provider.dart';
 import '../../../core/services/payment_service.dart';
 import '../../payments/payment_checkout_sheet.dart';
@@ -32,12 +36,52 @@ class _QuickDoubtScreenState extends ConsumerState<QuickDoubtScreen> {
   bool _isRecording = false;
   final AudioRecorder _recorder = AudioRecorder();
   bool _isFindingMentor = false;
+  List<Map<String, dynamic>> _scheduledDoubts = []; // Store scheduled doubts
+
   @override
   void initState() {
     super.initState();
     _questionController.addListener(() {
       if (mounted) setState(() {}); // Force rebuild for button enable/disable
     });
+    _loadScheduledDoubts(); // Load saved doubts on init
+  }
+
+  // Load scheduled doubts from SharedPreferences
+  Future<void> _loadScheduledDoubts() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final currentUser = ref.read(authProvider).user;
+      final userId = currentUser?.id ?? 'demo_user';
+      final key = 'scheduled_doubts_$userId';
+      final data = prefs.getString(key);
+
+      if (data != null) {
+        final List<dynamic> decoded = json.decode(data);
+        setState(() {
+          _scheduledDoubts =
+              decoded.map((e) => Map<String, dynamic>.from(e)).toList();
+        });
+        debugPrint('✅ Loaded ${_scheduledDoubts.length} scheduled doubts');
+      }
+    } catch (e) {
+      debugPrint('❌ Failed to load scheduled doubts: $e');
+    }
+  }
+
+  // Save scheduled doubts to SharedPreferences
+  Future<void> _saveScheduledDoubts() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final currentUser = ref.read(authProvider).user;
+      final userId = currentUser?.id ?? 'demo_user';
+      final key = 'scheduled_doubts_$userId';
+      final encoded = json.encode(_scheduledDoubts);
+      await prefs.setString(key, encoded);
+      debugPrint('✅ Saved ${_scheduledDoubts.length} scheduled doubts');
+    } catch (e) {
+      debugPrint('❌ Failed to save scheduled doubts: $e');
+    }
   }
 
   // ===== Attachment Helpers (moved from extension for setState access) =====
@@ -369,7 +413,7 @@ class _QuickDoubtScreenState extends ConsumerState<QuickDoubtScreen> {
                             style: TextStyle(fontWeight: FontWeight.bold),
                           ),
                           Text(
-                            '5 min: \$8 • 10 min: \$15 • 15 min: \$22',
+                            '5 min: ₹8 • 10 min: ₹15 • 15 min: ₹22',
                             style: TextStyle(color: Colors.grey[600]),
                           ),
                         ],
@@ -429,6 +473,30 @@ class _QuickDoubtScreenState extends ConsumerState<QuickDoubtScreen> {
             ),
 
             const SizedBox(height: 24),
+
+            // Scheduled Doubts Section
+            if (_scheduledDoubts.isNotEmpty) ...[
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Your Scheduled Doubts (${_scheduledDoubts.length})',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                  ),
+                  TextButton(
+                    onPressed: () => _viewAllScheduledDoubts(),
+                    child: const Text('View All'),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              ..._scheduledDoubts
+                  .take(3)
+                  .map((doubt) => _buildScheduledDoubtCard(doubt)),
+              const SizedBox(height: 24),
+            ],
 
             // Recent Quick Sessions
             Text(
@@ -539,6 +607,174 @@ class _QuickDoubtScreenState extends ConsumerState<QuickDoubtScreen> {
     );
   }
 
+  Widget _buildScheduledDoubtCard(Map<String, dynamic> doubt) {
+    final scheduledTime = DateTime.parse(doubt['scheduledFor']);
+    final now = DateTime.now();
+    final isPast = scheduledTime.isBefore(now);
+
+    return Card(
+      margin: const EdgeInsets.only(bottom: 8),
+      color: isPast ? Colors.red.withOpacity(0.1) : null,
+      child: ListTile(
+        leading: CircleAvatar(
+          backgroundColor: isPast
+              ? Colors.red
+              : Theme.of(context).colorScheme.primaryContainer,
+          child: Icon(
+            isPast ? Icons.warning : Icons.schedule,
+            color: isPast ? Colors.white : null,
+          ),
+        ),
+        title: Text(
+          doubt['question'] ?? 'No question provided',
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+        subtitle: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('${doubt['subject']} • ${doubt['urgencyLevel']} priority'),
+            Text(
+              isPast
+                  ? '⚠️ Missed: ${_formatDate(scheduledTime)}'
+                  : '📅 Scheduled: ${_formatScheduledTime(scheduledTime)}',
+              style: TextStyle(
+                color: isPast ? Colors.red : Colors.green,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (doubt['hasImages'] == true) const Icon(Icons.image, size: 16),
+            if (doubt['hasFiles'] == true)
+              const Icon(Icons.attach_file, size: 16),
+            if (doubt['hasAudio'] == true) const Icon(Icons.mic, size: 16),
+            IconButton(
+              icon: const Icon(Icons.delete, size: 20),
+              onPressed: () => _deleteScheduledDoubt(doubt),
+              tooltip: 'Delete',
+            ),
+          ],
+        ),
+        onTap: () => _viewScheduledDoubtDetails(doubt),
+      ),
+    );
+  }
+
+  void _viewAllScheduledDoubts() {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => Scaffold(
+          appBar: AppBar(
+            title: const Text('Scheduled Doubts'),
+            backgroundColor: Theme.of(context).colorScheme.primary,
+            foregroundColor: Colors.white,
+          ),
+          body: _scheduledDoubts.isEmpty
+              ? const Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.schedule, size: 64, color: Colors.grey),
+                      SizedBox(height: 16),
+                      Text(
+                        'No scheduled doubts yet',
+                        style: TextStyle(fontSize: 18, color: Colors.grey),
+                      ),
+                    ],
+                  ),
+                )
+              : ListView.builder(
+                  padding: const EdgeInsets.all(16),
+                  itemCount: _scheduledDoubts.length,
+                  itemBuilder: (context, index) {
+                    return _buildScheduledDoubtCard(_scheduledDoubts[index]);
+                  },
+                ),
+        ),
+      ),
+    );
+  }
+
+  void _viewScheduledDoubtDetails(Map<String, dynamic> doubt) {
+    final scheduledTime = DateTime.parse(doubt['scheduledFor']);
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Scheduled Doubt Details'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                doubt['question'] ?? 'No question',
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 16),
+              Text('Subject: ${doubt['subject']}'),
+              Text('Priority: ${doubt['urgencyLevel']}'),
+              Text('Scheduled for: ${_formatDate(scheduledTime)}'),
+              Text(
+                  'Created: ${_formatDate(DateTime.parse(doubt['createdAt']))}'),
+              const SizedBox(height: 12),
+              if (doubt['hasImages'] == true)
+                const Text('📷 Has images attached'),
+              if (doubt['hasFiles'] == true)
+                const Text('📎 Has files attached'),
+              if (doubt['hasAudio'] == true) const Text('🎤 Has voice note'),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Close'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _showSnack('Finding mentor for your scheduled doubt...');
+            },
+            child: const Text('Start Now'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _deleteScheduledDoubt(Map<String, dynamic> doubt) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete Scheduled Doubt?'),
+        content: const Text('This action cannot be undone.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+      setState(() {
+        _scheduledDoubts.remove(doubt);
+      });
+      await _saveScheduledDoubts();
+      _showSnack('Scheduled doubt deleted');
+    }
+  }
+
   void _attachImage() => _pickImages();
   void _attachDocument() => _pickFiles();
   void _recordVoice() => _toggleRecording();
@@ -612,7 +848,7 @@ class _QuickDoubtScreenState extends ConsumerState<QuickDoubtScreen> {
             ),
             const SizedBox(height: 12),
             const Text(
-              'Estimated session duration: 10-15 minutes\nCost: \$15',
+              'Estimated session duration: 10-15 minutes\nCost: ₹15',
               textAlign: TextAlign.center,
             ),
           ],
@@ -767,7 +1003,36 @@ class _QuickDoubtScreenState extends ConsumerState<QuickDoubtScreen> {
 
     if (result != null && mounted) {
       setState(() => _scheduledFor = result);
-      _showSnack('Session scheduled for ${_formatScheduledTime(result)}');
+
+      // Save the scheduled doubt
+      final doubt = {
+        'id': 'doubt_${DateTime.now().millisecondsSinceEpoch}',
+        'question': _questionController.text.trim(),
+        'subject': _selectedSubject,
+        'urgencyLevel': _urgencyLevel,
+        'scheduledFor': result.toIso8601String(),
+        'createdAt': DateTime.now().toIso8601String(),
+        'status': 'scheduled',
+        'hasImages': _imageAttachments.isNotEmpty,
+        'hasFiles': _fileAttachments.isNotEmpty,
+        'hasAudio': _audioFilePath != null,
+      };
+
+      setState(() {
+        _scheduledDoubts.insert(0, doubt); // Add to beginning of list
+      });
+
+      await _saveScheduledDoubts();
+      _showSnack('✅ Doubt scheduled for ${_formatScheduledTime(result)}');
+
+      // Clear the form after scheduling
+      _questionController.clear();
+      setState(() {
+        _imageAttachments.clear();
+        _fileAttachments.clear();
+        _audioFilePath = null;
+        _scheduledFor = null;
+      });
     }
   }
 
@@ -849,71 +1114,87 @@ class _MentorCard extends StatelessWidget {
       width: 140,
       margin: const EdgeInsets.only(right: 12),
       child: Card(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Stack(
-                children: [
-                  CircleAvatar(
-                    radius: 18,
-                    child: Text(mentor['name']
-                        .toString()
-                        .split(' ')
-                        .map((n) => n[0])
-                        .join()),
-                  ),
-                  Positioned(
-                    right: 0,
-                    bottom: 0,
-                    child: Container(
-                      width: 10,
-                      height: 10,
-                      decoration: BoxDecoration(
-                        color: mentor['isOnline'] ? Colors.green : Colors.grey,
-                        shape: BoxShape.circle,
-                        border: Border.all(color: Colors.white, width: 2),
+        child: InkWell(
+          onTap: () {
+            // Navigate to live session with the selected mentor
+            Navigator.of(context).pushNamed(
+              '/live-session',
+              arguments: {
+                'mentorId': mentor['id'],
+                'mentorName': mentor['name'],
+                'sessionId':
+                    'quick_doubt_${DateTime.now().millisecondsSinceEpoch}',
+              },
+            );
+          },
+          borderRadius: BorderRadius.circular(12),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Stack(
+                  children: [
+                    CircleAvatar(
+                      radius: 18,
+                      child: Text(mentor['name']
+                          .toString()
+                          .split(' ')
+                          .map((n) => n[0])
+                          .join()),
+                    ),
+                    Positioned(
+                      right: 0,
+                      bottom: 0,
+                      child: Container(
+                        width: 10,
+                        height: 10,
+                        decoration: BoxDecoration(
+                          color:
+                              mentor['isOnline'] ? Colors.green : Colors.grey,
+                          shape: BoxShape.circle,
+                          border: Border.all(color: Colors.white, width: 2),
+                        ),
                       ),
                     ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 6),
-              Text(
-                mentor['name'],
-                style:
-                    const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                textAlign: TextAlign.center,
-              ),
-              Text(
-                mentor['subject'],
-                style: const TextStyle(fontSize: 10, color: Colors.grey),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 2),
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.star, size: 10, color: Colors.amber[600]),
-                  const SizedBox(width: 2),
-                  Text('${mentor['rating']}',
-                      style: const TextStyle(fontSize: 10)),
-                ],
-              ),
-              const SizedBox(height: 2),
-              Text(
-                mentor['responseTime'],
-                style: const TextStyle(fontSize: 9, color: Colors.green),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                textAlign: TextAlign.center,
-              ),
-            ],
+                  ],
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  mentor['name'],
+                  style: const TextStyle(
+                      fontWeight: FontWeight.bold, fontSize: 12),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.center,
+                ),
+                Text(
+                  mentor['subject'],
+                  style: const TextStyle(fontSize: 10, color: Colors.grey),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 2),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.star, size: 10, color: Colors.amber[600]),
+                    const SizedBox(width: 2),
+                    Text('${mentor['rating']}',
+                        style: const TextStyle(fontSize: 10)),
+                  ],
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  mentor['responseTime'],
+                  style: const TextStyle(fontSize: 9, color: Colors.green),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.center,
+                ),
+              ],
+            ),
           ),
         ),
       ),

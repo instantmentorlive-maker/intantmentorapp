@@ -1,16 +1,71 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
+
+import '../../../core/models/session.dart' as app_session;
+import '../../../core/providers/sessions_provider.dart';
 import '../../../core/providers/user_provider.dart';
+import '../../../core/routing/routing.dart';
+import '../../../core/services/supabase_service.dart';
 import '../../common/widgets/mentor_status_widget.dart';
 
-import '../../../core/routing/routing.dart';
+final _studentNameProvider =
+    FutureProvider.autoDispose.family<String, String>((ref, studentId) async {
+  if (studentId.isEmpty) {
+    return 'Student';
+  }
 
-class MentorHomeScreen extends ConsumerWidget {
+  if (studentId.startsWith('demo_student_')) {
+    return 'Demo Student';
+  }
+
+  try {
+    final supabase = SupabaseService.instance;
+    if (!supabase.isInitialized) {
+      await supabase.init();
+    }
+
+    final client = supabase.client;
+
+    final profile = await client
+        .from('user_profiles')
+        .select('full_name')
+        .eq('id', studentId)
+        .maybeSingle();
+
+    final fullName = (profile?['full_name'] as String?)?.trim();
+    if (fullName != null && fullName.isNotEmpty) {
+      return fullName;
+    }
+
+    final fallbackUser = await client
+        .from('users')
+        .select('email')
+        .eq('id', studentId)
+        .maybeSingle();
+
+    final email = (fallbackUser?['email'] as String?)?.trim();
+    if (email != null && email.isNotEmpty) {
+      return email.split('@').first;
+    }
+  } catch (e) {
+    debugPrint('⚠️ Failed to resolve student name for $studentId: $e');
+  }
+
+  return 'Student';
+});
+
+class MentorHomeScreen extends ConsumerStatefulWidget {
   const MentorHomeScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<MentorHomeScreen> createState() => _MentorHomeScreenState();
+}
+
+class _MentorHomeScreenState extends ConsumerState<MentorHomeScreen> {
+  @override
+  Widget build(BuildContext context) {
     final user = ref.watch(userProvider);
 
     return SingleChildScrollView(
@@ -49,7 +104,7 @@ class MentorHomeScreen extends ConsumerWidget {
                           color: Theme.of(context)
                               .colorScheme
                               .onPrimary
-                              .withOpacity(0.9),
+                              .withValues(alpha: 0.9),
                         ),
                   ),
                   const SizedBox(height: 12),
@@ -64,13 +119,13 @@ class MentorHomeScreen extends ConsumerWidget {
                           color: Theme.of(context)
                               .colorScheme
                               .onPrimary
-                              .withOpacity(0.2),
+                              .withValues(alpha: 0.2),
                           borderRadius: BorderRadius.circular(20),
                           border: Border.all(
                             color: Theme.of(context)
                                 .colorScheme
                                 .onPrimary
-                                .withOpacity(0.3),
+                                .withValues(alpha: 0.3),
                           ),
                         ),
                         child: Row(
@@ -218,7 +273,7 @@ class MentorHomeScreen extends ConsumerWidget {
               Expanded(
                 child: _StatCard(
                   title: 'Earnings',
-                  value: '\$250',
+                  value: '₹250',
                   icon: Icons.monetization_on,
                   color: Colors.green,
                 ),
@@ -245,29 +300,243 @@ class MentorHomeScreen extends ConsumerWidget {
                 ),
           ),
           const SizedBox(height: 12),
-          const Card(
-            child: Column(
-              children: [
-                _SessionTile(
-                  studentName: 'Alex Johnson',
-                  subject: 'Mathematics',
-                  time: 'In 30 minutes',
-                  duration: '60 min',
-                  amount: '\$50',
-                ),
-                Divider(height: 1),
-                _SessionTile(
-                  studentName: 'Maria Garcia',
-                  subject: 'Mathematics',
-                  time: '2:00 PM',
-                  duration: '45 min',
-                  amount: '\$37.5',
-                ),
-              ],
-            ),
-          ),
+          const _MentorUpcomingSessionsWidget(),
         ],
       ),
+    );
+  }
+}
+
+class _MentorUpcomingSessionsWidget extends ConsumerWidget {
+  const _MentorUpcomingSessionsWidget();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final user = ref.watch(userProvider);
+    final sessionsAsync = ref.watch(simpleUpcomingSessionsProvider);
+
+    return sessionsAsync.when(
+      data: (sessions) {
+        final relevantSessions = _filterMentorSessions(
+          sessions,
+          mentorId: user?.id,
+          isMentor: user?.role.isMentor ?? true,
+        );
+
+        if (relevantSessions.isEmpty) {
+          return Card(
+            child: Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.people_outline,
+                    size: 48,
+                    color: Colors.grey[400],
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    'No upcoming sessions yet',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          color: Colors.grey[600],
+                        ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'When a student books time with you, it will show up here automatically.',
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: Colors.grey[500],
+                        ),
+                    textAlign: TextAlign.center,
+                  ),
+                ],
+              ),
+            ),
+          );
+        }
+
+        final tiles = <Widget>[];
+        for (var i = 0; i < relevantSessions.length; i++) {
+          tiles.add(_MentorSessionTile(session: relevantSessions[i]));
+          if (i < relevantSessions.length - 1) {
+            tiles.add(const Divider(height: 1));
+          }
+        }
+
+        return Card(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: tiles,
+          ),
+        );
+      },
+      loading: () => Card(
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const CircularProgressIndicator(),
+              const SizedBox(height: 12),
+              Text(
+                'Loading your upcoming sessions...',
+                style: Theme.of(context).textTheme.bodyMedium,
+              ),
+            ],
+          ),
+        ),
+      ),
+      error: (error, stackTrace) => Card(
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.error_outline,
+                size: 48,
+                color: Colors.red[400],
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'We couldn\'t load sessions',
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      color: Colors.red[600],
+                    ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Please refresh to try again.',
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: Colors.grey[600],
+                    ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 12),
+              ElevatedButton(
+                onPressed: () => ref.refresh(simpleUpcomingSessionsProvider),
+                child: const Text('Retry'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _MentorSessionTile extends ConsumerWidget {
+  final app_session.Session session;
+
+  const _MentorSessionTile({required this.session});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final studentNameAsync = ref.watch(_studentNameProvider(session.studentId));
+
+    return studentNameAsync.when(
+      data: (studentName) {
+        final subtitleParts = <String>[
+          _formatSessionDate(session.scheduledTime),
+          '${session.durationMinutes} min',
+        ];
+
+        final amountText = _formatAmount(session.amount);
+        if (amountText.isNotEmpty) {
+          subtitleParts.add(amountText);
+        }
+
+        final isStartingSoon = _isSessionStartingSoon(session.scheduledTime);
+
+        return ListTile(
+          leading: CircleAvatar(
+            backgroundColor: Theme.of(context).colorScheme.primaryContainer,
+            child: Text(
+              _initialsFromName(studentName),
+              style: TextStyle(
+                color: Theme.of(context).colorScheme.onPrimaryContainer,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+          title: Text('${session.subject} with $studentName'),
+          subtitle: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(subtitleParts.join(' • ')),
+              if (isStartingSoon)
+                Container(
+                  margin: const EdgeInsets.only(top: 4),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: Colors.green[100],
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    'Starting soon!',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: Colors.green[800],
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          trailing: ElevatedButton(
+            onPressed: () => context.go(AppRoutes.session(session.id)),
+            style: ElevatedButton.styleFrom(
+              minimumSize: const Size(60, 32),
+              backgroundColor: isStartingSoon
+                  ? Colors.green
+                  : Theme.of(context).colorScheme.primary,
+            ),
+            child: Text(
+              isStartingSoon ? 'Join Now' : 'Start',
+              style: const TextStyle(fontSize: 12),
+            ),
+          ),
+        );
+      },
+      loading: () => ListTile(
+        leading: CircleAvatar(
+          backgroundColor: Theme.of(context).colorScheme.primaryContainer,
+          child: const SizedBox(
+            width: 18,
+            height: 18,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          ),
+        ),
+        title: const Text('Loading student...'),
+        subtitle: Text(
+          '${_formatSessionDate(session.scheduledTime)} • ${session.durationMinutes} min',
+        ),
+      ),
+      error: (error, stackTrace) {
+        debugPrint(
+            '⚠️ Failed to load student name for ${session.studentId}: $error');
+        return ListTile(
+          leading: CircleAvatar(
+            backgroundColor: Theme.of(context).colorScheme.primaryContainer,
+            child: const Icon(Icons.person_outline),
+          ),
+          title: Text('${session.subject} with Student'),
+          subtitle: Text(
+            '${_formatSessionDate(session.scheduledTime)} • ${session.durationMinutes} min',
+          ),
+          trailing: ElevatedButton(
+            onPressed: () => context.go(AppRoutes.session(session.id)),
+            style: ElevatedButton.styleFrom(
+              minimumSize: const Size(60, 32),
+            ),
+            child: const Text('Start', style: TextStyle(fontSize: 12)),
+          ),
+        );
+      },
     );
   }
 }
@@ -313,37 +582,81 @@ class _StatCard extends StatelessWidget {
   }
 }
 
-class _SessionTile extends StatelessWidget {
-  final String studentName;
-  final String subject;
-  final String time;
-  final String duration;
-  final String amount;
-
-  const _SessionTile({
-    required this.studentName,
-    required this.subject,
-    required this.time,
-    required this.duration,
-    required this.amount,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return ListTile(
-      leading: CircleAvatar(
-        backgroundColor: Theme.of(context).colorScheme.primaryContainer,
-        child: Text(studentName.split(' ').map((n) => n[0]).join()),
-      ),
-      title: Text('$subject with $studentName'),
-      subtitle: Text('$time • $duration • $amount'),
-      trailing: ElevatedButton(
-        onPressed: () => context.go(AppRoutes.session('demo_session_1')),
-        style: ElevatedButton.styleFrom(
-          minimumSize: const Size(60, 32),
-        ),
-        child: const Text('Start', style: TextStyle(fontSize: 12)),
-      ),
-    );
+List<app_session.Session> _filterMentorSessions(
+  List<app_session.Session> sessions, {
+  required String? mentorId,
+  required bool isMentor,
+}) {
+  if (mentorId == null) {
+    final demoSessions = sessions
+        .where((session) => session.mentorId.startsWith('mentor_'))
+        .toList();
+    demoSessions.sort((a, b) => a.scheduledTime.compareTo(b.scheduledTime));
+    return demoSessions;
   }
+
+  final matchesAsMentor = sessions
+      .where((session) => session.mentorId == mentorId)
+      .toList()
+    ..sort((a, b) => a.scheduledTime.compareTo(b.scheduledTime));
+
+  if (matchesAsMentor.isNotEmpty || isMentor) {
+    return matchesAsMentor;
+  }
+
+  final matchesAsStudent = sessions
+      .where((session) => session.studentId == mentorId)
+      .toList()
+    ..sort((a, b) => a.scheduledTime.compareTo(b.scheduledTime));
+
+  return matchesAsStudent;
+}
+
+String _formatSessionDate(DateTime sessionTime) {
+  final now = DateTime.now();
+  final isToday = sessionTime.year == now.year &&
+      sessionTime.month == now.month &&
+      sessionTime.day == now.day;
+
+  final isTomorrow = sessionTime.year == now.year &&
+      sessionTime.month == now.month &&
+      sessionTime.day == now.day + 1;
+
+  if (isToday) {
+    return 'Today, ${DateFormat('h:mm a').format(sessionTime)}';
+  }
+
+  if (isTomorrow) {
+    return 'Tomorrow, ${DateFormat('h:mm a').format(sessionTime)}';
+  }
+
+  return DateFormat('MMM d, h:mm a').format(sessionTime);
+}
+
+bool _isSessionStartingSoon(DateTime sessionTime) {
+  final diff = sessionTime.difference(DateTime.now()).inMinutes;
+  return diff <= 15 && diff >= -5;
+}
+
+String _initialsFromName(String name) {
+  final parts = name.trim().split(RegExp(r'\s+'));
+  final initials = parts
+      .where((part) => part.isNotEmpty)
+      .map((part) => part[0].toUpperCase())
+      .take(2)
+      .join();
+
+  return initials.isEmpty ? '?' : initials;
+}
+
+String _formatAmount(double amount) {
+  if (amount <= 0) {
+    return '';
+  }
+
+  final hasDecimals = amount % 1 != 0;
+  final formatted =
+      hasDecimals ? amount.toStringAsFixed(2) : amount.toStringAsFixed(0);
+
+  return '₹$formatted';
 }

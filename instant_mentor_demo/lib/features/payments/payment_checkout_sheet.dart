@@ -46,9 +46,9 @@ class PaymentCheckoutSheet extends StatelessWidget {
             const SizedBox(height: 8),
             Text('Mentor: $mentorName', style: theme.textTheme.bodyMedium),
             const SizedBox(height: 12),
-            _line('Hourly Rate', '\$${hourlyRate.toStringAsFixed(2)}'),
+            _line('Hourly Rate', '₹${hourlyRate.toStringAsFixed(2)}'),
             _line('Minutes', minutes.toString()),
-            _line('Prorated Cost', '\$${amount.toStringAsFixed(2)}'),
+            _line('Prorated Cost', '₹${amount.toStringAsFixed(2)}'),
             const Divider(height: 24),
             Row(
               children: [
@@ -56,7 +56,7 @@ class PaymentCheckoutSheet extends StatelessWidget {
                     child: Text('Total Due',
                         style: theme.textTheme.titleMedium
                             ?.copyWith(fontWeight: FontWeight.bold))),
-                Text('\$${amount.toStringAsFixed(2)}',
+                Text('₹${amount.toStringAsFixed(2)}',
                     style: theme.textTheme.titleMedium
                         ?.copyWith(fontWeight: FontWeight.bold)),
               ],

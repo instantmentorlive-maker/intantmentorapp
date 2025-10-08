@@ -13,7 +13,8 @@ import '../../student/find_mentors/find_mentors_screen.dart';
 import '../../student/free_trial/free_trial_screen.dart';
 import '../../student/notes/session_notes_screen.dart';
 import '../../student/quick_doubt/quick_doubt_screen.dart';
-import '../profile/profile_screen.dart';
+import '../help_support/help_support_screen.dart';
+import '../profile/profile_screen.dart' as profile;
 import '../settings/settings_screen.dart';
 
 class MoreMenuScreen extends ConsumerWidget {
@@ -49,14 +50,6 @@ class MoreMenuScreen extends ConsumerWidget {
 
           // Common items
           _MenuTile(
-            icon: Icons.person,
-            title: 'Profile',
-            onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (context) => const ProfileScreen()),
-            ),
-          ),
-          _MenuTile(
             icon: Icons.settings,
             title: 'Settings',
             onTap: () => Navigator.push(
@@ -67,7 +60,11 @@ class MoreMenuScreen extends ConsumerWidget {
           _MenuTile(
             icon: Icons.help,
             title: 'Help & Support',
-            onTap: () => _showComingSoon(context, 'Help & Support'),
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                  builder: (context) => const HelpSupportScreen()),
+            ),
           ),
           _MenuTile(
             icon: Icons.network_check,
@@ -87,6 +84,16 @@ class MoreMenuScreen extends ConsumerWidget {
 
   List<Widget> _buildStudentMenuItems(BuildContext context) {
     return [
+      _MenuTile(
+        icon: Icons.person,
+        title: 'Student Profile',
+        subtitle: 'View and edit your profile',
+        onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute(
+              builder: (context) => const profile.ProfileScreen()),
+        ),
+      ),
       _MenuTile(
         icon: Icons.search,
         title: 'Find Mentors',
@@ -183,15 +190,6 @@ class MoreMenuScreen extends ConsumerWidget {
     ];
   }
 
-  void _showComingSoon(BuildContext context, String feature) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('$feature coming soon!'),
-        duration: const Duration(seconds: 2),
-      ),
-    );
-  }
-
   void _showLeaderboard(BuildContext context) {
     showDialog(
       context: context,
@@ -226,27 +224,67 @@ class MoreMenuScreen extends ConsumerWidget {
   void _showLogoutDialog(BuildContext context, WidgetRef ref) {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Logout'),
-        content: const Text('Are you sure you want to logout?'),
+      builder: (dialogContext) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.logout, color: Colors.red),
+            SizedBox(width: 8),
+            Text('Logout'),
+          ],
+        ),
+        content: const Text(
+          'Are you sure you want to logout?\n\nYour session will end and you\'ll need to login again.',
+          style: TextStyle(fontSize: 14),
+        ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.pop(dialogContext),
             child: const Text('Cancel'),
           ),
           ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
             onPressed: () async {
-              Navigator.pop(context);
+              // Close dialog first
+              Navigator.pop(dialogContext);
+
               // Show loading indicator
+              if (!context.mounted) return;
+
+              // Capture navigator reference before any async operations
+              final rootNavigator = Navigator.of(context, rootNavigator: true);
+
               showDialog(
                 context: context,
                 barrierDismissible: false,
-                builder: (context) => const Center(
-                  child: CircularProgressIndicator(),
+                builder: (loadingContext) => PopScope(
+                  canPop: false,
+                  child: Container(
+                    color: Colors.black54,
+                    child: const Center(
+                      child: Card(
+                        child: Padding(
+                          padding: EdgeInsets.all(24.0),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              CircularProgressIndicator(),
+                              SizedBox(height: 16),
+                              Text('Logging out...'),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
                 ),
               );
 
               try {
+                debugPrint('🚀 Starting logout process...');
+
                 // Save any pending chat messages before logout
                 try {
                   final sessionChatManager = SessionChatManager();
@@ -256,24 +294,52 @@ class MoreMenuScreen extends ConsumerWidget {
                   debugPrint('⚠️ Failed to save messages before logout: $e');
                 }
 
-                // NOTE: Demo sessions are preserved in SharedPreferences
-                // They will be available after login
-
-                // Clear user-specific auth state
-                ref.read(userProvider.notifier).logout();
-                // Then sign out through auth provider
+                // Sign out through auth provider
                 await ref.read(authProvider.notifier).signOut();
 
-                if (context.mounted) {
-                  Navigator.of(context).pop(); // Close loading
-                  // Force navigation to login page
-                  context.go('/login');
+                debugPrint('✅ Logout successful, waiting for state update...');
+
+                // Give a shorter delay for better responsiveness
+                await Future.delayed(const Duration(milliseconds: 300));
+
+                // Close loading dialog using the captured navigator
+                try {
+                  rootNavigator.pop();
+                  debugPrint('✅ Loading dialog closed');
+                } catch (e) {
+                  debugPrint('⚠️ Could not close loading dialog: $e');
                 }
-              } catch (e) {
+
+                // Explicitly navigate to login (don't rely only on redirect)
                 if (context.mounted) {
-                  Navigator.of(context).pop(); // Close loading
+                  context.go('/login');
+                  debugPrint('✅ Navigated to login screen');
+                }
+
+                debugPrint('✅ Logout process completed');
+              } catch (e, stackTrace) {
+                debugPrint('❌ Logout error: $e');
+                debugPrint('Stack trace: $stackTrace');
+
+                // Close loading dialog
+                try {
+                  rootNavigator.pop();
+                } catch (closeError) {
+                  debugPrint('⚠️ Error closing loading dialog: $closeError');
+                }
+
+                // Show error
+                if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Logout failed: $e')),
+                    SnackBar(
+                      content: Text('Logout failed: $e'),
+                      backgroundColor: Colors.red,
+                      action: SnackBarAction(
+                        label: 'Retry',
+                        textColor: Colors.white,
+                        onPressed: () => _showLogoutDialog(context, ref),
+                      ),
+                    ),
                   );
                 }
               }

@@ -20,7 +20,7 @@ final mentorProfileProvider = FutureProvider<Map<String, dynamic>>((ref) async {
     // Fetch user profile data with timeout
     final userProfile = await _supabase
         .from('user_profiles')
-        .select('*')
+        .select()
         .eq('id', userId)
         .maybeSingle()
         .timeout(
@@ -31,7 +31,7 @@ final mentorProfileProvider = FutureProvider<Map<String, dynamic>>((ref) async {
     // Fetch mentor profile data with timeout
     final mentorProfile = await _supabase
         .from('mentor_profiles')
-        .select('*')
+        .select()
         .eq('user_id', userId)
         .maybeSingle()
         .timeout(
@@ -209,7 +209,7 @@ class _ProfileManagementScreenState
                         controller: _experienceController),
                     _buildInfoTile(
                         'Hourly Rate',
-                        '\$${profile['hourlyRate']}/hour',
+                        '₹${profile['hourlyRate']}/hour',
                         Icons.attach_money,
                         isEditing,
                         controller: _hourlyRateController),
@@ -234,24 +234,9 @@ class _ProfileManagementScreenState
                         controller: _teachingStyleController),
                   ],
                 ),
-                _buildSection(
-                  context,
-                  'Statistics',
-                  [
-                    _buildStatTile('Rating', '${profile['rating']}/5.0',
-                        Icons.star, Colors.amber),
-                    _buildStatTile(
-                        'Total Sessions',
-                        '${profile['totalSessions']}',
-                        Icons.video_call,
-                        Colors.blue),
-                    _buildStatTile(
-                        'Students Taught',
-                        '${(profile['totalSessions'] * 0.3).round()}',
-                        Icons.people,
-                        Colors.green),
-                  ],
-                ),
+                _buildEnhancedStatisticsSection(profile),
+                const SizedBox(height: 24),
+                _buildPreferencesSection(context),
                 const SizedBox(height: 24),
               ],
             ),
@@ -269,7 +254,7 @@ class _ProfileManagementScreenState
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(Icons.error_outline, size: 48, color: Colors.red),
+                const Icon(Icons.error_outline, size: 48, color: Colors.red),
                 const SizedBox(height: 16),
                 Text(
                   'Failed to load profile',
@@ -733,6 +718,383 @@ class _ProfileManagementScreenState
                 ),
               ],
             ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEnhancedStatisticsSection(Map<String, dynamic> profile) {
+    // Calculate derived statistics based on profile data
+    final totalSessions = profile['totalSessions'] as int? ?? 156;
+    final teachingHours =
+        (totalSessions * 1.5).round(); // Estimated 1.5h per session
+    final studentsHelped =
+        (totalSessions * 0.57).round(); // ~0.57 students per session
+    final rating = profile['rating'] as double? ?? 4.8;
+    const responseTime = '< 2 hours'; // Mock data
+
+    return Card(
+      elevation: 2,
+      margin: const EdgeInsets.symmetric(vertical: 8),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Your Statistics',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF1E3A8A),
+              ),
+            ),
+            const SizedBox(height: 16),
+            _buildStatRow('Sessions Conducted', totalSessions.toString()),
+            _buildStatRow('Teaching Hours', teachingHours.toString()),
+            _buildStatRow('Students Helped', studentsHelped.toString()),
+            _buildStatRow('Average Rating', '$rating ⭐'),
+            _buildStatRow('Response Time', responseTime),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStatRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            label,
+            style: const TextStyle(fontSize: 16, color: Colors.black87),
+          ),
+          Text(
+            value,
+            style: const TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              color: Color(0xFF1E3A8A),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPreferencesSection(BuildContext context) {
+    return Card(
+      elevation: 2,
+      margin: const EdgeInsets.symmetric(vertical: 8),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Preferences',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF1E3A8A),
+              ),
+            ),
+            const SizedBox(height: 16),
+            _buildPreferenceToggle(
+              'Email Notifications',
+              'Receive updates via email',
+              true,
+              (value) {
+                // TODO: Implement email notification toggle
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                        'Email notifications ${value ? 'enabled' : 'disabled'}'),
+                  ),
+                );
+              },
+            ),
+            _buildPreferenceToggle(
+              'Push Notifications',
+              'Receive push notifications',
+              true,
+              (value) {
+                // TODO: Implement push notification toggle
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                        'Push notifications ${value ? 'enabled' : 'disabled'}'),
+                  ),
+                );
+              },
+            ),
+            _buildPreferenceToggle(
+              'Session Reminders',
+              'Get reminded before sessions',
+              true,
+              (value) {
+                // TODO: Implement session reminder toggle
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                        'Session reminders ${value ? 'enabled' : 'disabled'}'),
+                  ),
+                );
+              },
+            ),
+            const Divider(height: 24),
+            _buildPreferenceItem(
+              'Change Password',
+              Icons.lock_outline,
+              () {
+                // TODO: Navigate to change password screen
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Change password feature coming soon'),
+                  ),
+                );
+              },
+            ),
+            _buildPreferenceItem(
+              'Privacy Settings',
+              Icons.privacy_tip_outlined,
+              () {
+                // TODO: Navigate to privacy settings
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Privacy settings feature coming soon'),
+                  ),
+                );
+              },
+            ),
+            _buildPreferenceItem(
+              'Help & Support',
+              Icons.help_outline,
+              () {
+                // TODO: Navigate to help & support
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Help & support feature coming soon'),
+                  ),
+                );
+              },
+            ),
+            _buildPreferenceItem(
+              'Logout',
+              Icons.logout,
+              () => _showLogoutDialog(context),
+              isLogout: true,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPreferenceToggle(
+    String title,
+    String subtitle,
+    bool initialValue,
+    ValueChanged<bool> onChanged,
+  ) {
+    return StatefulBuilder(
+      builder: (context, setState) {
+        bool currentValue = initialValue;
+        return Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      subtitle,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: Colors.grey,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Switch(
+                value: currentValue,
+                onChanged: (value) {
+                  setState(() {
+                    currentValue = value;
+                  });
+                  onChanged(value);
+                },
+                activeThumbColor: const Color(0xFF2563EB),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildPreferenceItem(
+    String title,
+    IconData icon,
+    VoidCallback onTap, {
+    bool isLogout = false,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        child: Row(
+          children: [
+            Icon(
+              icon,
+              color: isLogout ? Colors.red : Colors.grey[600],
+              size: 20,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                title,
+                style: TextStyle(
+                  fontSize: 16,
+                  color: isLogout ? Colors.red : Colors.black87,
+                ),
+              ),
+            ),
+            Icon(
+              Icons.chevron_right,
+              color: Colors.grey[400],
+              size: 20,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showLogoutDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.logout, color: Colors.red),
+            SizedBox(width: 8),
+            Text('Logout'),
+          ],
+        ),
+        content: const Text(
+          'Are you sure you want to logout?\n\nYour session will end and you\'ll need to login again.',
+          style: TextStyle(fontSize: 14),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () async {
+              // Close dialog first
+              Navigator.pop(dialogContext);
+
+              // Show loading indicator
+              if (!context.mounted) return;
+
+              final navigator = Navigator.of(context, rootNavigator: true);
+              showDialog(
+                context: context,
+                barrierDismissible: false,
+                builder: (loadingContext) => PopScope(
+                  canPop: false,
+                  child: Container(
+                    color: Colors.black54,
+                    child: const Center(
+                      child: Card(
+                        child: Padding(
+                          padding: EdgeInsets.all(24.0),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              CircularProgressIndicator(),
+                              SizedBox(height: 16),
+                              Text('Logging out...'),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              );
+
+              try {
+                debugPrint('🚀 Starting logout process...');
+
+                // Sign out through auth provider
+                await ref.read(authProvider.notifier).signOut();
+
+                debugPrint('✅ Logout successful, waiting for state update...');
+
+                // Give auth state time to update
+                await Future.delayed(const Duration(milliseconds: 500));
+
+                // Try to close loading dialog safely
+                try {
+                  if (navigator.mounted) {
+                    navigator.pop();
+                  }
+                } catch (e) {
+                  debugPrint('⚠️ Could not close loading dialog: $e');
+                }
+
+                // Let GoRouter's redirect handle navigation automatically
+                debugPrint('✅ Logout completed, GoRouter will handle redirect');
+              } catch (e, stackTrace) {
+                debugPrint('❌ Logout error: $e');
+                debugPrint('Stack trace: $stackTrace');
+
+                // Close loading dialog
+                try {
+                  if (navigator.mounted) {
+                    navigator.pop();
+                  }
+                } catch (_) {
+                  // Ignore if can't close
+                }
+
+                // Show error
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Logout failed: $e'),
+                      backgroundColor: Colors.red,
+                      action: SnackBarAction(
+                        label: 'Retry',
+                        textColor: Colors.white,
+                        onPressed: () => _showLogoutDialog(context),
+                      ),
+                    ),
+                  );
+                }
+              }
+            },
+            child: const Text('Logout'),
           ),
         ],
       ),

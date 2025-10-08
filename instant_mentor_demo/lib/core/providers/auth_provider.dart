@@ -13,12 +13,14 @@ class AuthState {
   final bool isLoading;
   final String? error;
   final bool isAuthenticated;
+  final bool isNewMentorSignup;
 
   const AuthState({
     this.user,
     this.isLoading = false,
     this.error,
     this.isAuthenticated = false,
+    this.isNewMentorSignup = false,
   });
 
   AuthState copyWith({
@@ -26,12 +28,14 @@ class AuthState {
     bool? isLoading,
     String? error,
     bool? isAuthenticated,
+    bool? isNewMentorSignup,
   }) {
     return AuthState(
       user: user ?? this.user,
       isLoading: isLoading ?? this.isLoading,
       error: error,
       isAuthenticated: isAuthenticated ?? this.isAuthenticated,
+      isNewMentorSignup: isNewMentorSignup ?? this.isNewMentorSignup,
     );
   }
 }
@@ -73,19 +77,19 @@ class AuthNotifier extends StateNotifier<AuthState> {
       domain.UserRole role;
 
       if (roleString.isEmpty || roleString == 'null') {
-        // No role in metadata, default to mentor for existing users
-        // This handles users created before role system was implemented
-        role = domain.UserRole.mentor;
+        // No role in metadata, default to student for new users
+        // This provides a better user experience for first-time users
+        role = domain.UserRole.student;
         debugPrint(
-            '🔍 AuthProvider: No role metadata found, defaulting to mentor for existing user');
+            '🔍 AuthProvider: No role metadata found, defaulting to student for existing user');
       } else {
         try {
           role = domain.UserRole.fromString(roleString);
         } catch (_) {
-          // Invalid role string, default to mentor
-          role = domain.UserRole.mentor;
+          // Invalid role string, default to student
+          role = domain.UserRole.student;
           debugPrint(
-              '🔍 AuthProvider: Invalid role metadata, defaulting to mentor');
+              '🔍 AuthProvider: Invalid role metadata, defaulting to student');
         }
       }
 
@@ -244,6 +248,9 @@ class AuthNotifier extends StateNotifier<AuthState> {
         ...?additionalData,
       };
 
+      // Check if this is a mentor signup
+      final isMentorSignup = additionalData?['role'] == 'mentor';
+
       final response = await _supabaseService.signUpWithEmail(
         email: email,
         password: password,
@@ -276,6 +283,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
           user: response.user,
           isAuthenticated: true,
           isLoading: false,
+          isNewMentorSignup: isMentorSignup,
         );
         _syncDomainUser(response.user); // sync domain user model
       } else if (response.user != null && response.session == null) {
@@ -347,32 +355,68 @@ class AuthNotifier extends StateNotifier<AuthState> {
       return;
     }
 
-    // Add stack trace to see what's calling signOut
-    debugPrint('🔐 AuthProvider: Signing out user... Call stack:');
-    debugPrint(StackTrace.current.toString().split('\n').take(5).join('\n'));
-
+    debugPrint('🔐 AuthProvider: Starting sign out process...');
     state = state.copyWith(isLoading: true);
 
     try {
-      await _supabaseService.signOut();
+      // Try to sign out from Supabase with timeout
+      await Future.any([
+        _supabaseService.signOut(),
+        Future.delayed(const Duration(seconds: 5)), // 5 second timeout
+      ]);
 
-      // Clear all auth state
+      debugPrint('🟢 AuthProvider: Supabase signOut completed');
+
+      // Clear all auth state regardless of signOut success
       state = const AuthState(
         user: null,
-        isAuthenticated: false,
         isLoading: false,
+        isAuthenticated: false,
         error: null,
       );
 
       // Clear domain user
-      _ref.read(userProvider.notifier).logout();
-      debugPrint('✅ AuthProvider: Successfully signed out');
+      try {
+        _ref.read(userProvider.notifier).logout();
+        debugPrint('🟢 AuthProvider: User provider cleared');
+      } catch (e) {
+        debugPrint('⚠️ AuthProvider: User provider clear failed: $e');
+      }
+
+      // Clear sessions cache
+      try {
+        _ref.invalidate(demoSessionsProvider);
+        debugPrint('🟢 AuthProvider: Sessions cache cleared');
+      } catch (e) {
+        debugPrint('⚠️ AuthProvider: Sessions cache clear failed: $e');
+      }
+
+      debugPrint('✅ AuthProvider: Sign out completed successfully');
     } catch (e) {
       debugPrint('❌ AuthProvider: Sign out failed: $e');
-      state = state.copyWith(
-        isLoading: false,
-        error: e.toString(),
-      );
+
+      // Even if signOut fails, clear the local state for forced logout
+      if (forced) {
+        debugPrint('🔄 AuthProvider: Forcing logout despite error...');
+        state = const AuthState(
+          user: null,
+          isLoading: false,
+          isAuthenticated: false,
+          error: null,
+        );
+
+        try {
+          _ref.read(userProvider.notifier).logout();
+        } catch (_) {}
+
+        debugPrint('✅ AuthProvider: Forced logout completed');
+      } else {
+        state = state.copyWith(
+          isLoading: false,
+          error: e.toString(),
+        );
+        rethrow;
+      }
     }
   }
 
@@ -543,6 +587,12 @@ class AuthNotifier extends StateNotifier<AuthState> {
   /// Clear error
   void clearError() {
     state = state.copyWith();
+  }
+
+  /// Clear the new mentor signup flag after onboarding is completed
+  void clearNewMentorSignupFlag() {
+    state = state.copyWith(isNewMentorSignup: false);
+    debugPrint('🎯 AuthProvider: Cleared new mentor signup flag');
   }
 }
 

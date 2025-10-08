@@ -17,6 +17,14 @@ final upcomingSessionsProvider =
   final client = ref.read(supabaseClientProvider);
   final user = ref.watch(userProvider);
 
+  // IMPORTANT: Wait for demo sessions to load from SharedPreferences
+  // before reading them, otherwise we'll get empty list on first load!
+  final demoSessionsNotifier = ref.read(demoSessionsProvider.notifier);
+  while (!demoSessionsNotifier.isLoaded) {
+    print('⏳ Waiting for demo sessions to load...');
+    await Future.delayed(const Duration(milliseconds: 50));
+  }
+
   // Always consider demo sessions (they're stored locally).
   final demoSessionsAll = ref.read(demoSessionsProvider);
   final demoSessionsUpcoming = demoSessionsAll
@@ -26,10 +34,13 @@ final upcomingSessionsProvider =
               session.status == app_session.SessionStatus.confirmed))
       .toList();
 
-  // If there's no authenticated user, return demo sessions only.
+  // If there's no authenticated user, return ALL demo sessions (regardless of student ID)
+  // This ensures newly booked demo sessions appear in upcoming sessions
   if (user == null) {
     demoSessionsUpcoming
         .sort((a, b) => a.scheduledTime.compareTo(b.scheduledTime));
+    print(
+        '📅 upcomingSessionsProvider: Returning ${demoSessionsUpcoming.length} demo sessions');
     return demoSessionsUpcoming;
   }
 
@@ -184,8 +195,22 @@ final simpleUpcomingSessionsProvider =
   final client = ref.read(supabaseClientProvider);
   final user = ref.watch(userProvider);
 
+  // IMPORTANT: Wait for demo sessions to load from SharedPreferences
+  // before reading them, otherwise we'll get empty list on first load!
+  final demoSessionsNotifier = ref.read(demoSessionsProvider.notifier);
+  while (!demoSessionsNotifier.isLoaded) {
+    print('⏳ Waiting for demo sessions to load...');
+    await Future.delayed(const Duration(milliseconds: 50));
+  }
+
   // Always consider demo sessions (they're stored locally).
   final demoSessionsAll = ref.read(demoSessionsProvider);
+  print('📅 DEBUG: Total demo sessions in provider: ${demoSessionsAll.length}');
+  for (var session in demoSessionsAll) {
+    print(
+        '   Session: ${session.id}, Scheduled: ${session.scheduledTime}, Status: ${session.status}');
+  }
+
   final demoSessionsUpcoming = demoSessionsAll
       .where((session) =>
           session.scheduledTime.isAfter(DateTime.now()) &&
@@ -193,10 +218,15 @@ final simpleUpcomingSessionsProvider =
               session.status == app_session.SessionStatus.confirmed))
       .toList();
 
-  // If there's no authenticated user, return demo sessions only.
+  print('📅 DEBUG: Filtered upcoming sessions: ${demoSessionsUpcoming.length}');
+
+  // If there's no authenticated user, return ALL demo sessions (regardless of student ID)
+  // This ensures newly booked demo sessions appear in upcoming sessions
   if (user == null) {
     demoSessionsUpcoming
         .sort((a, b) => a.scheduledTime.compareTo(b.scheduledTime));
+    print(
+        '📅 simpleUpcomingSessionsProvider: Returning ${demoSessionsUpcoming.length} demo sessions for non-authenticated user');
     return demoSessionsUpcoming;
   }
 
@@ -421,16 +451,31 @@ class DemoSessionsNotifier extends StateNotifier<List<app_session.Session>> {
   static const _prefsKey =
       'demo_sessions_v2_persistent'; // Updated key for better persistence
 
+  bool _isLoaded = false;
+  bool get isLoaded => _isLoaded;
+
   DemoSessionsNotifier() : super([]) {
+    print('🎬 DemoSessionsNotifier: Constructor called - initializing...');
     _loadFromPrefs();
   }
 
   Future<void> _loadFromPrefs() async {
     try {
+      print(
+          '🔄 DemoSessionsNotifier: Loading sessions from SharedPreferences...');
       final prefs = await SharedPreferences.getInstance();
       final raw = prefs.getString(_prefsKey);
-      if (raw == null || raw.isEmpty) return;
+      print(
+          '📦 Raw data from prefs: ${raw?.substring(0, raw.length > 100 ? 100 : raw.length)}...');
+
+      if (raw == null || raw.isEmpty) {
+        print('⚠️ No demo sessions found in SharedPreferences');
+        return;
+      }
+
       final List<dynamic> decoded = jsonDecode(raw) as List<dynamic>;
+      print('📊 Decoded ${decoded.length} sessions from JSON');
+
       final sessions = decoded
           .map((e) => app_session.Session.fromJson(
               Map<String, dynamic>.from(e as Map<String, dynamic>)))
@@ -440,34 +485,55 @@ class DemoSessionsNotifier extends StateNotifier<List<app_session.Session>> {
       final now = DateTime.now();
       final validSessions = sessions.where((session) {
         final daysSinceCreated = now.difference(session.createdAt).inDays;
-        return daysSinceCreated <= 30; // Keep sessions for 30 days
+        final isValid = daysSinceCreated <= 30; // Keep sessions for 30 days
+        print(
+            '   Session ${session.id}: created $daysSinceCreated days ago, isValid: $isValid');
+        return isValid;
       }).toList();
 
       state = validSessions;
+      _isLoaded = true;
+      print(
+          '✅ DemoSessionsNotifier: Loaded ${validSessions.length} demo sessions');
+      print(
+          '   (${sessions.length - validSessions.length} old sessions cleaned up)');
+
+      // Log each loaded session
+      for (var session in validSessions) {
+        print(
+            '   📅 ${session.id}: ${session.scheduledTime} (${session.status})');
+      }
+
       if (sessions.length != validSessions.length) {
         // Save cleaned up sessions back to preferences
         _saveToPrefs();
       }
-      print(
-          'DemoSessionsNotifier: Loaded ${validSessions.length} demo sessions (${sessions.length - validSessions.length} old sessions cleaned up)');
-    } catch (e) {
+    } catch (e, stackTrace) {
       // If anything fails, keep state as empty but don't crash
-      print('Failed to load demo sessions from prefs: $e');
+      _isLoaded =
+          true; // Mark as loaded even if failed, so we don't block forever
+      print('❌ Failed to load demo sessions from prefs: $e');
+      print('Stack trace: $stackTrace');
     }
   }
 
   Future<void> _saveToPrefs() async {
     try {
+      print('💾 Saving ${state.length} demo sessions to SharedPreferences...');
       final prefs = await SharedPreferences.getInstance();
       final encoded = jsonEncode(state.map((s) => s.toJson()).toList());
       await prefs.setString(_prefsKey, encoded);
+      print('✅ Successfully saved to key: $_prefsKey');
     } catch (e) {
-      print('Failed to save demo sessions to prefs: $e');
+      print('❌ Failed to save demo sessions to prefs: $e');
     }
   }
 
   void addSession(app_session.Session session) {
+    print('✅ DemoSessionsNotifier: Adding session ${session.id}');
+    print('   Before: ${state.length} sessions');
     state = [...state, session];
+    print('   After: ${state.length} sessions');
     _saveToPrefs();
   }
 

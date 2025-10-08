@@ -170,7 +170,7 @@ CREATE TABLE IF NOT EXISTS payment_transactions (
   payer_id UUID REFERENCES auth.users(id) NOT NULL,
   payee_id UUID REFERENCES auth.users(id) NOT NULL,
   amount DECIMAL(10,2) NOT NULL,
-  currency TEXT DEFAULT 'USD',
+  currency TEXT DEFAULT 'INR',
   status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'completed', 'failed', 'refunded')),
   payment_method TEXT,
   transaction_id TEXT,

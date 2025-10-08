@@ -9,11 +9,35 @@ import '../../../core/providers/sessions_provider.dart';
 import '../../../core/providers/user_provider.dart';
 import '../../../core/routing/app_routes.dart';
 
-class StudentHomeScreen extends ConsumerWidget {
+class StudentHomeScreen extends ConsumerStatefulWidget {
   const StudentHomeScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<StudentHomeScreen> createState() => _StudentHomeScreenState();
+}
+
+class _StudentHomeScreenState extends ConsumerState<StudentHomeScreen>
+    with RouteAware {
+  @override
+  void initState() {
+    super.initState();
+    // Refresh sessions when screen loads
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.invalidate(simpleUpcomingSessionsProvider);
+      ref.invalidate(upcomingSessionsProvider);
+    });
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Refresh sessions whenever we return to this screen
+    ref.invalidate(simpleUpcomingSessionsProvider);
+    ref.invalidate(upcomingSessionsProvider);
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final user = ref.watch(userProvider);
     final topMentors = ref.watch(topRatedMentorsProvider);
 
@@ -268,7 +292,7 @@ class _MentorCard extends StatelessWidget {
                 ),
                 const Spacer(),
                 Text(
-                  '\$${mentor.hourlyRate}/hr',
+                  '₹${mentor.hourlyRate}/hr',
                   style: TextStyle(
                     fontWeight: FontWeight.bold,
                     color: Theme.of(context).colorScheme.primary,

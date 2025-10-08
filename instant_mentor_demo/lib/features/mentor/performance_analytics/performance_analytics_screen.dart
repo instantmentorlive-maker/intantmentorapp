@@ -157,7 +157,7 @@ class PerformanceAnalyticsScreen extends ConsumerWidget {
             Icons.access_time, Colors.orange),
         _buildMetricCard('Avg Rating', '${data['averageRating']}/5.0',
             Icons.star, Colors.amber),
-        _buildMetricCard('Monthly Earnings', '\$${data['monthlyEarnings']}',
+        _buildMetricCard('Monthly Earnings', '₹${data['monthlyEarnings']}',
             Icons.attach_money, Colors.purple),
         _buildMetricCard('Response Rate', '${data['responseRate']}%',
             Icons.reply, Colors.teal),

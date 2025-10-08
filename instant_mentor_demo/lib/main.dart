@@ -1,11 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 
 import 'core/config/app_config.dart';
 import 'core/debug/provider_observer.dart';
+import 'core/localization/app_localizations.dart';
 import 'core/logging/app_logger.dart';
 import 'core/network/network_client.dart';
+import 'core/providers/locale_provider.dart';
+import 'core/providers/persistent_settings_provider.dart';
 import 'core/providers/websocket_provider.dart';
 import 'core/routing/routing.dart';
 import 'core/services/payment_service.dart';
@@ -76,6 +80,8 @@ class MyApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final router = ref.watch(goRouterProvider);
+    final isDarkMode = ref.watch(darkModeProvider);
+    final currentLocale = ref.watch(localeProvider);
 
     // Initialize WebSocket connection management
     ref.watch(webSocketConnectionManagerProvider);
@@ -85,6 +91,14 @@ class MyApp extends ConsumerWidget {
     // placing RealtimeCommunicationOverlay ABOVE its navigator via builder.
     return MaterialApp.router(
       title: 'InstantMentor',
+      locale: currentLocale,
+      supportedLocales: AppLocalizations.supportedLocales,
+      localizationsDelegates: [
+        AppLocalizations.delegate,
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
       theme: ThemeData(
         useMaterial3: true,
         colorScheme: const ColorScheme.light(
@@ -119,6 +133,44 @@ class MyApp extends ConsumerWidget {
           ),
         ),
       ),
+      darkTheme: ThemeData(
+        useMaterial3: true,
+        colorScheme: const ColorScheme.dark(
+          primary: Color(0xFF3B82F6), // Lighter blue for dark mode
+          secondary: Color(0xFF1E293B), // Dark gray
+          onSecondary: Color(0xFFFFFFFF),
+          onSurface: Color(0xFFE2E8F0),
+          surface: Color(0xFF0F172A),
+          background: Color(0xFF020617),
+        ),
+        scaffoldBackgroundColor: const Color(0xFF020617), // Dark background
+        appBarTheme: const AppBarTheme(
+          backgroundColor: Color(0xFF1E293B),
+          foregroundColor: Color(0xFFFFFFFF),
+          elevation: 0,
+          centerTitle: true,
+        ),
+        cardTheme: CardThemeData(
+          elevation: 2,
+          color: const Color(0xFF1E293B),
+          shadowColor: const Color(0xFF000000).withValues(alpha: 0.3),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+        ),
+        elevatedButtonTheme: ElevatedButtonThemeData(
+          style: ElevatedButton.styleFrom(
+            backgroundColor:
+                const Color(0xFF3B82F6), // Lighter blue for dark mode
+            foregroundColor: const Color(0xFFFFFFFF), // White text
+            elevation: 2,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+        ),
+      ),
+      themeMode: isDarkMode ? ThemeMode.dark : ThemeMode.light,
       routerConfig: router,
       debugShowCheckedModeBanner: false,
       builder: (context, child) {
@@ -469,7 +521,7 @@ class _DemoScreenState extends State<DemoScreen> {
               Expanded(
                   child: _StatCard(
                       title: 'Earnings',
-                      value: '\$250',
+                      value: '₹250',
                       icon: Icons.monetization_on,
                       color: Colors.green)),
               SizedBox(width: 12),
@@ -499,7 +551,7 @@ class _DemoScreenState extends State<DemoScreen> {
                   subject: 'Mathematics',
                   time: 'In 30 minutes',
                   duration: '60 min',
-                  amount: '\$50',
+                  amount: '₹50',
                 ),
                 Divider(height: 1),
                 _MentorSessionTile(
@@ -507,7 +559,7 @@ class _DemoScreenState extends State<DemoScreen> {
                   subject: 'Mathematics',
                   time: '2:00 PM',
                   duration: '45 min',
-                  amount: '\$37.5',
+                  amount: '₹37.5',
                 ),
               ],
             ),
@@ -651,7 +703,7 @@ class _DemoScreenState extends State<DemoScreen> {
                 trailing: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Text('\$${prices[index]}/hr',
+                    Text('₹${prices[index]}/hr',
                         style: TextStyle(
                             fontWeight: FontWeight.bold,
                             color: Theme.of(context).colorScheme.primary)),
@@ -813,7 +865,7 @@ class _DemoScreenState extends State<DemoScreen> {
                               .onPrimary
                               .withOpacity(0.9))),
                   const SizedBox(height: 8),
-                  Text('\$125.50',
+                  Text('₹125.50',
                       style: Theme.of(context).textTheme.displaySmall?.copyWith(
                           color: Theme.of(context).colorScheme.onPrimary,
                           fontWeight: FontWeight.bold)),
@@ -945,18 +997,18 @@ class _DemoScreenState extends State<DemoScreen> {
             children: [
               Expanded(
                   child: _EarningsCard(
-                      title: 'Today', amount: '\$250', color: Colors.green)),
+                      title: 'Today', amount: '₹250', color: Colors.green)),
               SizedBox(width: 12),
               Expanded(
                   child: _EarningsCard(
                       title: 'This Week',
-                      amount: '\$1,250',
+                      amount: '₹1,250',
                       color: Colors.blue)),
               SizedBox(width: 12),
               Expanded(
                   child: _EarningsCard(
                       title: 'This Month',
-                      amount: '\$4,800',
+                      amount: '₹4,800',
                       color: Colors.purple)),
             ],
           ),
@@ -1271,18 +1323,18 @@ class _DemoScreenState extends State<DemoScreen> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Rate: \$$price/hour'),
+            Text('Rate: ₹$price/hour'),
             const SizedBox(height: 16),
             const Text('Select Duration:'),
             DropdownButtonFormField<String>(
               decoration: const InputDecoration(labelText: 'Duration'),
               items: [
                 DropdownMenuItem(
-                    value: '30', child: Text('30 minutes - \$${price ~/ 2}')),
-                DropdownMenuItem(value: '60', child: Text('1 hour - \$$price')),
+                    value: '30', child: Text('30 minutes - ₹${price ~/ 2}')),
+                DropdownMenuItem(value: '60', child: Text('1 hour - ₹$price')),
                 DropdownMenuItem(
                     value: '90',
-                    child: Text('1.5 hours - \$${(price * 1.5).toInt()}')),
+                    child: Text('1.5 hours - ₹${(price * 1.5).toInt()}')),
               ],
               onChanged: (value) {},
             ),
@@ -1328,12 +1380,12 @@ class _DemoScreenState extends State<DemoScreen> {
                     Navigator.of(context).pop();
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
-                        content: Text('\$$amount added successfully!'),
+                        content: Text('₹$amount added successfully!'),
                         backgroundColor: Colors.green,
                       ),
                     );
                   },
-                  child: Text('\$$amount'),
+                  child: Text('₹$amount'),
                 );
               }).toList(),
             ),
@@ -1442,7 +1494,7 @@ class _MentorCard extends StatelessWidget {
                 ],
               ),
               const Spacer(),
-              Text('\$$price/hr',
+              Text('₹$price/hr',
                   style: TextStyle(
                       fontWeight: FontWeight.bold,
                       color: Theme.of(context).colorScheme.primary,
@@ -1640,7 +1692,7 @@ class _TransactionTile extends StatelessWidget {
         ],
       ),
       trailing: Text(
-        '${isPositive ? '+' : ''}\$${amount.abs().toStringAsFixed(2)}',
+        '${isPositive ? '+' : ''}₹${amount.abs().toStringAsFixed(2)}',
         style: TextStyle(
           fontWeight: FontWeight.bold,
           color: isPositive ? Colors.green : Colors.red,

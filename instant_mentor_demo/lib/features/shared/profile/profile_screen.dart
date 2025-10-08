@@ -218,20 +218,32 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               // Profile Picture
               Stack(
                 children: [
-                  CircleAvatar(
-                    radius: 60,
-                    backgroundColor:
-                        Theme.of(context).colorScheme.primaryContainer,
-                    backgroundImage: _profileImageBytes != null
-                        ? MemoryImage(_profileImageBytes!)
-                        : null,
-                    child: _profileImageBytes == null
-                        ? const Text(
-                            'AJ',
-                            style: TextStyle(
-                                fontSize: 36, fontWeight: FontWeight.bold),
-                          )
-                        : null,
+                  Container(
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: _profileImageBytes != null
+                          ? Border.all(color: Colors.green, width: 3)
+                          : null,
+                    ),
+                    child: CircleAvatar(
+                      radius: 60,
+                      backgroundColor:
+                          Theme.of(context).colorScheme.primaryContainer,
+                      backgroundImage: _profileImageBytes != null
+                          ? MemoryImage(_profileImageBytes!)
+                          : null,
+                      child: _profileImageBytes == null
+                          ? Text(
+                              _nameController.text.isNotEmpty
+                                  ? _nameController.text
+                                      .substring(0, 1)
+                                      .toUpperCase()
+                                  : 'U',
+                              style: const TextStyle(
+                                  fontSize: 36, fontWeight: FontWeight.bold),
+                            )
+                          : null,
+                    ),
                   ),
                   Positioned(
                     bottom: 0,
@@ -240,16 +252,52 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                       decoration: BoxDecoration(
                         color: Theme.of(context).colorScheme.primary,
                         shape: BoxShape.circle,
+                        border: Border.all(color: Colors.white, width: 2),
                       ),
                       child: IconButton(
                         icon: const Icon(Icons.camera_alt, color: Colors.white),
                         onPressed: _changeProfilePicture,
+                        tooltip: 'Change profile picture',
                       ),
                     ),
                   ),
+                  if (_profileImageBytes != null)
+                    Positioned(
+                      top: 0,
+                      right: 0,
+                      child: Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: const BoxDecoration(
+                          color: Colors.green,
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.check,
+                          color: Colors.white,
+                          size: 16,
+                        ),
+                      ),
+                    ),
                 ],
               ),
-
+              const SizedBox(height: 8),
+              if (_profileImageBytes != null)
+                const Text(
+                  '✅ New photo selected! Click Save to upload.',
+                  style: TextStyle(
+                    color: Colors.green,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                  ),
+                )
+              else
+                Text(
+                  'Tap the camera icon to add a profile picture',
+                  style: TextStyle(
+                    color: Colors.grey[600],
+                    fontSize: 12,
+                  ),
+                ),
               const SizedBox(height: 24),
 
               // Basic Information
@@ -449,7 +497,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
               const SizedBox(height: 24),
 
-              // Preferences
+              // Preferences Section - Enhanced Design
               Text(
                 'Preferences',
                 style: Theme.of(context).textTheme.titleLarge?.copyWith(
@@ -458,7 +506,12 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               ),
               const SizedBox(height: 16),
 
+              // Notification Preferences
               Card(
+                elevation: 2,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
                 child: _loadingInitial
                     ? const Padding(
                         padding: EdgeInsets.all(24.0),
@@ -466,9 +519,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                       )
                     : Column(
                         children: [
-                          SwitchListTile(
-                            title: const Text('Email Notifications'),
-                            subtitle: const Text('Receive updates via email'),
+                          _PreferenceItem(
+                            title: 'Email Notifications',
+                            subtitle: 'Receive updates via email',
                             value: _emailNotifications,
                             onChanged: (value) {
                               setState(() {
@@ -477,9 +530,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                               });
                             },
                           ),
-                          SwitchListTile(
-                            title: const Text('Push Notifications'),
-                            subtitle: const Text('Receive push notifications'),
+                          const Divider(height: 1),
+                          _PreferenceItem(
+                            title: 'Push Notifications',
+                            subtitle: 'Receive push notifications',
                             value: _pushNotifications,
                             onChanged: (value) {
                               setState(() {
@@ -488,22 +542,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                               });
                             },
                           ),
-                          if (isStudent)
-                            SwitchListTile(
-                              title: const Text('Study Reminders'),
-                              subtitle: const Text('Get reminded to study'),
-                              value: _studyReminders,
-                              onChanged: (value) {
-                                setState(() {
-                                  _studyReminders = value;
-                                  _saveToCache();
-                                });
-                              },
-                            ),
-                          SwitchListTile(
-                            title: const Text('Session Reminders'),
-                            subtitle:
-                                const Text('Get reminded before sessions'),
+                          const Divider(height: 1),
+                          _PreferenceItem(
+                            title: 'Session Reminders',
+                            subtitle: 'Get reminded before sessions',
                             value: _sessionReminders,
                             onChanged: (value) {
                               setState(() {
@@ -512,38 +554,57 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                               });
                             },
                           ),
+                          if (isStudent) ...[
+                            const Divider(height: 1),
+                            _PreferenceItem(
+                              title: 'Study Reminders',
+                              subtitle: 'Get reminded to study',
+                              value: _studyReminders,
+                              onChanged: (value) {
+                                setState(() {
+                                  _studyReminders = value;
+                                  _saveToCache();
+                                });
+                              },
+                            ),
+                          ],
                         ],
                       ),
               ),
 
-              const SizedBox(height: 24),
+              const SizedBox(height: 16),
 
-              // Account Actions
+              // Account Actions - Enhanced Design
               Card(
+                elevation: 2,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
                 child: Column(
                   children: [
-                    ListTile(
-                      leading: const Icon(Icons.lock),
-                      title: const Text('Change Password'),
-                      trailing: const Icon(Icons.arrow_forward_ios),
+                    _ActionItem(
+                      icon: Icons.lock_outline,
+                      title: 'Change Password',
                       onTap: _changePassword,
                     ),
-                    ListTile(
-                      leading: const Icon(Icons.privacy_tip),
-                      title: const Text('Privacy Settings'),
-                      trailing: const Icon(Icons.arrow_forward_ios),
+                    const Divider(height: 1),
+                    _ActionItem(
+                      icon: Icons.privacy_tip_outlined,
+                      title: 'Privacy Settings',
                       onTap: _privacySettings,
                     ),
-                    ListTile(
-                      leading: const Icon(Icons.help),
-                      title: const Text('Help & Support'),
-                      trailing: const Icon(Icons.arrow_forward_ios),
+                    const Divider(height: 1),
+                    _ActionItem(
+                      icon: Icons.help_outline,
+                      title: 'Help & Support',
                       onTap: _helpSupport,
                     ),
-                    ListTile(
-                      leading: const Icon(Icons.logout, color: Colors.red),
-                      title: const Text('Logout',
-                          style: TextStyle(color: Colors.red)),
+                    const Divider(height: 1),
+                    _ActionItem(
+                      icon: Icons.logout,
+                      title: 'Logout',
+                      iconColor: Colors.red,
+                      titleColor: Colors.red,
                       onTap: _logout,
                     ),
                   ],
@@ -571,6 +632,79 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     );
   }
 
+  Widget _PreferenceItem({
+    required String title,
+    required String subtitle,
+    required bool value,
+    required ValueChanged<bool> onChanged,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  subtitle,
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Colors.grey[600],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Switch.adaptive(
+            value: value,
+            onChanged: onChanged,
+            activeColor: Theme.of(context).primaryColor,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _ActionItem({
+    required IconData icon,
+    required String title,
+    required VoidCallback onTap,
+    Color? iconColor,
+    Color? titleColor,
+  }) {
+    return ListTile(
+      leading: Icon(
+        icon,
+        color: iconColor ?? Theme.of(context).colorScheme.onSurface,
+        size: 24,
+      ),
+      title: Text(
+        title,
+        style: TextStyle(
+          fontSize: 16,
+          fontWeight: FontWeight.w500,
+          color: titleColor ?? Theme.of(context).colorScheme.onSurface,
+        ),
+      ),
+      trailing: Icon(
+        Icons.arrow_forward_ios,
+        size: 16,
+        color: Colors.grey[400],
+      ),
+      onTap: onTap,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+    );
+  }
+
   void _changeProfilePicture() {
     showDialog(
       context: context,
@@ -579,30 +713,68 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            if (!kIsWeb) ...[
+              ListTile(
+                leading: const Icon(Icons.camera_alt, color: Colors.blue),
+                title: const Text('Take Photo'),
+                subtitle: const Text('Use camera to take a new photo'),
+                onTap: () async {
+                  Navigator.pop(context);
+                  await _pickImageFromCamera();
+                },
+              ),
+            ],
             ListTile(
-              leading: const Icon(Icons.camera_alt),
-              title: const Text('Take Photo'),
-              onTap: () async {
-                Navigator.pop(context);
-                await _pickImageFromCamera();
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.photo_library),
+              leading: const Icon(Icons.photo_library, color: Colors.green),
               title: const Text('Choose from Gallery'),
+              subtitle: Text(kIsWeb
+                  ? 'Select an image file from your computer'
+                  : 'Pick from your photo gallery'),
               onTap: () async {
                 Navigator.pop(context);
                 await _pickImageFromGallery();
               },
             ),
+            if (kIsWeb) ...[
+              const Padding(
+                padding: EdgeInsets.all(8.0),
+                child: Text(
+                  '💡 Tip: For web, gallery option works best!',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey,
+                    fontStyle: FontStyle.italic,
+                  ),
+                ),
+              ),
+            ],
           ],
         ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+        ],
       ),
     );
   }
 
   Future<void> _pickImageFromCamera() async {
     try {
+      // For web, check if camera is available
+      if (kIsWeb) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Camera access on web requires HTTPS or localhost. Please allow camera permission when prompted.',
+            ),
+            backgroundColor: Colors.orange,
+            duration: Duration(seconds: 4),
+          ),
+        );
+      }
+
       final XFile? image = await _picker.pickImage(
         source: ImageSource.camera,
         maxWidth: 800,
@@ -625,13 +797,41 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             ),
           );
         }
+      } else {
+        // User cancelled or permission denied
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'Camera access cancelled. You can try using "Choose from Gallery" instead.',
+              ),
+              backgroundColor: Colors.orange,
+            ),
+          );
+        }
       }
     } catch (e) {
+      debugPrint('🔴 Camera error: $e');
       if (mounted) {
+        String errorMessage = 'Error taking photo: $e';
+
+        // Provide specific guidance for common web issues
+        if (kIsWeb && e.toString().contains('NotAllowedError')) {
+          errorMessage =
+              'Camera permission denied. Please allow camera access in your browser settings and try again.';
+        } else if (kIsWeb && e.toString().contains('NotFoundError')) {
+          errorMessage =
+              'No camera found. Please try "Choose from Gallery" instead.';
+        } else if (kIsWeb && e.toString().contains('NotSupportedError')) {
+          errorMessage =
+              'Camera not supported. Please use "Choose from Gallery" instead.';
+        }
+
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error taking photo: $e'),
+            content: Text(errorMessage),
             backgroundColor: Colors.red,
+            duration: const Duration(seconds: 5),
           ),
         );
       }
@@ -659,16 +859,39 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               content: Text(
                   'Profile picture selected! Remember to save your profile.'),
               backgroundColor: Colors.green,
+              duration: Duration(seconds: 3),
+            ),
+          );
+        }
+      } else {
+        // User cancelled selection
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('No image selected.'),
+              backgroundColor: Colors.orange,
             ),
           );
         }
       }
     } catch (e) {
+      debugPrint('🔴 Gallery error: $e');
       if (mounted) {
+        String errorMessage = 'Error selecting image: $e';
+
+        // Provide specific guidance for web issues
+        if (kIsWeb && e.toString().contains('NotAllowedError')) {
+          errorMessage =
+              'File access permission denied. Please allow file access in your browser.';
+        } else if (kIsWeb && e.toString().contains('AbortError')) {
+          errorMessage = 'File selection was cancelled or interrupted.';
+        }
+
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error selecting image: $e'),
+            content: Text(errorMessage),
             backgroundColor: Colors.red,
+            duration: const Duration(seconds: 4),
           ),
         );
       }
@@ -692,12 +915,55 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       // Upload profile image if one was selected
       if (_profileImageBytes != null) {
         print('🔵 ProfileScreen: Uploading profile image...');
+
+        // Show upload progress to user
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Row(
+                children: [
+                  SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                  SizedBox(width: 16),
+                  Text('Uploading profile image...'),
+                ],
+              ),
+              backgroundColor: Colors.blue,
+              duration: Duration(seconds: 10),
+            ),
+          );
+        }
+
         final fileName = 'profile_${DateTime.now().millisecondsSinceEpoch}.jpg';
-        avatarUrl = await SupabaseService.instance.uploadProfileImage(
-          imageBytes: _profileImageBytes!,
-          fileName: fileName,
-        );
-        print('🟢 ProfileScreen: Image uploaded successfully: $avatarUrl');
+        try {
+          avatarUrl = await SupabaseService.instance.uploadProfileImage(
+            imageBytes: _profileImageBytes!,
+            fileName: fileName,
+          );
+          print('🟢 ProfileScreen: Image uploaded successfully: $avatarUrl');
+
+          // Clear the upload progress snackbar
+          if (mounted) {
+            ScaffoldMessenger.of(context).hideCurrentSnackBar();
+          }
+        } catch (uploadError) {
+          print('🔴 ProfileScreen: Image upload failed: $uploadError');
+          if (mounted) {
+            ScaffoldMessenger.of(context).hideCurrentSnackBar();
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Failed to upload image: $uploadError'),
+                backgroundColor: Colors.red,
+                duration: const Duration(seconds: 5),
+              ),
+            );
+          }
+          // Continue with profile save without avatar
+          avatarUrl = null;
+        }
       }
 
       // Build profile data with only fields that have values
@@ -869,52 +1135,104 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     );
   }
 
-  void _logout() {
-    showDialog(
+  void _logout() async {
+    final shouldLogout = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Logout'),
         content: const Text('Are you sure you want to logout?'),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.of(context).pop(false),
             child: const Text('Cancel'),
           ),
           ElevatedButton(
-            onPressed: () async {
-              Navigator.pop(context);
-              // Show loading indicator
-              showDialog(
-                context: context,
-                barrierDismissible: false,
-                builder: (context) => const Center(
-                  child: CircularProgressIndicator(),
-                ),
-              );
-
-              try {
-                // Properly sign out through auth provider
-                await ref.read(authProvider.notifier).signOut();
-                // Navigation will be handled by router redirect logic automatically
-                if (context.mounted) {
-                  Navigator.of(context).pop(); // Close loading
-                  // Explicitly navigate to login after logout to ensure redirect works
-                  context.go('/login');
-                }
-              } catch (e) {
-                if (context.mounted) {
-                  Navigator.of(context).pop(); // Close loading
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Logout failed: $e')),
-                  );
-                }
-              }
-            },
+            onPressed: () => Navigator.of(context).pop(true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
             child: const Text('Logout'),
           ),
         ],
       ),
     );
+
+    if (shouldLogout != true) return;
+
+    // Show loading dialog
+    if (!mounted) return;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const AlertDialog(
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            CircularProgressIndicator(),
+            SizedBox(height: 16),
+            Text('Logging out...'),
+          ],
+        ),
+      ),
+    );
+
+    try {
+      debugPrint('🔵 ProfileScreen: Starting logout process...');
+
+      // Clear local cache first
+      _profileCache = null;
+      _isCacheValid = false;
+
+      // Force signOut with timeout
+      await Future.any([
+        ref.read(authProvider.notifier).signOut(forced: true),
+        Future.delayed(const Duration(seconds: 10)), // Timeout after 10 seconds
+      ]);
+
+      debugPrint('🟢 ProfileScreen: Logout completed successfully');
+
+      if (!mounted) return;
+
+      // Close loading dialog
+      Navigator.of(context, rootNavigator: true).pop();
+
+      // Navigate to login screen immediately
+      context.go('/login');
+
+      // Show success message after navigation
+      Future.delayed(const Duration(milliseconds: 100), () {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Successfully logged out'),
+              backgroundColor: Colors.green,
+              duration: Duration(seconds: 2),
+            ),
+          );
+        }
+      });
+    } catch (e) {
+      debugPrint('🔴 ProfileScreen: Logout error: $e');
+
+      if (!mounted) return;
+
+      // Close loading dialog
+      Navigator.of(context, rootNavigator: true).pop();
+
+      // Force navigation to login even if logout failed
+      context.go('/login');
+
+      // Show error message
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Logout completed with warning: ${e.toString()}'),
+          backgroundColor: Colors.orange,
+          duration: const Duration(seconds: 3),
+        ),
+      );
+    }
   }
 
   @override

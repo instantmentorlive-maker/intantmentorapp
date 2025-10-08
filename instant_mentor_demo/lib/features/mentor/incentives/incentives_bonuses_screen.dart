@@ -171,7 +171,7 @@ class IncentivesBonusesScreen extends ConsumerWidget {
                 Expanded(
                   child: _buildEarningCard(
                     'Total Earned',
-                    '\$${data['totalEarned']}',
+                    '₹${data['totalEarned']}',
                     Icons.account_balance_wallet,
                     Colors.green,
                   ),
@@ -180,7 +180,7 @@ class IncentivesBonusesScreen extends ConsumerWidget {
                 Expanded(
                   child: _buildEarningCard(
                     'This Month',
-                    '\$${data['thisMonthEarned']}',
+                    '₹${data['thisMonthEarned']}',
                     Icons.calendar_month,
                     Colors.blue,
                   ),
@@ -356,7 +356,7 @@ class IncentivesBonusesScreen extends ConsumerWidget {
                               borderRadius: BorderRadius.circular(12),
                             ),
                             child: Text(
-                              '\$${challenge['reward']}',
+                              '₹${challenge['reward']}',
                               style: const TextStyle(
                                 color: Colors.green,
                                 fontWeight: FontWeight.bold,
@@ -432,7 +432,7 @@ class IncentivesBonusesScreen extends ConsumerWidget {
                         crossAxisAlignment: CrossAxisAlignment.end,
                         children: [
                           Text(
-                            '\$${reward['reward']}',
+                            '₹${reward['reward']}',
                             style: const TextStyle(
                               color: Colors.green,
                               fontWeight: FontWeight.bold,
@@ -472,7 +472,7 @@ class IncentivesBonusesScreen extends ConsumerWidget {
             ),
             const SizedBox(height: 16),
             Text(
-              'Earn \$${referralData['bonusPerReferral']} for each mentor you refer!',
+              'Earn ₹${referralData['bonusPerReferral']} for each mentor you refer!',
               style: const TextStyle(fontSize: 14, color: Colors.grey),
             ),
             const SizedBox(height: 20),
@@ -495,7 +495,7 @@ class IncentivesBonusesScreen extends ConsumerWidget {
                 Expanded(
                   child: _buildReferralStat(
                     'Earned',
-                    '\$${referralData['earningsFromReferrals']}',
+                    '₹${referralData['earningsFromReferrals']}',
                     Icons.attach_money,
                   ),
                 ),
