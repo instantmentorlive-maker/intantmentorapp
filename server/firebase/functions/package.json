@@ -14,7 +14,8 @@
     "firebase-admin": "^12.5.0",
     "firebase-functions": "^5.0.0",
     "stripe": "^16.0.0",
-    "razorpay": "^2.9.2"
+    "razorpay": "^2.9.2",
+    "@supabase/supabase-js": "^2.45.0"
   },
   "devDependencies": {
     "@types/express": "^4.17.21",

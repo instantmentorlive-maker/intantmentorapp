@@ -318,6 +318,28 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
+-- Function to release all due mentor earnings (T+24h after capture)
+CREATE OR REPLACE FUNCTION release_due_mentor_earnings()
+RETURNS INTEGER AS $$
+DECLARE
+    r RECORD;
+    released_count INTEGER := 0;
+BEGIN
+    FOR r IN (
+        SELECT sp.session_id, sp.mentor_uid, sp.amount_mentor
+        FROM session_payments sp
+        WHERE sp.status = 'captured'
+          AND sp.captured_at IS NOT NULL
+          AND sp.released_at IS NULL
+          AND sp.captured_at <= NOW() - INTERVAL '24 hours'
+    ) LOOP
+        PERFORM release_mentor_earnings(r.session_id, r.mentor_uid, r.amount_mentor);
+        released_count := released_count + 1;
+    END LOOP;
+    RETURN released_count;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
 -- process_session_refund wrapper
 CREATE OR REPLACE FUNCTION process_session_refund(
     session_id UUID,
