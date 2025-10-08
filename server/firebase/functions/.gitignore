@@ -1,0 +1,12 @@
+# Node
+node_modules/
+lib/
+
+# Env/Secrets
+.env
+.runtimeconfig.json
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
