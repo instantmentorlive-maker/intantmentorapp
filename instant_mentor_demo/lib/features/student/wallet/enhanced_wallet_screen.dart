@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:razorpay_flutter/razorpay_flutter.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
@@ -19,9 +22,22 @@ class EnhancedWalletScreen extends ConsumerStatefulWidget {
 class _EnhancedWalletScreenState extends ConsumerState<EnhancedWalletScreen> {
   final TextEditingController _amountController = TextEditingController();
   bool _isProcessing = false;
+  Razorpay? _razorpay;
+
+  @override
+  void initState() {
+    super.initState();
+    if (!kIsWeb) {
+      _razorpay = Razorpay();
+      _razorpay!.on(Razorpay.EVENT_PAYMENT_SUCCESS, _onRazorpaySuccess);
+      _razorpay!.on(Razorpay.EVENT_PAYMENT_ERROR, _onRazorpayError);
+      _razorpay!.on(Razorpay.EVENT_EXTERNAL_WALLET, _onRazorpayExternalWallet);
+    }
+  }
 
   @override
   void dispose() {
+    _razorpay?.clear();
     _amountController.dispose();
     super.dispose();
   }
@@ -729,18 +745,52 @@ class _EnhancedWalletScreenState extends ConsumerState<EnhancedWalletScreen> {
     });
 
     try {
-      // In a real app, integrate with payment gateway here
-      await Future.delayed(const Duration(seconds: 2)); // Simulate processing
+      if (kIsWeb) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Razorpay checkout is mobile-only. Use Stripe on web.'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+        return;
+      }
+      final amountPaise = (amount * 100).round();
+      final user = ref.read(authProvider).user;
+      final uid = user?.id;
+      if (uid == null) throw Exception('Please log in');
 
-      Navigator.pop(context);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Payment gateway integration pending'),
-          backgroundColor: Colors.orange,
-        ),
-      );
+      // Create a top-up intent via callable function (Razorpay order)
+      final callable = FirebaseFunctions.instance.httpsCallable('createTopupIntent');
+      final idem = 'topup_${DateTime.now().millisecondsSinceEpoch}';
+      final response = await callable.call({
+        'amount': amountPaise,
+        'currency': 'INR',
+        'gateway': 'razorpay',
+        'idempotencyKey': idem,
+      });
+      final data = Map<String, dynamic>.from(response.data as Map);
+      final orderId = data['orderId'] as String?;
+      if (orderId == null) throw Exception('Failed to create Razorpay order');
 
-      _amountController.clear();
+      final options = {
+        'key': 'rzp_test_...', // TODO: inject from env/remote config
+        'amount': amountPaise,
+        'currency': 'INR',
+        'name': 'Instant Mentor',
+        'description': 'Wallet Top-up',
+        'order_id': orderId,
+        'timeout': 300,
+        'prefill': {
+          'email': user?.email ?? '',
+        },
+        'notes': {
+          'uid': uid,
+          'idem': idem,
+        },
+      };
+
+      _razorpay!.open(options);
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Failed to process payment: $e')),
@@ -750,6 +800,26 @@ class _EnhancedWalletScreenState extends ConsumerState<EnhancedWalletScreen> {
         _isProcessing = false;
       });
     }
+  }
+
+  void _onRazorpaySuccess(PaymentSuccessResponse res) {
+    if (Navigator.canPop(context)) Navigator.pop(context);
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Payment successful!')),
+    );
+    _amountController.clear();
+  }
+
+  void _onRazorpayError(PaymentFailureResponse res) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Payment failed: ${res.message}')),
+    );
+  }
+
+  void _onRazorpayExternalWallet(ExternalWalletResponse res) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('External wallet selected: ${res.walletName}')),
+    );
   }
 }
 

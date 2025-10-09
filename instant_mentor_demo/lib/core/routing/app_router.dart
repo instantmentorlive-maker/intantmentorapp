@@ -24,6 +24,8 @@ import '../../main_navigation.dart';
 import '../models/user.dart';
 import '../providers/auth_provider.dart';
 import '../providers/user_provider.dart';
+import '../../admin/ui/admin_dashboard_page.dart';
+import '../../admin/data/admin_providers.dart';
 
 // Custom ChangeNotifier to listen to auth changes
 class AuthStateNotifier extends ChangeNotifier {
@@ -145,6 +147,11 @@ final goRouterProvider = Provider<GoRouter>((ref) {
           return LiveSessionScreen(sessionId: sessionId);
         },
       ),
+      // Admin Dashboard (admin-only UI; page itself enforces access and shows Access Denied if non-admin)
+      GoRoute(
+        path: '/admin',
+        builder: (context, state) => const AdminDashboardPage(),
+      ),
       GoRoute(
         path: '/mentor-profile/:mentorId',
         builder: (context, state) {
@@ -157,6 +164,13 @@ final goRouterProvider = Provider<GoRouter>((ref) {
       final location = state.uri.path;
       final authState = ref.read(authProvider);
       final isAuthenticated = authState.isAuthenticated;
+      // Guard /admin: if admin status resolves to false, redirect away
+      if (location == '/admin') {
+        final isAdmin = ref.read(isAdminProvider).asData?.value;
+        if (isAdmin == false) {
+          return '/more';
+        }
+      }
 
       // Reduce debug noise - only log actual redirects
       // debugPrint('GoRouter: Redirect check - Location: $location, Authenticated: $isAuthenticated');

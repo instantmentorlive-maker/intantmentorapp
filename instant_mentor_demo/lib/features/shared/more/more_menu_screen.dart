@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/providers/auth_provider.dart';
 import '../../../core/providers/user_provider.dart';
 import '../../../core/services/session_chat_manager.dart';
+import '../../../admin/data/admin_providers.dart';
 import '../../mentor/incentives/incentives_bonuses_screen.dart';
 import '../../mentor/performance_analytics/performance_analytics_screen.dart';
 import '../../mentor/profile_management/profile_management_screen.dart';
@@ -23,6 +24,7 @@ class MoreMenuScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final isStudent = ref.watch(isStudentProvider);
+    final isAdminAsync = ref.watch(isAdminProvider);
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
@@ -47,6 +49,15 @@ class MoreMenuScreen extends ConsumerWidget {
           const SizedBox(height: 24),
           const Divider(),
           const SizedBox(height: 16),
+
+          // Admin-only (hidden unless isAdminProvider resolves true)
+          if (isAdminAsync.asData?.value == true)
+            _MenuTile(
+              icon: Icons.admin_panel_settings,
+              title: 'Admin Dashboard',
+              subtitle: 'Payments, payouts, refunds, reconciliation',
+              onTap: () => context.go('/admin'),
+            ),
 
           // Common items
           _MenuTile(

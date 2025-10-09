@@ -2,6 +2,9 @@
 -- Based on the payments architecture document
 -- Supabase PostgreSQL implementation
 
+-- Ensure required extension for gen_random_uuid()
+CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+
 -- ===========================================================================
 -- USER PAYMENT PROFILES TABLE
 -- ===========================================================================
@@ -218,22 +221,27 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- Apply updated_at trigger to relevant tables
+DROP TRIGGER IF EXISTS update_user_payment_profiles_updated_at ON user_payment_profiles;
 CREATE TRIGGER update_user_payment_profiles_updated_at
     BEFORE UPDATE ON user_payment_profiles
     FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 
+DROP TRIGGER IF EXISTS update_enhanced_wallets_updated_at ON enhanced_wallets;
 CREATE TRIGGER update_enhanced_wallets_updated_at
     BEFORE UPDATE ON enhanced_wallets
     FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 
+DROP TRIGGER IF EXISTS update_mentor_earnings_updated_at ON mentor_earnings;
 CREATE TRIGGER update_mentor_earnings_updated_at
     BEFORE UPDATE ON mentor_earnings
     FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 
+DROP TRIGGER IF EXISTS update_session_payments_updated_at ON session_payments;
 CREATE TRIGGER update_session_payments_updated_at
     BEFORE UPDATE ON session_payments
     FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 
+DROP TRIGGER IF EXISTS update_payout_requests_updated_at ON payout_requests;
 CREATE TRIGGER update_payout_requests_updated_at
     BEFORE UPDATE ON payout_requests
     FOR EACH ROW EXECUTE FUNCTION update_updated_at();
@@ -251,56 +259,72 @@ ALTER TABLE session_payments ENABLE ROW LEVEL SECURITY;
 ALTER TABLE payout_requests ENABLE ROW LEVEL SECURITY;
 
 -- User payment profiles: Users can only access their own profile
+DROP POLICY IF EXISTS "Users can view own payment profile" ON user_payment_profiles;
 CREATE POLICY "Users can view own payment profile" ON user_payment_profiles
     FOR SELECT USING (auth.uid() = uid);
 
+DROP POLICY IF EXISTS "Users can update own payment profile" ON user_payment_profiles;
 CREATE POLICY "Users can update own payment profile" ON user_payment_profiles
     FOR UPDATE USING (auth.uid() = uid);
 
+DROP POLICY IF EXISTS "Users can insert own payment profile" ON user_payment_profiles;
 CREATE POLICY "Users can insert own payment profile" ON user_payment_profiles
     FOR INSERT WITH CHECK (auth.uid() = uid);
 
 -- Enhanced wallets: Users can only access their own wallet
+DROP POLICY IF EXISTS "Users can view own wallet" ON enhanced_wallets;
 CREATE POLICY "Users can view own wallet" ON enhanced_wallets
     FOR SELECT USING (auth.uid() = user_uid);
 
+DROP POLICY IF EXISTS "Users can update own wallet" ON enhanced_wallets;
 CREATE POLICY "Users can update own wallet" ON enhanced_wallets
     FOR UPDATE USING (auth.uid() = user_uid);
 
+DROP POLICY IF EXISTS "Users can insert own wallet" ON enhanced_wallets;
 CREATE POLICY "Users can insert own wallet" ON enhanced_wallets
     FOR INSERT WITH CHECK (auth.uid() = user_uid);
 
 -- Mentor earnings: Mentors can only access their own earnings
+DROP POLICY IF EXISTS "Mentors can view own earnings" ON mentor_earnings;
 CREATE POLICY "Mentors can view own earnings" ON mentor_earnings
     FOR SELECT USING (auth.uid() = mentor_uid);
 
+DROP POLICY IF EXISTS "Mentors can update own earnings" ON mentor_earnings;
 CREATE POLICY "Mentors can update own earnings" ON mentor_earnings
     FOR UPDATE USING (auth.uid() = mentor_uid);
 
+DROP POLICY IF EXISTS "Mentors can insert own earnings" ON mentor_earnings;
 CREATE POLICY "Mentors can insert own earnings" ON mentor_earnings
     FOR INSERT WITH CHECK (auth.uid() = mentor_uid);
 
 -- Ledger transactions: Users can view transactions related to them
+DROP POLICY IF EXISTS "Users can view own transactions" ON ledger_transactions;
 CREATE POLICY "Users can view own transactions" ON ledger_transactions
     FOR SELECT USING (auth.uid() = user_uid);
 
+DROP POLICY IF EXISTS "System can insert transactions" ON ledger_transactions;
 CREATE POLICY "System can insert transactions" ON ledger_transactions
     FOR INSERT WITH CHECK (true); -- Controlled by application logic
 
 -- Session payments: Students and mentors can view their session payments
+DROP POLICY IF EXISTS "Users can view related session payments" ON session_payments;
 CREATE POLICY "Users can view related session payments" ON session_payments
     FOR SELECT USING (auth.uid() = student_uid OR auth.uid() = mentor_uid);
 
+DROP POLICY IF EXISTS "System can manage session payments" ON session_payments;
 CREATE POLICY "System can manage session payments" ON session_payments
     FOR ALL USING (true); -- Controlled by application logic
 
 -- Payout requests: Mentors can view their own payout requests
+DROP POLICY IF EXISTS "Mentors can view own payout requests" ON payout_requests;
 CREATE POLICY "Mentors can view own payout requests" ON payout_requests
     FOR SELECT USING (auth.uid() = mentor_uid);
 
+DROP POLICY IF EXISTS "Mentors can insert own payout requests" ON payout_requests;
 CREATE POLICY "Mentors can insert own payout requests" ON payout_requests
     FOR INSERT WITH CHECK (auth.uid() = mentor_uid);
 
+DROP POLICY IF EXISTS "System can update payout requests" ON payout_requests;
 CREATE POLICY "System can update payout requests" ON payout_requests
     FOR UPDATE USING (true); -- Controlled by application logic
 
@@ -316,7 +340,7 @@ BEGIN
     VALUES (user_id, 'INR', 0, 0)
     ON CONFLICT (user_uid) DO NOTHING;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
 
 -- Function to release all due mentor earnings (T+24h after capture)
 CREATE OR REPLACE FUNCTION release_due_mentor_earnings()
@@ -338,7 +362,7 @@ BEGIN
     END LOOP;
     RETURN released_count;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
 
 -- process_session_refund wrapper
 CREATE OR REPLACE FUNCTION process_session_refund(
@@ -353,7 +377,7 @@ RETURNS VOID AS $$
 BEGIN
     PERFORM refund_session_payment(session_id, student_id, mentor_id, refund_total, refund_mentor_share, refund_platform_share);
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
 
 -- ===========================================================================
 -- RPC WRAPPER FUNCTIONS (compat with app code)
@@ -373,7 +397,7 @@ BEGIN
         COALESCE(transaction_data->>'gatewayId', transaction_data->>'payment_intent_id')
     );
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
 
 -- process_funds_reserve wrapper
 CREATE OR REPLACE FUNCTION process_funds_reserve(
@@ -386,7 +410,7 @@ RETURNS BOOLEAN AS $$
 BEGIN
     RETURN wallet_reserve_funds(user_id, amount_minor, session_id);
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
 
 -- process_funds_release wrapper
 CREATE OR REPLACE FUNCTION process_funds_release(
@@ -399,7 +423,7 @@ RETURNS VOID AS $$
 BEGIN
     PERFORM wallet_release_reservation(user_id, amount_minor, session_id);
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
 
 -- process_session_completion wrapper
 CREATE OR REPLACE FUNCTION process_session_completion(
@@ -415,7 +439,7 @@ RETURNS VOID AS $$
 BEGIN
     PERFORM capture_session_payment(session_id, student_id, mentor_id, total_amount, mentor_amount, platform_fee);
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
 
 -- process_mentor_earnings_release wrapper
 CREATE OR REPLACE FUNCTION process_mentor_earnings_release(
@@ -428,7 +452,7 @@ RETURNS VOID AS $$
 BEGIN
     PERFORM release_mentor_earnings(session_id, mentor_id, amount_minor);
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
 
 -- ===========================================================================
 -- COMPATIBILITY VIEWS (to match app queries expecting simple names)
@@ -482,7 +506,7 @@ BEGIN
     VALUES (mentor_id, 'INR', 0, 0)
     ON CONFLICT (mentor_uid) DO NOTHING;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
 
 -- Function to initialize payment profile for new user
 CREATE OR REPLACE FUNCTION initialize_payment_profile(user_id UUID, user_roles TEXT[])
@@ -500,7 +524,7 @@ BEGIN
         PERFORM initialize_mentor_earnings(user_id);
     END IF;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
 
 -- ===========================================================================
 -- WALLET OPERATION FUNCTIONS
@@ -528,13 +552,14 @@ BEGIN
         payment_intent_id, 'Wallet top-up'
     );
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
 
 -- Function to reserve funds for session
+DROP FUNCTION IF EXISTS wallet_reserve_funds(UUID, INTEGER, UUID);
 CREATE OR REPLACE FUNCTION wallet_reserve_funds(
     user_id UUID,
     amount_minor INTEGER,
-    session_id UUID
+    p_session_id UUID
 )
 RETURNS BOOLEAN AS $$
 DECLARE
@@ -561,21 +586,22 @@ BEGIN
         session_id, description
     ) VALUES (
         user_id, 'reserve', 'debit', amount_minor, 'studentAvailable', 'studentLocked',
-        session_id, 'Funds reserved for session'
+        p_session_id, 'Funds reserved for session'
     );
     
     -- Update session status to reserved
     UPDATE session_payments
     SET status = 'reserved', reserved_at = NOW(), updated_at = NOW()
-    WHERE session_payments.session_id = session_id;
+    WHERE session_payments.session_id = p_session_id;
     
     RETURN TRUE;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
 
 -- Function to capture session payment (split between mentor and platform)
+DROP FUNCTION IF EXISTS capture_session_payment(UUID, UUID, UUID, INTEGER, INTEGER, INTEGER);
 CREATE OR REPLACE FUNCTION capture_session_payment(
-    session_id UUID,
+    p_session_id UUID,
     student_id UUID,
     mentor_id UUID,
     total_amount INTEGER,
@@ -601,7 +627,7 @@ BEGIN
         session_id, description
     ) VALUES (
         student_id, 'capture', 'debit', total_amount, 'studentLocked', 'externalGateway',
-        session_id, 'Session payment captured (wallet mode)'
+        p_session_id, 'Session payment captured (wallet mode)'
     );
 
     -- 3b) Platform fee from external gateway to platform revenue
@@ -611,7 +637,7 @@ BEGIN
             session_id, description
         ) VALUES (
             student_id, 'fee', 'debit', platform_fee, 'externalGateway', 'platformRevenue',
-            session_id, 'Platform fee booked'
+            p_session_id, 'Platform fee booked'
         );
     END IF;
 
@@ -622,7 +648,7 @@ BEGIN
             session_id, description
         ) VALUES (
             mentor_id, 'mentorLock', 'credit', mentor_amount, 'externalGateway', 'mentorLocked',
-            session_id, 'Mentor share locked (to be released after T+delay)'
+            p_session_id, 'Mentor share locked (to be released after T+delay)'
         );
     END IF;
 
@@ -632,15 +658,16 @@ BEGIN
         amount_total = total_amount,
         amount_mentor = mentor_amount,
         amount_platform = platform_fee
-    WHERE session_payments.session_id = session_id;
+    WHERE session_payments.session_id = p_session_id;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
 
 -- Function to release reserved funds back to available (pre-start cancel)
+DROP FUNCTION IF EXISTS wallet_release_reservation(UUID, INTEGER, UUID);
 CREATE OR REPLACE FUNCTION wallet_release_reservation(
     user_id UUID,
     amount_minor INTEGER,
-    session_id UUID
+    p_session_id UUID
 )
 RETURNS VOID AS $$
 BEGIN
@@ -656,19 +683,20 @@ BEGIN
         session_id, description
     ) VALUES (
         user_id, 'release', 'credit', amount_minor, 'studentLocked', 'studentAvailable',
-        session_id, 'Reservation released (pre-start cancel)'
+        p_session_id, 'Reservation released (pre-start cancel)'
     );
 
     -- Update session status
     UPDATE session_payments
     SET status = 'released', released_at = NOW(), updated_at = NOW()
-    WHERE session_payments.session_id = session_id;
+    WHERE session_payments.session_id = p_session_id;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
 
 -- Function to release mentor locked earnings after delay window
+DROP FUNCTION IF EXISTS release_mentor_earnings(UUID, UUID, INTEGER);
 CREATE OR REPLACE FUNCTION release_mentor_earnings(
-    session_id UUID,
+    p_session_id UUID,
     mentor_id UUID,
     amount_minor INTEGER
 )
@@ -686,19 +714,20 @@ BEGIN
         session_id, description
     ) VALUES (
         mentor_id, 'mentorRelease', 'credit', amount_minor, 'mentorLocked', 'mentorAvailable',
-        session_id, 'Mentor earnings released after delay'
+        p_session_id, 'Mentor earnings released after delay'
     );
 
     -- Update session status (if fully released, mark released)
     UPDATE session_payments
     SET status = 'released', released_at = NOW(), updated_at = NOW()
-    WHERE session_id = session_id;
+    WHERE session_payments.session_id = p_session_id;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
 
 -- Function to process a post-capture refund (amounts provided by caller)
+DROP FUNCTION IF EXISTS refund_session_payment(UUID, UUID, UUID, INTEGER, INTEGER, INTEGER);
 CREATE OR REPLACE FUNCTION refund_session_payment(
-    session_id UUID,
+    p_session_id UUID,
     student_id UUID,
     mentor_id UUID,
     refund_total INTEGER,
@@ -717,7 +746,7 @@ BEGIN
         session_id, description
     ) VALUES (
         student_id, 'refund', 'credit', refund_total, 'externalGateway', 'studentAvailable',
-        session_id, 'Refund to student (post-capture)'
+        p_session_id, 'Refund to student (post-capture)'
     );
 
     -- 2) Reverse platform revenue if any
@@ -727,7 +756,7 @@ BEGIN
             session_id, description
         ) VALUES (
             student_id, 'refund', 'debit', refund_platform_share, 'platformRevenue', 'externalGateway',
-            session_id, 'Platform fee reversed (refund)'
+            p_session_id, 'Platform fee reversed (refund)'
         );
     END IF;
 
@@ -752,7 +781,7 @@ BEGIN
                     session_id, description
                 ) VALUES (
                     mentor_id, 'refund', 'debit', v_from_locked, 'mentorLocked', 'externalGateway',
-                    session_id, 'Mentor share reversed from locked (refund)'
+                    p_session_id, 'Mentor share reversed from locked (refund)'
                 );
             END IF;
 
@@ -762,7 +791,7 @@ BEGIN
                     session_id, description
                 ) VALUES (
                     mentor_id, 'refund', 'debit', v_from_available, 'mentorAvailable', 'externalGateway',
-                    session_id, 'Mentor share reversed from available (refund)'
+                    p_session_id, 'Mentor share reversed from available (refund)'
                 );
             END IF;
         END;
@@ -771,6 +800,6 @@ BEGIN
     -- 4) Mark session as refunded (idempotent by session)
     UPDATE session_payments
     SET status = 'refunded', updated_at = NOW()
-    WHERE session_payments.session_id = session_id;
+    WHERE session_payments.session_id = p_session_id;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
