@@ -17,45 +17,72 @@ final mentorProfileProvider = FutureProvider<Map<String, dynamic>>((ref) async {
   final userEmail = auth.user!.email ?? '';
 
   try {
-    // Fetch user profile data with timeout
+    // Fetch user profile data with timeout (limit to one row defensively)
     final userProfile = await _supabase
         .from('user_profiles')
         .select()
         .eq('id', userId)
+        .limit(1)
         .maybeSingle()
         .timeout(
           const Duration(seconds: 5),
           onTimeout: () => null,
         );
 
-    // Fetch mentor profile data with timeout
+    // Fetch mentor profile data with timeout; order+limit to avoid 406 if duplicates exist
     final mentorProfile = await _supabase
         .from('mentor_profiles')
         .select()
         .eq('user_id', userId)
+        .order('created_at', ascending: false)
+        .limit(1)
         .maybeSingle()
         .timeout(
           const Duration(seconds: 5),
           onTimeout: () => null,
         );
 
-    // Combine data from both tables
+    // Combine data from both tables (align keys with actual DB schema)
+    final subjects = mentorProfile?['subjects'] != null
+        ? (mentorProfile!['subjects'] as List).cast<String>()
+        : <String>[];
+
+    // years_experience (setup.sql) vs years_of_experience (003 migration)
+    final experienceValue = mentorProfile?['years_experience'] ??
+        mentorProfile?['years_of_experience'] ??
+        0;
+
+    // average_rating is the canonical column name
+    final ratingValue = (mentorProfile?['average_rating'] is num)
+        ? (mentorProfile!['average_rating'] as num).toDouble()
+        : 0.0;
+
+    // availability: show human-friendly string from is_available (bool)
+    final availabilityText =
+        (mentorProfile?['is_available'] == true) ? 'Available' : 'Unavailable';
+
+    // qualifications are stored as education (TEXT[])
+    final qualifications = mentorProfile?['education'] != null
+        ? (mentorProfile!['education'] as List).cast<String>()
+        : <String>[];
+
+    // phone stored as phone or phone_number depending on migration; coerce to String
+    final dynamic phoneValue =
+        userProfile?['phone'] ?? userProfile?['phone_number'];
+    final String phone = phoneValue == null ? '' : phoneValue.toString();
+
     return {
       'name': userProfile?['full_name'] ?? 'User',
       'email': userEmail,
-      'phone': userProfile?['phone'] ?? '',
-      'subjects': mentorProfile?['subjects'] != null
-          ? (mentorProfile!['subjects'] as List).cast<String>()
-          : <String>[],
-      'experience': mentorProfile?['experience'] ?? '',
-      'rating': mentorProfile?['rating']?.toDouble() ?? 0.0,
+      'phone': phone,
+      'subjects': subjects,
+      'experience': experienceValue.toString(),
+      'rating': ratingValue,
       'totalSessions': mentorProfile?['total_sessions'] ?? 0,
       'hourlyRate': mentorProfile?['hourly_rate'] ?? 0,
-      'availability': mentorProfile?['availability'] ?? '',
-      'bio': mentorProfile?['bio'] ?? '',
-      'qualifications': mentorProfile?['qualifications'] != null
-          ? (mentorProfile!['qualifications'] as List).cast<String>()
-          : <String>[],
+      'availability': availabilityText,
+      'bio': userProfile?['bio'] ?? '',
+      'qualifications': qualifications,
       'languages': mentorProfile?['languages'] != null
           ? (mentorProfile!['languages'] as List).cast<String>()
           : <String>['English'],
@@ -309,7 +336,7 @@ class _ProfileManagementScreenState
       'hourly_rate': _parseHourly(_hourlyRateController.text),
       'availability': _availabilityController.text.trim(),
       'bio': _bioController.text.trim(),
-      'qualifications': _qualificationsController.text
+      'education': _qualificationsController.text
           .split('\n')
           .map((e) => e.trim())
           .where((e) => e.isNotEmpty)
@@ -323,31 +350,46 @@ class _ProfileManagementScreenState
     };
 
     try {
-      // Update user_profiles table
+      // Update user_profiles table (includes bio)
       await _supabase
           .from('user_profiles')
           .update({
             'full_name': updated['full_name'],
             'phone': updated['phone'],
+            'bio': updated['bio'],
           })
           .eq('id', userId)
           .timeout(const Duration(seconds: 10));
 
-      // Update mentor_profiles table
+      // Update mentor_profiles table (without bio)
       await _supabase
           .from('mentor_profiles')
           .update({
             'subjects': updated['subjects'],
-            'experience': updated['experience'],
+            // Experience column name varies; try writing to years_experience later
             'hourly_rate': updated['hourly_rate'],
-            'availability': updated['availability'],
-            'bio': updated['bio'],
-            'qualifications': updated['qualifications'],
+            // availability is a string in UI; derive is_available instead if needed
+            // Here we skip direct assignment to avoid column mismatch
+            'education': updated['education'],
             'languages': updated['languages'],
             'teaching_style': updated['teaching_style'],
           })
           .eq('user_id', userId)
           .timeout(const Duration(seconds: 10));
+
+      // Try update experience to either years_experience or years_of_experience
+      final expVal = int.tryParse(updated['experience'] as String? ?? '') ?? 0;
+      try {
+        await _supabase
+            .from('mentor_profiles')
+            .update({'years_experience': expVal}).eq('user_id', userId);
+      } catch (_) {
+        try {
+          await _supabase
+              .from('mentor_profiles')
+              .update({'years_of_experience': expVal}).eq('user_id', userId);
+        } catch (_) {}
+      }
 
       // Refresh the profile provider to fetch updated data
       ref.invalidate(mentorProfileProvider);

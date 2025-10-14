@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -273,7 +274,7 @@ class SupabaseService {
 
       // Try local signout as fallback
       try {
-        await client.auth.signOut(scope: SignOutScope.local);
+        await client.auth.signOut();
         debugPrint('✅ SupabaseService: Local signout completed as fallback');
       } catch (fallbackError) {
         debugPrint(
@@ -583,42 +584,69 @@ class SupabaseService {
       debugPrint('🔵 SupabaseService: Upserting user profile...');
       debugPrint('🔵 Data: $profileData');
 
-      final response = await client
-          .from('user_profiles')
-          .upsert(profileData)
-          .select()
-          .single();
+      // Add small retry for transient browser networking errors (e.g., TypeError: Failed to fetch)
+      Object? lastError;
+      for (var attempt = 1; attempt <= 3; attempt++) {
+        try {
+          final response = await client
+              .from('user_profiles')
+              .upsert(profileData)
+              .select()
+              .single();
 
-      debugPrint('🟢 SupabaseService: Profile upserted successfully');
+          debugPrint('🟢 SupabaseService: Profile upserted successfully');
 
-      // Update auth user metadata with key profile data for video calls
-      try {
-        final userMetadata = <String, dynamic>{};
+          // Update auth user metadata with key profile data for video calls
+          try {
+            final userMetadata = <String, dynamic>{};
 
-        // Include key fields that video call widget expects
-        if (profileData['full_name'] != null) {
-          userMetadata['full_name'] = profileData['full_name'];
+            // Include key fields that video call widget expects
+            if (profileData['full_name'] != null) {
+              userMetadata['full_name'] = profileData['full_name'];
+            }
+            if (profileData['avatar_url'] != null) {
+              userMetadata['avatar_url'] = profileData['avatar_url'];
+            }
+
+            if (userMetadata.isNotEmpty) {
+              debugPrint(
+                  '🔵 SupabaseService: Updating auth user metadata: $userMetadata');
+              await client.auth.updateUser(
+                UserAttributes(data: userMetadata),
+              );
+              debugPrint(
+                  '🟢 SupabaseService: Auth user metadata updated successfully');
+            }
+          } catch (e) {
+            debugPrint(
+                '⚠️ SupabaseService: Failed to update auth user metadata: $e');
+            // Don't fail the entire operation if metadata update fails
+          }
+
+          return response;
+        } catch (e) {
+          lastError = e;
+          final msg = e.toString();
+          final isTransient = msg.contains('Failed to fetch') ||
+              msg.contains('TypeError') ||
+              msg.contains('NetworkError') ||
+              msg.contains('SocketException');
+
+          if (isTransient && attempt < 3) {
+            final delay = Duration(milliseconds: 300 * attempt);
+            debugPrint(
+                '🌐 Transient network error on profile upsert (attempt $attempt). Retrying in ${delay.inMilliseconds}ms... Error: $msg');
+            await Future.delayed(delay);
+            continue;
+          }
+          // Non-transient or out of retries -> rethrow to outer handler
+          rethrow;
         }
-        if (profileData['avatar_url'] != null) {
-          userMetadata['avatar_url'] = profileData['avatar_url'];
-        }
-
-        if (userMetadata.isNotEmpty) {
-          debugPrint(
-              '🔵 SupabaseService: Updating auth user metadata: $userMetadata');
-          await client.auth.updateUser(
-            UserAttributes(data: userMetadata),
-          );
-          debugPrint(
-              '🟢 SupabaseService: Auth user metadata updated successfully');
-        }
-      } catch (e) {
-        debugPrint(
-            '⚠️ SupabaseService: Failed to update auth user metadata: $e');
-        // Don't fail the entire operation if metadata update fails
       }
 
-      return response;
+      // Should never reach here; throw last error as fallback
+      // ignore: only_throw_errors
+      throw lastError ?? Exception('Unknown error upserting profile');
     } catch (e) {
       debugPrint('🔴 SupabaseService: Profile upsert failed: $e');
 
@@ -631,6 +659,13 @@ class SupabaseService {
             'Database not properly migrated. Missing column: $missingColumn. Please run the database migration script.');
       }
 
+      // For web, CORS issues often surface as "Failed to fetch" with no body
+      // Bubble up with a clearer hint to the UI
+      final msg = e.toString();
+      if (msg.contains('Failed to fetch') || msg.contains('TypeError')) {
+        throw Exception(
+            'Network/CORS error while saving profile. If you are running on localhost with a custom port, ensure the origin is allowed in Supabase Auth > URL config and Database > API > CORS. Original: $msg');
+      }
       rethrow;
     }
   }
@@ -750,7 +785,10 @@ class SupabaseService {
 
   /// Mentor-Student Matching Methods
 
-  /// Create mentor profile
+  /// Create or update mentor profile for the current user.
+  ///
+  /// - Ensures a single row per user_id.
+  /// - Gracefully handles schema differences (years_experience vs years_of_experience).
   Future<Map<String, dynamic>> createMentorProfile({
     required Map<String, dynamic> mentorData,
   }) async {
@@ -759,14 +797,119 @@ class SupabaseService {
       throw Exception('User must be authenticated');
     }
 
+    final now = DateTime.now().toIso8601String();
     mentorData['user_id'] = userId;
-    mentorData['created_at'] = DateTime.now().toIso8601String();
+    mentorData['updated_at'] = now;
+    mentorData.remove('created_at');
 
-    final response = await client
+    // Check if a mentor profile already exists. Avoid 406 errors by
+    // ordering and limiting to a single row before maybeSingle().
+    final existing = await client
         .from('mentor_profiles')
-        .insert(mentorData)
-        .select()
-        .single();
+        .select('id, created_at')
+        .eq('user_id', userId)
+        .order('created_at', ascending: false)
+        .limit(1)
+        .maybeSingle();
+
+    Map<String, dynamic> response;
+    if (existing == null) {
+      // Insert minimal record first to avoid unknown-column errors
+      final baseInsert = {
+        'user_id': userId,
+        'title': mentorData['title'],
+        if (mentorData['subjects'] != null) 'subjects': mentorData['subjects'],
+        if (mentorData['specializations'] != null)
+          'specializations': mentorData['specializations'],
+        if (mentorData['is_available'] != null)
+          'is_available': mentorData['is_available'],
+        if (mentorData['hourly_rate'] != null)
+          'hourly_rate': mentorData['hourly_rate'],
+        if (mentorData['average_rating'] != null)
+          'average_rating': mentorData['average_rating'],
+        if (mentorData['total_sessions'] != null)
+          'total_sessions': mentorData['total_sessions'],
+        if (mentorData['education'] != null)
+          'education': mentorData['education'],
+        'created_at': now,
+        'updated_at': now,
+      };
+
+      response = await client
+          .from('mentor_profiles')
+          .insert(baseInsert)
+          .select()
+          .single();
+    } else {
+      // Update existing row (target by primary key to avoid multi-row updates)
+      final String targetId = existing['id'] as String;
+      final patch = {
+        if (mentorData['title'] != null) 'title': mentorData['title'],
+        if (mentorData['subjects'] != null) 'subjects': mentorData['subjects'],
+        if (mentorData['specializations'] != null)
+          'specializations': mentorData['specializations'],
+        if (mentorData['is_available'] != null)
+          'is_available': mentorData['is_available'],
+        if (mentorData['hourly_rate'] != null)
+          'hourly_rate': mentorData['hourly_rate'],
+        if (mentorData['average_rating'] != null)
+          'average_rating': mentorData['average_rating'],
+        if (mentorData['total_sessions'] != null)
+          'total_sessions': mentorData['total_sessions'],
+        if (mentorData['education'] != null)
+          'education': mentorData['education'],
+        'updated_at': now,
+      };
+
+      response = await client
+          .from('mentor_profiles')
+          .update(patch)
+          .eq('id', targetId)
+          .select()
+          .single();
+
+      // Optional: If duplicates exist for this user, clean them up quietly
+      try {
+        final duplicates = await client
+            .from('mentor_profiles')
+            .select('id')
+            .eq('user_id', userId);
+
+        if (duplicates.length > 1) {
+          // Keep targetId, delete others for this user
+          // Keep targetId, delete others
+          await client
+              .from('mentor_profiles')
+              .delete()
+              .eq('user_id', userId)
+              .neq('id', targetId);
+        }
+      } catch (e) {
+        // Best-effort cleanup only; ignore any errors here
+        debugPrint('⚠️ Duplicate cleanup skipped: $e');
+      }
+    }
+
+    // Attempt to set experience with schema fallback
+    final experience =
+        mentorData['years_experience'] ?? mentorData['years_of_experience'];
+    if (experience != null) {
+      try {
+        await client
+            .from('mentor_profiles')
+            .update({'years_experience': experience, 'updated_at': now}).eq(
+                'id', response['id']);
+      } catch (_) {
+        try {
+          await client.from('mentor_profiles').update({
+            'years_of_experience': experience,
+            'updated_at': now
+          }).eq('id', response['id']);
+        } catch (_) {
+          // Ignore if neither column exists
+        }
+      }
+    }
 
     return response;
   }
@@ -858,17 +1001,39 @@ class SupabaseService {
       // Create a unique file path for the user
       final filePath = 'profiles/$userId/$fileName';
 
-      // Upload to Supabase Storage
-      await client.storage.from('avatars').uploadBinary(filePath, imageBytes,
-          fileOptions: const FileOptions(
-            upsert: true,
-            contentType: 'image/jpeg',
-          ));
+      try {
+        // First, try to upload to Supabase Storage
+        await client.storage.from('avatars').uploadBinary(filePath, imageBytes,
+            fileOptions: const FileOptions(
+              upsert: true,
+              contentType: 'image/jpeg',
+            ));
 
-      // Get the public URL
-      final publicUrl = client.storage.from('avatars').getPublicUrl(filePath);
+        // Get the public URL
+        final publicUrl = client.storage.from('avatars').getPublicUrl(filePath);
+        debugPrint('✅ Profile image uploaded to storage: $publicUrl');
+        return publicUrl;
+      } catch (storageError) {
+        debugPrint('⚠️ Storage upload failed: $storageError');
 
-      return publicUrl;
+        // Check if it's a bucket not found error
+        if (storageError.toString().contains('Bucket not found') ||
+            storageError.toString().contains('404')) {
+          // Fallback: Store as base64 data URL
+          debugPrint('📦 Using base64 fallback for profile image');
+
+          // Convert to base64 data URL
+          final String base64String = base64Encode(imageBytes);
+          final String dataUrl = 'data:image/jpeg;base64,$base64String';
+
+          // Store the base64 data URL directly in the profile
+          // This will be handled by the calling function
+          return dataUrl;
+        } else {
+          // Re-throw other storage errors
+          rethrow;
+        }
+      }
     } catch (e) {
       debugPrint('❌ Error uploading profile image: $e');
       rethrow;

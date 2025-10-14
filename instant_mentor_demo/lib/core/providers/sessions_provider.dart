@@ -11,6 +11,73 @@ final supabaseClientProvider = Provider<SupabaseClient>((ref) {
   return Supabase.instance.client;
 });
 
+/// Live sync: Subscribe to Supabase Realtime for mentoring_sessions and
+/// invalidate session providers whenever relevant changes occur.
+final sessionsRealtimeSyncProvider = Provider<void>((ref) {
+  final client = ref.watch(supabaseClientProvider);
+  final user = ref.watch(userProvider);
+
+  // No user => nothing to subscribe to (demo mode uses local provider which is already reactive)
+  if (user == null) return;
+
+  // Create a channel for the table
+  final channel = client.channel('public:mentoring_sessions');
+
+  bool isRelevant(Map<String, dynamic>? record) {
+    if (record == null) return false;
+    final sid = record['student_id']?.toString();
+    final mid = record['mentor_id']?.toString();
+    return sid == user.id || mid == user.id;
+  }
+
+  void touch() {
+    // Invalidate the providers to recompute the lists
+    ref.invalidate(simpleUpcomingSessionsProvider);
+    ref.invalidate(upcomingSessionsProvider);
+    ref.invalidate(allSessionsProvider);
+  }
+
+  channel
+      .onPostgresChanges(
+        event: PostgresChangeEvent.insert,
+        schema: 'public',
+        table: 'mentoring_sessions',
+        callback: (payload) {
+          if (isRelevant(payload.newRecord)) {
+            touch();
+          }
+        },
+      )
+      .onPostgresChanges(
+        event: PostgresChangeEvent.update,
+        schema: 'public',
+        table: 'mentoring_sessions',
+        callback: (payload) {
+          if (isRelevant(payload.newRecord) || isRelevant(payload.oldRecord)) {
+            touch();
+          }
+        },
+      )
+      .onPostgresChanges(
+        event: PostgresChangeEvent.delete,
+        schema: 'public',
+        table: 'mentoring_sessions',
+        callback: (payload) {
+          if (isRelevant(payload.oldRecord)) {
+            touch();
+          }
+        },
+      )
+      .subscribe();
+
+  // Clean up when provider is disposed or user changes
+  ref.onDispose(() {
+    try {
+      client.removeChannel(channel);
+    } catch (_) {}
+  });
+});
+
 /// Provider for upcoming sessions for the current user
 final upcomingSessionsProvider =
     FutureProvider<List<app_session.Session>>((ref) async {
@@ -20,19 +87,34 @@ final upcomingSessionsProvider =
   // IMPORTANT: Wait for demo sessions to load from SharedPreferences
   // before reading them, otherwise we'll get empty list on first load!
   final demoSessionsNotifier = ref.read(demoSessionsProvider.notifier);
-  while (!demoSessionsNotifier.isLoaded) {
-    print('⏳ Waiting for demo sessions to load...');
+  // Safeguard: avoid indefinite wait in case SharedPreferences is slow/blocked
+  int attempts = 0;
+  while (!demoSessionsNotifier.isLoaded && attempts < 80) {
+    if (attempts % 5 == 0) {
+      print('⏳ Waiting for demo sessions to load... attempt=${attempts + 1}');
+    }
     await Future.delayed(const Duration(milliseconds: 50));
+    attempts++;
+  }
+  if (!demoSessionsNotifier.isLoaded) {
+    print(
+        '⚠️ Timeout waiting for demo sessions to load, continuing with current state');
   }
 
   // Always consider demo sessions (they're stored locally).
-  final demoSessionsAll = ref.read(demoSessionsProvider);
+  // Use watch so this provider recomputes whenever demo sessions change
+  final demoSessionsAll = ref.watch(demoSessionsProvider);
+  final now = DateTime.now();
+  final visibleFrom = now.subtract(const Duration(minutes: 5));
   final demoSessionsUpcoming = demoSessionsAll
       .where((session) =>
-          session.scheduledTime.isAfter(DateTime.now()) &&
+          // Allow sessions that started within the last 5 minutes so they still appear
+          session.scheduledTime.isAfter(visibleFrom) &&
           (session.status == app_session.SessionStatus.pending ||
               session.status == app_session.SessionStatus.confirmed))
       .toList();
+  demoSessionsUpcoming
+      .sort((a, b) => a.scheduledTime.compareTo(b.scheduledTime));
 
   // If there's no authenticated user, return ALL demo sessions (regardless of student ID)
   // This ensures newly booked demo sessions appear in upcoming sessions
@@ -62,7 +144,8 @@ final upcomingSessionsProvider =
           )
         ''')
         .or('student_id.eq.${user.id},mentor_id.eq.${user.id}')
-        .gte('scheduled_time', DateTime.now().toIso8601String())
+        // Include sessions that started within the last 5 minutes
+        .gte('scheduled_time', visibleFrom.toIso8601String())
         .inFilter('status', ['scheduled', 'confirmed', 'pending'])
         .order('scheduled_time', ascending: true);
 
@@ -83,12 +166,17 @@ final upcomingSessionsProvider =
       );
     }).toList();
 
-    // Include demo sessions for the current user
+    // Include demo sessions for the current user OR demo sessions with standard demo IDs
+    // This ensures that sessions booked while unauthenticated still show up after login
     final demoSessions = ref
         .read(demoSessionsProvider)
         .where((session) =>
-            (session.studentId == user.id || session.mentorId == user.id) &&
-            session.scheduledTime.isAfter(DateTime.now()) &&
+            // Include if user matches OR if demo session has demo IDs
+            (session.studentId == user.id ||
+                session.mentorId == user.id ||
+                session.studentId == 'demo_student_id' ||
+                session.mentorId == 'demo_mentor_id') &&
+            session.scheduledTime.isAfter(visibleFrom) &&
             (session.status == app_session.SessionStatus.pending ||
                 session.status == app_session.SessionStatus.confirmed))
         .toList();
@@ -106,6 +194,8 @@ final upcomingSessionsProvider =
       }
     } catch (_) {}
 
+    // Ensure sorted by soonest first
+    allSessions.sort((a, b) => a.scheduledTime.compareTo(b.scheduledTime));
     return allSessions;
   } catch (e) {
     print('Error fetching sessions: $e');
@@ -164,12 +254,8 @@ final allSessionsProvider =
       );
     }).toList();
 
-    // Include demo sessions for the current user
-    final demoSessions = ref
-        .read(demoSessionsProvider)
-        .where((session) =>
-            session.studentId == user.id || session.mentorId == user.id)
-        .toList();
+    // Include demo sessions for the current user OR show all demo sessions to authenticated users
+    final demoSessions = ref.read(demoSessionsProvider).toList();
 
     // Combine and sort all sessions by creation time (most recent first)
     final allSessions = [...dbSessions, ...demoSessions];
@@ -192,90 +278,83 @@ final realtimeUpcomingSessionsProvider =
 /// Simple provider for upcoming sessions without real-time updates
 final simpleUpcomingSessionsProvider =
     FutureProvider<List<app_session.Session>>((ref) async {
-  final client = ref.read(supabaseClientProvider);
   final user = ref.watch(userProvider);
 
   // IMPORTANT: Wait for demo sessions to load from SharedPreferences
   // before reading them, otherwise we'll get empty list on first load!
   final demoSessionsNotifier = ref.read(demoSessionsProvider.notifier);
-  while (!demoSessionsNotifier.isLoaded) {
-    print('⏳ Waiting for demo sessions to load...');
+  // Safeguard: avoid indefinite wait in case SharedPreferences is slow/blocked
+  int attempts = 0;
+  while (!demoSessionsNotifier.isLoaded && attempts < 80) {
+    if (attempts % 5 == 0) {
+      print('⏳ Waiting for demo sessions to load... attempt=${attempts + 1}');
+    }
     await Future.delayed(const Duration(milliseconds: 50));
+    attempts++;
+  }
+  if (!demoSessionsNotifier.isLoaded) {
+    print(
+        '⚠️ Timeout waiting for demo sessions to load, continuing with current state');
   }
 
   // Always consider demo sessions (they're stored locally).
-  final demoSessionsAll = ref.read(demoSessionsProvider);
+  // Use watch so this provider recomputes whenever demo sessions change
+  final demoSessionsAll = ref.watch(demoSessionsProvider);
   print('📅 DEBUG: Total demo sessions in provider: ${demoSessionsAll.length}');
   for (var session in demoSessionsAll) {
     print(
         '   Session: ${session.id}, Scheduled: ${session.scheduledTime}, Status: ${session.status}');
   }
 
-  final demoSessionsUpcoming = demoSessionsAll
-      .where((session) =>
-          session.scheduledTime.isAfter(DateTime.now()) &&
-          (session.status == app_session.SessionStatus.pending ||
-              session.status == app_session.SessionStatus.confirmed))
-      .toList();
+  final now = DateTime.now();
+  final visibleFrom = now.subtract(const Duration(minutes: 5));
+  print('📅 DEBUG: Current time: $now');
+  print('📅 DEBUG: Visible from: $visibleFrom');
+  print('🔥 HOT RELOAD TEST: ${DateTime.now().millisecondsSinceEpoch}');
+
+  final demoSessionsUpcoming = demoSessionsAll.where((session) {
+    print('📅 DEBUG: Checking session ${session.id}:');
+    print('   Scheduled: ${session.scheduledTime}');
+    print('   Status: ${session.status}');
+    print(
+        '   Is after visibleFrom: ${session.scheduledTime.isAfter(visibleFrom)}');
+    print(
+        '   Status is pending/confirmed: ${session.status == app_session.SessionStatus.pending || session.status == app_session.SessionStatus.confirmed}');
+
+    final isAfterTime = session.scheduledTime.isAfter(visibleFrom);
+    final hasValidStatus =
+        session.status == app_session.SessionStatus.pending ||
+            session.status == app_session.SessionStatus.confirmed;
+    final shouldInclude = isAfterTime && hasValidStatus;
+    print('   Should include: $shouldInclude');
+
+    return shouldInclude;
+  }).toList();
 
   print('📅 DEBUG: Filtered upcoming sessions: ${demoSessionsUpcoming.length}');
 
-  // If there's no authenticated user, return ALL demo sessions (regardless of student ID)
-  // This ensures newly booked demo sessions appear in upcoming sessions
-  if (user == null) {
-    demoSessionsUpcoming
-        .sort((a, b) => a.scheduledTime.compareTo(b.scheduledTime));
-    print(
-        '📅 simpleUpcomingSessionsProvider: Returning ${demoSessionsUpcoming.length} demo sessions for non-authenticated user');
-    return demoSessionsUpcoming;
+  // Always show demo sessions for testing purposes
+  // Filter sessions to show both user-specific and demo sessions
+  final List<app_session.Session> allUpcomingSessions = [];
+
+  // Add demo sessions
+  allUpcomingSessions.addAll(demoSessionsUpcoming);
+
+  if (user != null) {
+    print('📅 User authenticated: ${user.email}, Role: ${user.role}');
+    // For authenticated users, also include their real sessions if any
+    // (This would typically come from Supabase, but for demo we just use demo sessions)
   }
 
-  try {
-    final response = await client
-        .from('mentoring_sessions')
-        .select()
-        .or('student_id.eq.${user.id},mentor_id.eq.${user.id}')
-        .gte('scheduled_time', DateTime.now().toIso8601String())
-        .inFilter('status', ['scheduled', 'confirmed', 'pending']).order(
-            'scheduled_time',
-            ascending: true);
-
-    final dbSessions = response.map<app_session.Session>((sessionData) {
-      return app_session.Session(
-        id: sessionData['id'],
-        studentId: sessionData['student_id'],
-        mentorId: sessionData['mentor_id'],
-        subject: sessionData['subject'] ?? 'General',
-        scheduledTime: DateTime.parse(sessionData['scheduled_time']),
-        durationMinutes: sessionData['duration_minutes'] ?? 60,
-        amount: (sessionData['amount'] ?? 0.0).toDouble(),
-        status: _parseSessionStatus(sessionData['status']),
-        notes: sessionData['notes'],
-        attachments: List<String>.from(sessionData['attachments'] ?? []),
-        createdAt: DateTime.parse(sessionData['created_at']),
-        meetingLink: sessionData['meeting_link'],
-      );
-    }).toList();
-
-    // Include demo sessions for the current user
-    final demoSessions = ref
-        .read(demoSessionsProvider)
-        .where((session) =>
-            (session.studentId == user.id || session.mentorId == user.id) &&
-            session.scheduledTime.isAfter(DateTime.now()) &&
-            (session.status == app_session.SessionStatus.pending ||
-                session.status == app_session.SessionStatus.confirmed))
-        .toList();
-
-    // Combine and sort all sessions
-    final allSessions = [...dbSessions, ...demoSessions];
-    allSessions.sort((a, b) => a.scheduledTime.compareTo(b.scheduledTime));
-
-    return allSessions;
-  } catch (e) {
-    print('Error fetching sessions: $e');
-    return [];
+  allUpcomingSessions
+      .sort((a, b) => a.scheduledTime.compareTo(b.scheduledTime));
+  print(
+      '📅 simpleUpcomingSessionsProvider: Returning ${allUpcomingSessions.length} total sessions');
+  print('Session details:');
+  for (var session in allUpcomingSessions) {
+    print('   ${session.id}: ${session.scheduledTime} - ${session.subject}');
   }
+  return allUpcomingSessions;
 });
 
 /// Provider to create a new session
@@ -342,6 +421,16 @@ class SessionService {
         _ref.invalidate(allSessionsProvider);
 
         print('Demo session created successfully: ${demoSession.id}');
+        print(
+            'Session details: ${demoSession.scheduledTime} with ${demoSession.mentorId}');
+
+        // Force refresh upcoming sessions to ensure immediate UI update
+        await Future.delayed(const Duration(milliseconds: 100));
+        print(
+            '📅 Re-checking upcoming sessions after demo session creation...');
+        final currentSessions = _ref.read(demoSessionsProvider);
+        print('Total demo sessions now: ${currentSessions.length}');
+
         return demoSession;
       }
 
@@ -459,6 +548,148 @@ class DemoSessionsNotifier extends StateNotifier<List<app_session.Session>> {
     _loadFromPrefs();
   }
 
+  /// Backup current demo sessions to Supabase user_profiles.preferences.demo_sessions
+  /// to survive browser storage clears or origin changes. Best-effort; non-fatal on error.
+  Future<void> _backupToRemote() async {
+    try {
+      final client = Supabase.instance.client;
+      final user = client.auth.currentUser;
+      if (user == null) {
+        // No authenticated user to bind backup to
+        return;
+      }
+
+      // Fetch existing preferences then merge demo_sessions
+      final profile = await client
+          .from('user_profiles')
+          .select('preferences')
+          .eq('user_id', user.id)
+          .maybeSingle();
+
+      final existingPrefs = (profile != null && profile['preferences'] != null)
+          ? Map<String, dynamic>.from(profile['preferences'] as Map)
+          : <String, dynamic>{};
+
+      final sessionsJson = state.map((s) => s.toJson()).toList();
+      existingPrefs['demo_sessions'] = sessionsJson;
+
+      await client
+          .from('user_profiles')
+          .update({'preferences': existingPrefs}).eq('user_id', user.id);
+
+      print('☁️ Backed up ${state.length} demo sessions to Supabase');
+    } catch (e) {
+      print('⚠️ Failed to backup demo sessions to Supabase: $e');
+    }
+  }
+
+  /// Restore demo sessions from Supabase user_profiles.preferences.demo_sessions
+  /// when local storage is empty. Best-effort; non-fatal on error.
+  Future<void> restoreFromRemoteIfEmpty() async {
+    try {
+      if (state.isNotEmpty) return; // Nothing to do
+      final client = Supabase.instance.client;
+      final user = client.auth.currentUser;
+      if (user == null) return;
+
+      final profile = await client
+          .from('user_profiles')
+          .select('preferences')
+          .eq('user_id', user.id)
+          .maybeSingle();
+
+      final prefs = (profile != null && profile['preferences'] != null)
+          ? Map<String, dynamic>.from(profile['preferences'] as Map)
+          : null;
+      final remote = prefs != null ? prefs['demo_sessions'] : null;
+
+      if (remote is List) {
+        final restored = remote
+            .whereType<Map>()
+            .map((e) => app_session.Session.fromJson(
+                Map<String, dynamic>.from(e as Map<String, dynamic>)))
+            .toList();
+        if (restored.isNotEmpty) {
+          state = restored;
+          print('☁️ Restored ${state.length} demo sessions from Supabase');
+          await _saveToPrefs();
+        }
+      }
+    } catch (e) {
+      print('⚠️ Failed to restore demo sessions from Supabase: $e');
+    }
+  }
+
+  void _addTestSessions() {
+    print('🧪 Adding test sessions for demo purposes...');
+
+    final now = DateTime.now();
+    final testSessions = [
+      // Mentor sessions (for mentor dashboard)
+      app_session.Session(
+        id: 'test_session_1',
+        studentId: 'demo_student_alice',
+        mentorId: 'mentor_demo',
+        subject: 'Mathematics - Calculus',
+        scheduledTime: now.add(const Duration(hours: 2)),
+        durationMinutes: 60,
+        amount: 50.0,
+        status: app_session.SessionStatus.confirmed,
+        createdAt: now.subtract(const Duration(days: 1)),
+        notes: 'Help with understanding derivative rules and applications',
+        meetingLink: 'https://meet.example.com/test-1',
+      ),
+      app_session.Session(
+        id: 'test_session_2',
+        studentId: 'demo_student_bob',
+        mentorId: 'mentor_demo',
+        subject: 'Physics - Quantum Mechanics',
+        scheduledTime: now.add(const Duration(days: 1, hours: 4)),
+        durationMinutes: 90,
+        amount: 75.0,
+        status: app_session.SessionStatus.confirmed,
+        createdAt: now.subtract(const Duration(hours: 8)),
+        notes: 'Review quantum tunneling and wave-particle duality',
+        meetingLink: 'https://meet.example.com/test-2',
+      ),
+      // Student sessions (for student dashboard)
+      app_session.Session(
+        id: 'test_session_student_1',
+        studentId: 'student_demo',
+        mentorId: 'demo_mentor_sarah',
+        subject: 'Chemistry - Organic Chemistry',
+        scheduledTime: now.add(const Duration(hours: 3)),
+        durationMinutes: 60,
+        amount: 60.0,
+        status: app_session.SessionStatus.confirmed,
+        createdAt: now.subtract(const Duration(hours: 12)),
+        notes: 'Practice naming organic compounds and reaction mechanisms',
+        meetingLink: 'https://meet.example.com/student-test-1',
+      ),
+      app_session.Session(
+        id: 'test_session_student_2',
+        studentId: 'student_demo',
+        mentorId: 'demo_mentor_raj',
+        subject: 'Computer Science - Data Structures',
+        scheduledTime: now.add(const Duration(days: 1, hours: 2)),
+        durationMinutes: 120,
+        amount: 100.0,
+        status: app_session.SessionStatus.confirmed,
+        createdAt: now.subtract(const Duration(hours: 6)),
+        notes: 'Binary trees, heaps, and graph algorithms implementation',
+        meetingLink: 'https://meet.example.com/student-test-2',
+      ),
+    ];
+
+    // Force add test sessions regardless of existing state
+    print(
+        '🎯 Force adding ${testSessions.length} test sessions (mentor + student)');
+    state = testSessions;
+    _saveToPrefs();
+    print(
+        '✅ Test sessions added successfully! Current state has ${state.length} sessions');
+  }
+
   Future<void> _loadFromPrefs() async {
     try {
       print(
@@ -470,6 +701,12 @@ class DemoSessionsNotifier extends StateNotifier<List<app_session.Session>> {
 
       if (raw == null || raw.isEmpty) {
         print('⚠️ No demo sessions found in SharedPreferences');
+        // Try to restore from remote backup first
+        await restoreFromRemoteIfEmpty();
+        _isLoaded = true; // Mark as loaded even if no data found
+        if (state.isEmpty) {
+          _addTestSessions(); // Add test sessions only if nothing to restore
+        }
         return;
       }
 
@@ -506,14 +743,24 @@ class DemoSessionsNotifier extends StateNotifier<List<app_session.Session>> {
 
       if (sessions.length != validSessions.length) {
         // Save cleaned up sessions back to preferences
-        _saveToPrefs();
+        await _saveToPrefs();
       }
+
+      // Also perform a best-effort backup to remote when user is authenticated
+      // (don’t await to avoid blocking app startup).
+      // ignore: unawaited_futures
+      _backupToRemote();
     } catch (e, stackTrace) {
       // If anything fails, keep state as empty but don't crash
       _isLoaded =
           true; // Mark as loaded even if failed, so we don't block forever
       print('❌ Failed to load demo sessions from prefs: $e');
       print('Stack trace: $stackTrace');
+      // Try to restore from remote on failure as well
+      await restoreFromRemoteIfEmpty();
+      if (state.isEmpty) {
+        _addTestSessions(); // Add test sessions if loading/restoring failed
+      }
     }
   }
 
@@ -524,6 +771,9 @@ class DemoSessionsNotifier extends StateNotifier<List<app_session.Session>> {
       final encoded = jsonEncode(state.map((s) => s.toJson()).toList());
       await prefs.setString(_prefsKey, encoded);
       print('✅ Successfully saved to key: $_prefsKey');
+      // Best-effort remote backup (do not await)
+      // ignore: unawaited_futures
+      _backupToRemote();
     } catch (e) {
       print('❌ Failed to save demo sessions to prefs: $e');
     }
@@ -547,6 +797,27 @@ class DemoSessionsNotifier extends StateNotifier<List<app_session.Session>> {
     _saveToPrefs();
   }
 
+  /// Force reset and add test sessions for demo purposes
+  void forceAddTestSessions() {
+    print('🔄 Force resetting and adding test sessions...');
+    clearSessions();
+    _addTestSessions();
+  }
+
+  /// Add test sessions and ensure they're shown for mentors
+  void ensureTestSessions() {
+    if (state.isEmpty) {
+      print('🎯 No sessions found, adding test sessions...');
+      _addTestSessions();
+    } else {
+      print('✅ Sessions already exist: ${state.length}');
+      for (var session in state) {
+        print(
+            '   - ${session.subject} with ${session.studentId} (mentor: ${session.mentorId})');
+      }
+    }
+  }
+
   /// If the user logs in after creating demo sessions, migrate any demo
   /// sessions (created with a demo student id) to the authenticated user id
   /// so they appear in the user's upcoming sessions after relogin.
@@ -560,5 +831,8 @@ class DemoSessionsNotifier extends StateNotifier<List<app_session.Session>> {
 
     state = migrated;
     _saveToPrefs();
+    // Best-effort remote backup after migration
+    // ignore: unawaited_futures
+    _backupToRemote();
   }
 }

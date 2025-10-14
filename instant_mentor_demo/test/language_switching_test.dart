@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:instant_mentor_demo/core/providers/locale_provider.dart';
+import 'package:flutter_test/flutter_test.dart';
 import 'package:instant_mentor_demo/core/localization/app_localizations.dart';
+import 'package:instant_mentor_demo/core/providers/locale_provider.dart';
 
 void main() {
   group('Language Switching Tests', () {

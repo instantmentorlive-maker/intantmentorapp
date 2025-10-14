@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../models/user.dart' as domain; // Domain user model
 import '../services/supabase_service.dart';
+import 'persistent_settings_provider.dart'; // darkModeProvider
 import 'sessions_provider.dart'; // demoSessionsProvider
 import 'user_provider.dart'; // Domain user provider
 
@@ -14,6 +15,7 @@ class AuthState {
   final String? error;
   final bool isAuthenticated;
   final bool isNewMentorSignup;
+  final bool isNewStudentSignup;
 
   const AuthState({
     this.user,
@@ -21,6 +23,7 @@ class AuthState {
     this.error,
     this.isAuthenticated = false,
     this.isNewMentorSignup = false,
+    this.isNewStudentSignup = false,
   });
 
   AuthState copyWith({
@@ -29,6 +32,7 @@ class AuthState {
     String? error,
     bool? isAuthenticated,
     bool? isNewMentorSignup,
+    bool? isNewStudentSignup,
   }) {
     return AuthState(
       user: user ?? this.user,
@@ -36,6 +40,7 @@ class AuthState {
       error: error,
       isAuthenticated: isAuthenticated ?? this.isAuthenticated,
       isNewMentorSignup: isNewMentorSignup ?? this.isNewMentorSignup,
+      isNewStudentSignup: isNewStudentSignup ?? this.isNewStudentSignup,
     );
   }
 }
@@ -74,6 +79,8 @@ class AuthNotifier extends StateNotifier<AuthState> {
               'User')
           .toString();
       final roleString = (meta['role'] ?? meta['user_role'] ?? '').toString();
+      final avatarFromMeta =
+          (meta['avatar_url'] ?? meta['avatarUrl'] ?? '').toString();
       domain.UserRole role;
 
       if (roleString.isEmpty || roleString == 'null') {
@@ -102,6 +109,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
                 name: fullName,
                 email: supabaseUser.email ?? '',
                 role: role,
+                profileImage: avatarFromMeta.isNotEmpty ? avatarFromMeta : null,
                 createdAt: DateTime.now(),
                 lastLoginAt: DateTime.now(),
               ),
@@ -109,9 +117,12 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
         // Migrate any demo sessions created while unauthenticated to this user id
         try {
-          _ref
-              .read(demoSessionsProvider.notifier)
-              .migrateSessionsToUser(supabaseUser.id);
+          final demoNotifier = _ref.read(demoSessionsProvider.notifier);
+          demoNotifier.migrateSessionsToUser(supabaseUser.id);
+          // After login, if local is empty (fresh device or cleared storage),
+          // try to restore demo sessions from remote backup so Upcoming shows items.
+          // ignore: unawaited_futures
+          demoNotifier.restoreFromRemoteIfEmpty();
         } catch (e) {
           debugPrint('Failed to migrate demo sessions: $e');
         }
@@ -120,6 +131,25 @@ class AuthNotifier extends StateNotifier<AuthState> {
         _ensureUserProfileExists(supabaseUser, fullName, roleString);
       }
     });
+
+    // In the background, if avatar wasn't in metadata, try to fetch from user_profiles
+    try {
+      final current = _ref.read(userProvider);
+      final hasAvatar = current?.profileImage != null &&
+          (current!.profileImage?.isNotEmpty ?? false);
+      if (!hasAvatar) {
+        final profile = await _supabaseService.getUserProfile();
+        final url = (profile?['avatar_url'] as String?)?.trim();
+        if (url != null && url.isNotEmpty) {
+          final updated = current?.copyWith(profileImage: url);
+          if (updated != null) {
+            _ref.read(userProvider.notifier).updateUser(updated);
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('⚠️ AuthProvider: Failed to hydrate avatar from profile: $e');
+    }
   }
 
   /// Ensure user profile exists in the database
@@ -156,8 +186,10 @@ class AuthNotifier extends StateNotifier<AuthState> {
       // Check if mentor profile exists
       final existingMentorProfile = await SupabaseService.instance.client
           .from('mentor_profiles')
-          .select('id')
+          .select('id, created_at')
           .eq('user_id', supabaseUser.id)
+          .order('created_at', ascending: false)
+          .limit(1)
           .maybeSingle();
 
       if (existingMentorProfile == null) {
@@ -248,8 +280,10 @@ class AuthNotifier extends StateNotifier<AuthState> {
         ...?additionalData,
       };
 
-      // Check if this is a mentor signup
-      final isMentorSignup = additionalData?['role'] == 'mentor';
+      // Check if this is a mentor or student signup
+      final role = additionalData?['role'];
+      final isMentorSignup = role == 'mentor';
+      final isStudentSignup = role == 'student';
 
       final response = await _supabaseService.signUpWithEmail(
         email: email,
@@ -284,6 +318,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
           isAuthenticated: true,
           isLoading: false,
           isNewMentorSignup: isMentorSignup,
+          isNewStudentSignup: isStudentSignup,
         );
         _syncDomainUser(response.user); // sync domain user model
       } else if (response.user != null && response.session == null) {
@@ -331,6 +366,18 @@ class AuthNotifier extends StateNotifier<AuthState> {
           isLoading: false,
         );
         _syncDomainUser(response.user); // sync domain user model
+
+        // Reload dark mode and other settings after successful login
+        try {
+          await Future.delayed(const Duration(milliseconds: 100));
+          // Invalidate all persistent settings to force reload from SharedPreferences
+          _ref.invalidate(darkModeProvider);
+          _ref.invalidate(notificationsEnabledProvider);
+          _ref.invalidate(languageProvider);
+          debugPrint('⚙️ Settings providers refreshed after login');
+        } catch (e) {
+          debugPrint('⚠️ Failed to refresh settings providers: $e');
+        }
       }
     } on AuthException catch (e) {
       // Handle AuthException with clean message
@@ -368,12 +415,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
       debugPrint('🟢 AuthProvider: Supabase signOut completed');
 
       // Clear all auth state regardless of signOut success
-      state = const AuthState(
-        user: null,
-        isLoading: false,
-        isAuthenticated: false,
-        error: null,
-      );
+      state = const AuthState();
 
       // Clear domain user
       try {
@@ -398,12 +440,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
       // Even if signOut fails, clear the local state for forced logout
       if (forced) {
         debugPrint('🔄 AuthProvider: Forcing logout despite error...');
-        state = const AuthState(
-          user: null,
-          isLoading: false,
-          isAuthenticated: false,
-          error: null,
-        );
+        state = const AuthState();
 
         try {
           _ref.read(userProvider.notifier).logout();
@@ -593,6 +630,12 @@ class AuthNotifier extends StateNotifier<AuthState> {
   void clearNewMentorSignupFlag() {
     state = state.copyWith(isNewMentorSignup: false);
     debugPrint('🎯 AuthProvider: Cleared new mentor signup flag');
+  }
+
+  /// Clear the new student signup flag after onboarding is completed
+  void clearNewStudentSignupFlag() {
+    state = state.copyWith(isNewStudentSignup: false);
+    debugPrint('🎯 AuthProvider: Cleared new student signup flag');
   }
 }
 

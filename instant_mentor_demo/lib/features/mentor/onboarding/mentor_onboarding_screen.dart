@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/providers/auth_provider.dart';
 import '../../../core/services/supabase_service.dart';
+import '../profile_management/profile_management_screen.dart';
 
 // Provider to track onboarding completion
 final mentorOnboardingProvider =
@@ -52,18 +53,60 @@ class MentorOnboardingNotifier extends StateNotifier<MentorOnboardingState> {
     state = state.copyWith(isLoading: true);
 
     try {
-      // Save mentor profile data to Supabase
-      await SupabaseService.instance.upsertUserProfile(
-        profileData: {
-          'teaching_subjects': state.formData['subjects'] ?? [],
-          'experience_years': state.formData['experience'] ?? 0,
-          'bio': state.formData['bio'] ?? '',
-          'qualifications': state.formData['qualifications'] ?? '',
-          'phone': state.formData['phone'] ?? '',
-          'onboarding_completed': true,
-          'profile_completed_at': DateTime.now().toIso8601String(),
-        },
-      );
+      // Check if user is authenticated (for actual onboarding)
+      final user = SupabaseService.instance.currentUser;
+
+      if (user != null) {
+        // Create mentor profile in the mentor_profiles table with all form data
+        await SupabaseService.instance.createMentorProfile(
+          mentorData: {
+            'title': 'Mentor',
+            'subjects': state.formData['subjects'] ?? [],
+            'years_experience': state.formData['experience'] ?? 0,
+            'specializations': state.formData['subjects'] ??
+                [], // Use subjects as specializations
+            'is_available': true,
+            'hourly_rate': 0, // Default rate, can be set later
+            'average_rating': 0,
+            'total_sessions': 0,
+            // Persist qualifications as education (TEXT[])
+            'education': (() {
+              final q = state.formData['qualifications'];
+              if (q == null) return <String>[];
+              if (q is List) {
+                return q
+                    .whereType<String>()
+                    .map((e) => e.trim())
+                    .where((e) => e.isNotEmpty)
+                    .toList();
+              }
+              final parts = q
+                  .toString()
+                  .split(RegExp(r'[\n,]'))
+                  .map((e) => e.trim())
+                  .where((e) => e.isNotEmpty)
+                  .toList();
+              return parts;
+            })(),
+          },
+        );
+
+        // Update the user_profiles table with bio, phone (if provided), and onboarding completion
+        await SupabaseService.instance.upsertUserProfile(
+          profileData: {
+            'bio': state.formData['bio'] ?? '',
+            // Persist phone when provided; schema is migrated to use 'phone'
+            if ((state.formData['phone'] as String?)?.trim().isNotEmpty == true)
+              'phone': (state.formData['phone'] as String).trim(),
+            'onboarding_completed': true,
+          },
+        );
+      } else {
+        // For preview/demo mode, just simulate the completion
+        debugPrint('🔵 Preview mode: Simulating onboarding completion');
+        await Future.delayed(
+            const Duration(milliseconds: 1500)); // Simulate API call
+      }
 
       state = state.copyWith(
         isLoading: false,
@@ -130,6 +173,17 @@ class _MentorOnboardingScreenState
   }
 
   void _nextPage() {
+    // Validate current page before proceeding
+    if (_currentPage == 0 && _selectedSubjects.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please select at least one subject to continue'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
     if (_currentPage < 3) {
       _pageController.nextPage(
         duration: const Duration(milliseconds: 300),
@@ -165,19 +219,83 @@ class _MentorOnboardingScreenState
 
     final state = ref.read(mentorOnboardingProvider);
     if (state.isCompleted && mounted) {
-      // Show success message
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Welcome! Your mentor profile is now complete.'),
-          backgroundColor: Colors.green,
-        ),
-      );
+      // Check if user is authenticated to determine navigation
+      final user = SupabaseService.instance.currentUser;
 
-      // Clear the new mentor signup flag
-      ref.read(authProvider.notifier).clearNewMentorSignupFlag();
+      if (user != null) {
+        // Real user - navigate to mentor home
+        // Ensure profile screens refetch latest data after onboarding
+        try {
+          ref.invalidate(mentorProfileProvider);
+        } catch (_) {}
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+                '🎉 Welcome to InstantMentor! Your mentor profile is complete and ready to go.'),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 3),
+          ),
+        );
 
-      // Navigate to mentor home
-      context.go('/mentor/home');
+        // Clear the new mentor signup flag first
+        ref.read(authProvider.notifier).clearNewMentorSignupFlag();
+
+        // Small delay to ensure the flag is cleared before navigation
+        Future.delayed(const Duration(milliseconds: 500), () {
+          if (mounted) {
+            // Navigate to mentor home - the router will handle the redirect
+            context.go('/mentor/home');
+          }
+        });
+      } else {
+        // Preview mode - show success dialog
+        showDialog(
+          context: context,
+          builder: (BuildContext context) {
+            return AlertDialog(
+              title: const Text('Preview Complete!'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                      'This is a preview of the mentor onboarding process.'),
+                  const SizedBox(height: 12),
+                  const Text('Selected Subjects:'),
+                  Text('• ${_selectedSubjects.join('\n• ')}',
+                      style: const TextStyle(fontWeight: FontWeight.w500)),
+                  const SizedBox(height: 8),
+                  Text('Experience: $_experienceYears years'),
+                  if (_bioController.text.isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    const Text('Bio:'),
+                    Text(_bioController.text,
+                        style: const TextStyle(fontStyle: FontStyle.italic)),
+                  ],
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () {
+                    Navigator.of(context).pop();
+                    // Reset to first page for demo purposes
+                    _pageController.animateToPage(
+                      0,
+                      duration: const Duration(milliseconds: 300),
+                      curve: Curves.easeInOut,
+                    );
+                  },
+                  child: const Text('Start Over'),
+                ),
+                ElevatedButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: const Text('Close'),
+                ),
+              ],
+            );
+          },
+        );
+      }
     } else if (state.error != null && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -358,7 +476,14 @@ class _MentorOnboardingScreenState
             children: _availableSubjects.map((subject) {
               final isSelected = _selectedSubjects.contains(subject);
               return FilterChip(
-                label: Text(subject),
+                label: Text(
+                  subject,
+                  style: TextStyle(
+                    color: isSelected ? Colors.white : const Color(0xFF1E3A8A),
+                    fontWeight: FontWeight.w500,
+                    fontSize: 14,
+                  ),
+                ),
                 selected: isSelected,
                 onSelected: (selected) {
                   setState(() {
@@ -369,14 +494,22 @@ class _MentorOnboardingScreenState
                     }
                   });
                 },
-                selectedColor: Colors.white.withOpacity(0.2),
+                backgroundColor: isSelected
+                    ? const Color(0xFF1E3A8A)
+                    : Colors.white.withOpacity(0.9),
+                selectedColor: const Color(0xFF1E3A8A),
                 checkmarkColor: Colors.white,
-                labelStyle: TextStyle(
-                  color: isSelected ? Colors.white : Colors.white70,
-                ),
                 side: BorderSide(
-                  color: isSelected ? Colors.white : Colors.white30,
+                  color: isSelected
+                      ? const Color(0xFF1E3A8A)
+                      : const Color(0xFF1E3A8A).withOpacity(0.3),
+                  width: 1,
                 ),
+                elevation: 0,
+                pressElevation: 2,
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
               );
             }).toList(),
           ),

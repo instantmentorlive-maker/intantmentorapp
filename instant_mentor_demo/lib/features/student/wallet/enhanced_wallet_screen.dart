@@ -1,13 +1,13 @@
-import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart' show kIsWeb;
-import 'package:razorpay_flutter/razorpay_flutter.dart';
 import 'package:cloud_functions/cloud_functions.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:razorpay_flutter/razorpay_flutter.dart';
 
 import '../../../core/models/payment_models.dart';
-import '../../../core/services/enhanced_wallet_service.dart';
 import '../../../core/providers/auth_provider.dart';
+import '../../../core/services/enhanced_wallet_service.dart';
 
 /// Enhanced wallet screen implementing the payments architecture
 /// Shows available/locked balances, transaction history, and top-up functionality
@@ -58,7 +58,6 @@ class _EnhancedWalletScreenState extends ConsumerState<EnhancedWalletScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFFF8F9FA),
       appBar: AppBar(
-        title: const Text('Wallet'),
         centerTitle: true,
         backgroundColor: const Color(0xFF0B1C49),
         foregroundColor: Colors.white,
@@ -75,6 +74,17 @@ class _EnhancedWalletScreenState extends ConsumerState<EnhancedWalletScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              // Wallet Title
+              const Text(
+                'Wallet',
+                style: TextStyle(
+                  fontSize: 28,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF0B1C49),
+                ),
+              ),
+              const SizedBox(height: 16),
+
               // Balance Card
               _buildBalanceCard(userId),
               const SizedBox(height: 20),
@@ -749,7 +759,8 @@ class _EnhancedWalletScreenState extends ConsumerState<EnhancedWalletScreen> {
         Navigator.pop(context);
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Razorpay checkout is mobile-only. Use Stripe on web.'),
+            content:
+                Text('Razorpay checkout is mobile-only. Use Stripe on web.'),
             backgroundColor: Colors.orange,
           ),
         );
@@ -761,7 +772,8 @@ class _EnhancedWalletScreenState extends ConsumerState<EnhancedWalletScreen> {
       if (uid == null) throw Exception('Please log in');
 
       // Create a top-up intent via callable function (Razorpay order)
-      final callable = FirebaseFunctions.instance.httpsCallable('createTopupIntent');
+      final callable =
+          FirebaseFunctions.instance.httpsCallable('createTopupIntent');
       final idem = 'topup_${DateTime.now().millisecondsSinceEpoch}';
       final response = await callable.call({
         'amount': amountPaise,

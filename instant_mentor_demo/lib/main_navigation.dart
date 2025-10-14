@@ -17,6 +17,26 @@ class MainNavigation extends ConsumerWidget {
     final user = ref.watch(userProvider);
     final authState = ref.watch(authProvider); // Supabase auth state
     final isStudent = ref.watch(isStudentProvider);
+    final location =
+        GoRouter.of(context).routerDelegate.currentConfiguration.uri.path;
+
+    // Guard: if the current route doesn't match the user's role, redirect once.
+    // This prevents the app from showing Mentor screens to a Student right after login
+    // (which also hides Student-only sections like Top Mentors) and vice versa.
+    if (user != null) {
+      if (isStudent && location.startsWith('/mentor/')) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (context.mounted) context.go(AppRoutes.studentHome);
+        });
+        return const Scaffold(body: Center(child: CircularProgressIndicator()));
+      }
+      if (!isStudent && location.startsWith('/student/')) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (context.mounted) context.go(AppRoutes.mentorHome);
+        });
+        return const Scaffold(body: Center(child: CircularProgressIndicator()));
+      }
+    }
 
     // Fallback: if authenticated via Supabase but domain user not yet synced, create a minimal one
     if (user == null && authState.isAuthenticated && authState.user != null) {

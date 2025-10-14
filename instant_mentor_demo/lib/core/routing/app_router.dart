@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../admin/data/admin_providers.dart';
+import '../../admin/ui/admin_dashboard_page.dart';
 import '../../features/auth/login/login_screen.dart';
 import '../../features/auth/otp_verification/otp_verification_screen.dart';
 import '../../features/auth/signup/signup_screen.dart';
@@ -10,6 +12,7 @@ import '../../features/mentor/chat/mentor_chat_screen.dart';
 import '../../features/mentor/earnings/earnings_screen.dart';
 import '../../features/mentor/home/mentor_home_screen.dart';
 import '../../features/mentor/onboarding/mentor_onboarding_screen.dart';
+import '../../features/student/onboarding/student_onboarding_screen.dart';
 import '../../features/mentor/requests/session_requests_screen.dart';
 import '../../features/shared/live_session/live_session_screen.dart';
 import '../../features/shared/more/more_menu_screen.dart';
@@ -24,8 +27,6 @@ import '../../main_navigation.dart';
 import '../models/user.dart';
 import '../providers/auth_provider.dart';
 import '../providers/user_provider.dart';
-import '../../admin/ui/admin_dashboard_page.dart';
-import '../../admin/data/admin_providers.dart';
 
 // Custom ChangeNotifier to listen to auth changes
 class AuthStateNotifier extends ChangeNotifier {
@@ -83,6 +84,16 @@ final goRouterProvider = Provider<GoRouter>((ref) {
           );
         },
       ),
+      // Mentor onboarding - accessible without shell navigation
+      GoRoute(
+        path: '/mentor/onboarding',
+        builder: (context, state) => const MentorOnboardingScreen(),
+      ),
+      // Student onboarding - accessible without shell navigation
+      GoRoute(
+        path: '/student/onboarding',
+        builder: (context, state) => const StudentOnboardingScreen(),
+      ),
       ShellRoute(
         builder: (context, state, child) => MainNavigation(child: child),
         routes: [
@@ -109,10 +120,6 @@ final goRouterProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: '/mentor/home',
             builder: (context, state) => const MentorHomeScreen(),
-          ),
-          GoRoute(
-            path: '/mentor/onboarding',
-            builder: (context, state) => const MentorOnboardingScreen(),
           ),
           GoRoute(
             path: '/mentor/requests',
@@ -183,10 +190,13 @@ final goRouterProvider = Provider<GoRouter>((ref) {
 
       // Handle unauthenticated users
       if (!isAuthenticated) {
-        // Allow access to auth pages
-        if (location == '/login' || location == '/signup') {
+        // Allow access to auth pages and mentor onboarding (for preview)
+        if (location == '/login' ||
+            location == '/signup' ||
+            location == '/mentor/onboarding' ||
+            location == '/student/onboarding') {
           debugPrint(
-              'GoRouter: Unauthenticated user on auth page, no redirect');
+              'GoRouter: Unauthenticated user on allowed page, no redirect');
           return null;
         }
         // Redirect to login for any other page
@@ -197,10 +207,17 @@ final goRouterProvider = Provider<GoRouter>((ref) {
 
       // Handle authenticated users
       if (isAuthenticated) {
-        // Check for new mentor signup and redirect to onboarding first
+        // Check for new mentor or student signup and redirect to onboarding first
         if (authState.isNewMentorSignup && location != '/mentor/onboarding') {
-          debugPrint('GoRouter: New mentor signup, redirecting to onboarding');
+          debugPrint(
+              '🎯 GoRouter: New mentor account detected (isNewMentorSignup=true), redirecting from $location to /mentor/onboarding');
           return '/mentor/onboarding';
+        }
+
+        if (authState.isNewStudentSignup && location != '/student/onboarding') {
+          debugPrint(
+              '🎯 GoRouter: New student account detected (isNewStudentSignup=true), redirecting from $location to /student/onboarding');
+          return '/student/onboarding';
         }
 
         // Redirect from auth pages to appropriate home based on user role

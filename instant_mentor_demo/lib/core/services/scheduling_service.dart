@@ -59,8 +59,9 @@ class SchedulingService {
         .eq('mentor_id', mentorId)
         .eq('day_of_week', weekday)
         .maybeSingle();
-    if (avail == null || (avail['is_enabled'] as bool? ?? false) == false)
+    if (avail == null || (avail['is_enabled'] as bool? ?? false) == false) {
       return [];
+    }
 
     // Build day window
     final startTod = _parseTime(avail['start_time'] as String);

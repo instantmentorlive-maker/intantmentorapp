@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'core/config/app_config.dart';
 import 'core/debug/provider_observer.dart';
@@ -93,7 +93,7 @@ class MyApp extends ConsumerWidget {
       title: 'InstantMentor',
       locale: currentLocale,
       supportedLocales: AppLocalizations.supportedLocales,
-      localizationsDelegates: [
+      localizationsDelegates: const [
         AppLocalizations.delegate,
         GlobalMaterialLocalizations.delegate,
         GlobalWidgetsLocalizations.delegate,
@@ -141,7 +141,6 @@ class MyApp extends ConsumerWidget {
           onSecondary: Color(0xFFFFFFFF),
           onSurface: Color(0xFFE2E8F0),
           surface: Color(0xFF0F172A),
-          background: Color(0xFF020617),
         ),
         scaffoldBackgroundColor: const Color(0xFF020617), // Dark background
         appBarTheme: const AppBarTheme(

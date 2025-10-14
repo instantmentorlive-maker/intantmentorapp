@@ -2,8 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_stripe/flutter_stripe.dart';
 import '../config/app_config.dart';
 import 'supabase_service.dart';
-import 'enhanced_wallet_service.dart';
-import 'analytics_tracker.dart';
 
 class PaymentService {
   static PaymentService? _instance;
@@ -12,9 +10,6 @@ class PaymentService {
   PaymentService._();
 
   final SupabaseService _supabase = SupabaseService.instance;
-  // Cache last created payment intent ids by session to use after presentPaymentSheet
-  final Map<String, String> _sessionToPaymentIntent = {};
-  final Map<String, double> _sessionToAmount = {};
 
   /// Initialize Stripe
   static Future<void> initialize() async {
@@ -174,11 +169,6 @@ class PaymentService {
         }
 
         final clientSecret = response.data['clientSecret'] as String;
-        final paymentIntentId = response.data['paymentIntentId'] as String?;
-        if (paymentIntentId != null) {
-          _sessionToPaymentIntent[sessionId] = paymentIntentId;
-        }
-        _sessionToAmount[sessionId] = amount;
         const merchantDisplayName = 'InstantMentor';
 
         // Initialize payment sheet
@@ -227,60 +217,9 @@ class PaymentService {
       // Payment successful - update status
       await _updateSessionPaymentStatus(sessionId, 'paid');
 
-      // Post to ledger for direct payment flow
-      final user = _supabase.client.auth.currentUser;
-      final studentId = user?.id;
-      if (studentId != null) {
-        // Resolve mentor and price from session
-        final session = await _supabase.client
-            .from('mentoring_sessions')
-            .select('mentor_id, cost, currency')
-            .eq('id', sessionId)
-            .maybeSingle();
-
-        final mentorId = session != null ? (session['mentor_id'] as String?) : null;
-        final currency = (session != null ? (session['currency'] as String?) : null) ?? 'INR';
-        // Prefer server cost but fall back to cached
-        final amountMajor = session != null && session['cost'] != null
-            ? (session['cost'] as num).toDouble()
-            : (_sessionToAmount[sessionId] ?? 0);
-        final totalMinor = (amountMajor * 100).round();
-
-        // Use default platform fee percent (env or 0.15). We don't have app-level setting exposed here,
-        // keep consistent with SQL default 15%.
-        const platformFeePercent = 0.15;
-        final platformMinor = EnhancedWalletService.calculatePlatformFee(totalMinor, platformFeePercent);
-        final mentorMinor = totalMinor - platformMinor;
-
-        final paymentIntentId = _sessionToPaymentIntent[sessionId] ?? sessionId;
-
-        if (mentorId != null && totalMinor > 0) {
-          // Call direct-session completion RPC defined in migration 004
-          await _supabase.client.rpc('process_direct_session_completion', params: {
-            'p_session_id': sessionId,
-            'p_student_id': studentId,
-            'p_mentor_id': mentorId,
-            'p_total_amount': totalMinor,
-            'p_mentor_amount': mentorMinor,
-            'p_platform_fee': platformMinor,
-            'p_currency': currency,
-            'p_payment_gateway': 'stripe',
-            'p_payment_intent_id': paymentIntentId,
-          });
-
-          // Fire analytics event
-          await AnalyticsTracker.instance.paymentSucceeded(
-            sessionId,
-            amountMajor,
-            mentorMinor / 100.0,
-            platformMinor / 100.0,
-          );
-        }
-      }
-
       return PaymentResult.success(
-        transactionId: _sessionToPaymentIntent[sessionId] ?? sessionId,
-        amount: _sessionToAmount[sessionId] ?? 0,
+        transactionId: sessionId,
+        amount: 0, // Amount will be updated from server
         currency: 'USD',
       );
     } on StripeException catch (e) {

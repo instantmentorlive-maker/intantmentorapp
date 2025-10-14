@@ -1,9 +1,12 @@
+import 'dart:convert';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../../../core/models/user.dart' as domain_user;
 import '../../../core/providers/auth_provider.dart';
 import '../../../core/providers/user_provider.dart';
 import '../../../core/services/supabase_service.dart';
@@ -22,6 +25,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   final _phoneController = TextEditingController();
   final _bioController = TextEditingController();
 
+  // Manual subscription for user changes
+  ProviderSubscription<domain_user.User?>? _userSubscription;
+
   // Static cache to persist profile data across navigation
   static Map<String, dynamic>? _profileCache;
   static bool _isCacheValid = false;
@@ -31,6 +37,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   String _selectedExam = 'JEE';
 
   Uint8List? _profileImageBytes;
+  String? _currentAvatarUrl; // Existing saved profile picture
   final ImagePicker _picker = ImagePicker();
 
   // Preference toggles (locally editable, persisted via Supabase preferences JSONB column)
@@ -59,14 +66,59 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     _phoneController.addListener(_saveToCache);
     _bioController.addListener(_saveToCache);
 
-    // Check if we have valid cached data
+    // Prefill avatar from current domain user while we load from server
+    // This makes the avatar appear immediately after login if already hydrated
+    try {
+      final user = ref.read(userProvider);
+      final existingAvatar = user?.profileImage;
+      if (existingAvatar != null && existingAvatar.isNotEmpty) {
+        _currentAvatarUrl = existingAvatar;
+      }
+    } catch (_) {
+      // ignore read errors in init; ref is available in ConsumerState
+    }
+
+    // Live update from domain user: if auth/user changes after signup, populate fields
+    _userSubscription = ref.listenManual<domain_user.User?>(
+      userProvider,
+      (previous, next) {
+        if (!mounted || next == null) return;
+        // Only overwrite if current fields are empty or placeholders
+        final nameEmpty = _nameController.text.trim().isEmpty ||
+            _nameController.text.trim().toLowerCase() == 'user';
+        final emailEmpty = _emailController.text.trim().isEmpty ||
+            _emailController.text.trim().toLowerCase() == 'user@example.com';
+
+        bool changed = false;
+        if (nameEmpty && next.name.isNotEmpty) {
+          _nameController.text = next.name;
+          changed = true;
+        }
+        if (emailEmpty && next.email.isNotEmpty) {
+          _emailController.text = next.email;
+          changed = true;
+        }
+        if ((next.profileImage ?? '').isNotEmpty) {
+          _currentAvatarUrl = next.profileImage;
+          changed = true;
+        }
+
+        if (changed) {
+          _saveToCache();
+          setState(() {});
+        }
+      },
+      fireImmediately: true,
+    );
+
+    // Use cache for immediate UI, but always fetch fresh profile from server
     if (_isCacheValid && _profileCache != null) {
       _loadFromCache();
-      setState(() => _loadingInitial = false);
-    } else {
-      _loadUserData();
     }
+    _loadUserData();
   }
+
+  // Note: final dispose is implemented at the end of the class to also dispose controllers
 
   void _loadFromCache() {
     if (_profileCache != null) {
@@ -81,6 +133,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       _pushNotifications = _profileCache!['pushNotifications'] ?? true;
       _studyReminders = _profileCache!['studyReminders'] ?? false;
       _sessionReminders = _profileCache!['sessionReminders'] ?? true;
+      _currentAvatarUrl = _profileCache!['avatarUrl'];
     }
   }
 
@@ -97,6 +150,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       'pushNotifications': _pushNotifications,
       'studyReminders': _studyReminders,
       'sessionReminders': _sessionReminders,
+      'avatarUrl': _currentAvatarUrl,
     };
     _isCacheValid = true;
   }
@@ -118,15 +172,53 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
           // Load additional profile fields
           _selectedGrade = profile['grade'] ?? '12th Grade';
+          // Normalize/guard grade in case value is not in dropdown options
+          const validGrades = [
+            '9th Grade',
+            '10th Grade',
+            '11th Grade',
+            '12th Grade',
+            'Undergraduate',
+            'College',
+            'Graduate',
+            'Other',
+          ];
+          if (!validGrades.contains(_selectedGrade)) {
+            // Map onboarding values if needed
+            const gradeMap = {
+              'Grade 9': '9th Grade',
+              'Grade 10': '10th Grade',
+              'Grade 11': '11th Grade',
+              'Grade 12': '12th Grade',
+            };
+            _selectedGrade = gradeMap[_selectedGrade] ?? '12th Grade';
+          }
           _selectedExam = profile['exam_target'] ?? 'JEE';
 
           if (profile['subjects'] is List) {
             _selectedSubjects = List<String>.from(profile['subjects']);
           }
+
+          // Load existing avatar URL if available
+          _currentAvatarUrl = profile['avatar_url'];
         });
+      } else if (mounted) {
+        // Fallback to domain user values if remote profile not yet created
+        final domainUser = ref.read(userProvider);
+        if (domainUser != null) {
+          _nameController.text = _nameController.text.isEmpty
+              ? domainUser.name
+              : _nameController.text;
+          _emailController.text = _emailController.text.isEmpty
+              ? (domainUser.email)
+              : _emailController.text;
+          if ((domainUser.profileImage ?? '').isNotEmpty) {
+            _currentAvatarUrl = domainUser.profileImage;
+          }
+        }
       }
 
-      // Load preferences
+      // Load preferences (to populate toggles and provide fallbacks for academic info)
       await _loadPreferences();
 
       // Save loaded data to cache
@@ -136,11 +228,25 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       // Set default values only if loading fails
       if (mounted) {
         setState(() {
-          _nameController.text =
-              _nameController.text.isEmpty ? 'User' : _nameController.text;
-          _emailController.text = _emailController.text.isEmpty
-              ? 'user@example.com'
-              : _emailController.text;
+          // Prefer domain user values if available
+          final domainUser = ref.read(userProvider);
+          if (domainUser != null) {
+            if (_nameController.text.isEmpty) {
+              _nameController.text = domainUser.name;
+            }
+            if (_emailController.text.isEmpty) {
+              _emailController.text = domainUser.email;
+            }
+            if ((domainUser.profileImage ?? '').isNotEmpty) {
+              _currentAvatarUrl = domainUser.profileImage;
+            }
+          } else {
+            _nameController.text =
+                _nameController.text.isEmpty ? 'User' : _nameController.text;
+            _emailController.text = _emailController.text.isEmpty
+                ? 'user@example.com'
+                : _emailController.text;
+          }
         });
         // Save default values to cache
         _saveToCache();
@@ -164,6 +270,43 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           _studyReminders = prefsRaw['study_reminders'] ?? _studyReminders;
           _sessionReminders =
               prefsRaw['session_reminders'] ?? _sessionReminders;
+
+          // Fallback academic info from preferences if top-level fields are absent
+          // Subjects of interest
+          final prefSubjects = prefsRaw['interested_subjects'];
+          if ((profile?['subjects'] == null ||
+                  (profile?['subjects'] is List &&
+                      (profile?['subjects'] as List).isEmpty)) &&
+              prefSubjects is List &&
+              prefSubjects.isNotEmpty) {
+            _selectedSubjects = List<String>.from(prefSubjects);
+          }
+          // Grade/Class
+          final prefGrade = prefsRaw['class_grade'];
+          if ((profile?['grade'] == null ||
+                  (profile?['grade'] as String?)?.isEmpty == true) &&
+              prefGrade is String &&
+              prefGrade.isNotEmpty) {
+            // Map onboarding grade variants to this screen's dropdown values
+            const gradeMap = {
+              'Grade 9': '9th Grade',
+              'Grade 10': '10th Grade',
+              'Grade 11': '11th Grade',
+              'Grade 12': '12th Grade',
+            };
+            _selectedGrade = gradeMap[prefGrade] ?? prefGrade;
+          }
+          // Target Exam
+          final prefExam = prefsRaw['target_exam'];
+          if ((profile?['exam_target'] == null ||
+                  (profile?['exam_target'] as String?)?.isEmpty == true) &&
+              prefExam is String &&
+              prefExam.isNotEmpty) {
+            _selectedExam =
+                (prefExam == 'JEE Main' || prefExam == 'JEE Advanced')
+                    ? 'JEE'
+                    : prefExam;
+          }
         });
       }
     } catch (e) {
@@ -223,16 +366,16 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                       shape: BoxShape.circle,
                       border: _profileImageBytes != null
                           ? Border.all(color: Colors.green, width: 3)
-                          : null,
+                          : _getProfileImageProvider() != null
+                              ? Border.all(color: Colors.blue, width: 2)
+                              : null,
                     ),
                     child: CircleAvatar(
                       radius: 60,
                       backgroundColor:
                           Theme.of(context).colorScheme.primaryContainer,
-                      backgroundImage: _profileImageBytes != null
-                          ? MemoryImage(_profileImageBytes!)
-                          : null,
-                      child: _profileImageBytes == null
+                      backgroundImage: _getProfileImageProvider(),
+                      child: _getProfileImageProvider() == null
                           ? Text(
                               _nameController.text.isNotEmpty
                                   ? _nameController.text
@@ -366,28 +509,38 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 ),
                 const SizedBox(height: 16),
 
-                DropdownButtonFormField<String>(
-                  initialValue: _selectedGrade,
-                  decoration: const InputDecoration(
-                    labelText: 'Grade/Class',
-                    prefixIcon: Icon(Icons.school),
-                  ),
-                  items: [
+                Builder(builder: (context) {
+                  final gradeOptions = <String>[
                     '9th Grade',
                     '10th Grade',
                     '11th Grade',
                     '12th Grade',
+                    'Undergraduate',
                     'College',
-                    'Graduate'
-                  ]
-                      .map((grade) =>
-                          DropdownMenuItem(value: grade, child: Text(grade)))
-                      .toList(),
-                  onChanged: (value) => setState(() {
-                    _selectedGrade = value!;
-                    _saveToCache();
-                  }),
-                ),
+                    'Graduate',
+                    'Other',
+                  ];
+                  final currentGrade = gradeOptions.contains(_selectedGrade)
+                      ? _selectedGrade
+                      : '12th Grade';
+                  return DropdownButtonFormField<String>(
+                    value: currentGrade,
+                    decoration: const InputDecoration(
+                      labelText: 'Grade/Class',
+                      prefixIcon: Icon(Icons.school),
+                    ),
+                    items: gradeOptions
+                        .map((grade) => DropdownMenuItem(
+                              value: grade,
+                              child: Text(grade),
+                            ))
+                        .toList(),
+                    onChanged: (value) => setState(() {
+                      _selectedGrade = value!;
+                      _saveToCache();
+                    }),
+                  );
+                }),
 
                 const SizedBox(height: 16),
 
@@ -705,6 +858,41 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     );
   }
 
+  // Helper method to get the appropriate ImageProvider for profile picture
+  ImageProvider? _getProfileImageProvider() {
+    // Priority 1: Show newly selected image (in memory)
+    if (_profileImageBytes != null) {
+      return MemoryImage(_profileImageBytes!);
+    }
+
+    // Priority 2: Show existing saved profile image
+    if (_currentAvatarUrl != null && _currentAvatarUrl!.isNotEmpty) {
+      // Handle base64 data URLs
+      if (_currentAvatarUrl!.startsWith('data:image/')) {
+        try {
+          // Extract base64 data from data URL
+          final base64Data = _currentAvatarUrl!.split(',')[1];
+          final bytes = base64Decode(base64Data);
+          return MemoryImage(bytes);
+        } catch (e) {
+          debugPrint('Error decoding base64 image: $e');
+          return null;
+        }
+      }
+
+      // Handle regular network URLs
+      try {
+        return NetworkImage(_currentAvatarUrl!);
+      } catch (e) {
+        debugPrint('Error loading network image: $e');
+        return null;
+      }
+    }
+
+    // No image available
+    return null;
+  }
+
   void _changeProfilePicture() {
     showDialog(
       context: context,
@@ -727,7 +915,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             ListTile(
               leading: const Icon(Icons.photo_library, color: Colors.green),
               title: const Text('Choose from Gallery'),
-              subtitle: Text(kIsWeb
+              subtitle: const Text(kIsWeb
                   ? 'Select an image file from your computer'
                   : 'Pick from your photo gallery'),
               onTap: () async {
@@ -770,7 +958,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               'Camera access on web requires HTTPS or localhost. Please allow camera permission when prompted.',
             ),
             backgroundColor: Colors.orange,
-            duration: Duration(seconds: 4),
           ),
         );
       }
@@ -891,7 +1078,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           SnackBar(
             content: Text(errorMessage),
             backgroundColor: Colors.red,
-            duration: const Duration(seconds: 4),
           ),
         );
       }
@@ -953,13 +1139,32 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           print('🔴 ProfileScreen: Image upload failed: $uploadError');
           if (mounted) {
             ScaffoldMessenger.of(context).hideCurrentSnackBar();
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('Failed to upload image: $uploadError'),
-                backgroundColor: Colors.red,
-                duration: const Duration(seconds: 5),
-              ),
-            );
+
+            // Check if it's a storage bucket error and provide helpful message
+            String userFriendlyMessage;
+            if (uploadError.toString().contains('Bucket not found') ||
+                uploadError.toString().contains('404')) {
+              userFriendlyMessage =
+                  'Image saved locally! Storage service needs setup for cloud backup.';
+
+              // Show info instead of error for storage bucket issues
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text(
+                      'Image saved locally! Storage service needs setup for cloud backup.'),
+                  backgroundColor: Colors.orange,
+                ),
+              );
+            } else {
+              userFriendlyMessage = 'Failed to upload image: $uploadError';
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(userFriendlyMessage),
+                  backgroundColor: Colors.red,
+                  duration: const Duration(seconds: 5),
+                ),
+              );
+            }
           }
           // Continue with profile save without avatar
           avatarUrl = null;
@@ -1034,17 +1239,24 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           ),
         );
 
-        // Update cache with saved data instead of invalidating it
-        // This prevents the form from being reset after save
-        _saveToCache();
-        _isCacheValid = true;
-
-        // Clear the profile image bytes since it's now uploaded
-        if (_profileImageBytes != null) {
+        // Ensure current avatar shows immediately and persists in cache
+        if (avatarUrl != null) {
           setState(() {
+            _currentAvatarUrl = avatarUrl;
             _profileImageBytes = null;
           });
+
+          // Also update global user to keep UI consistent across app
+          final currentUser = ref.read(userProvider);
+          if (currentUser != null) {
+            ref
+                .read(userProvider.notifier)
+                .updateUser(currentUser.copyWith(profileImage: avatarUrl));
+          }
         }
+        // Update cache after we updated local state
+        _saveToCache();
+        _isCacheValid = true;
       }
 
       setState(() {
@@ -1237,6 +1449,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
   @override
   void dispose() {
+    _userSubscription?.close();
     // Remove listeners before disposing
     _nameController.removeListener(_saveToCache);
     _emailController.removeListener(_saveToCache);

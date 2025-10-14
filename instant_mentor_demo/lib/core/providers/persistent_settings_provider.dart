@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../services/settings_persistence_service.dart';
 
@@ -105,6 +106,7 @@ class _SettingNotifier<T> extends StateNotifier<T> {
   final String _key;
   final T _defaultValue;
   final Ref _ref;
+  bool _isLoaded = false;
 
   _SettingNotifier(this._key, this._defaultValue, this._ref)
       : super(_defaultValue) {
@@ -112,20 +114,44 @@ class _SettingNotifier<T> extends StateNotifier<T> {
   }
 
   Future<void> _loadFromPersistence() async {
-    final value =
-        await SettingsPersistenceService.getSetting<T>(_key, _defaultValue);
-    state = value;
+    try {
+      final value =
+          await SettingsPersistenceService.getSetting<T>(_key, _defaultValue);
+      if (mounted && !_isLoaded) {
+        state = value;
+        _isLoaded = true;
+        debugPrint('📱 Loaded setting $_key: $value');
+      }
+    } catch (e) {
+      debugPrint('⚠️ Failed to load setting $_key: $e');
+      if (mounted && !_isLoaded) {
+        _isLoaded = true;
+      }
+    }
   }
 
   @override
   set state(T value) {
-    super.state = value;
-    _saveToPersistence(value);
-    // Also update the main settings provider
-    _ref.read(persistentSettingsProvider.notifier).updateSetting(_key, value);
+    if (mounted) {
+      super.state = value;
+      _saveToPersistence(value);
+      // Also update the main settings provider
+      _ref.read(persistentSettingsProvider.notifier).updateSetting(_key, value);
+    }
   }
 
   Future<void> _saveToPersistence(T value) async {
-    await SettingsPersistenceService.saveSetting(_key, value);
+    try {
+      await SettingsPersistenceService.saveSetting(_key, value);
+      debugPrint('💾 Saved setting $_key: $value');
+    } catch (e) {
+      debugPrint('⚠️ Failed to save setting $_key: $e');
+    }
+  }
+
+  /// Force reload from persistence (useful after login/logout)
+  Future<void> reload() async {
+    _isLoaded = false;
+    await _loadFromPersistence();
   }
 }

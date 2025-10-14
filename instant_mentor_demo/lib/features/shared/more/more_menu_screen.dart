@@ -2,10 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../admin/data/admin_providers.dart';
 import '../../../core/providers/auth_provider.dart';
 import '../../../core/providers/user_provider.dart';
 import '../../../core/services/session_chat_manager.dart';
-import '../../../admin/data/admin_providers.dart';
 import '../../mentor/incentives/incentives_bonuses_screen.dart';
 import '../../mentor/performance_analytics/performance_analytics_screen.dart';
 import '../../mentor/profile_management/profile_management_screen.dart';
@@ -60,6 +60,21 @@ class MoreMenuScreen extends ConsumerWidget {
             ),
 
           // Common items
+          // DEBUG buttons (role-gated)
+          if (!isStudent)
+            _MenuTile(
+              icon: Icons.school,
+              title: 'View Mentor Onboarding (DEBUG)',
+              subtitle: 'Preview the mentor setup page',
+              onTap: () => context.go('/mentor/onboarding'),
+            ),
+          if (isStudent)
+            _MenuTile(
+              icon: Icons.school_outlined,
+              title: 'View Student Onboarding (DEBUG)',
+              subtitle: 'Preview the student setup page',
+              onTap: () => context.go('/student/onboarding'),
+            ),
           _MenuTile(
             icon: Icons.settings,
             title: 'Settings',
@@ -305,8 +320,8 @@ class MoreMenuScreen extends ConsumerWidget {
                   debugPrint('⚠️ Failed to save messages before logout: $e');
                 }
 
-                // Sign out through auth provider
-                await ref.read(authProvider.notifier).signOut();
+                // Sign out through auth provider (forced to avoid init guard)
+                await ref.read(authProvider.notifier).signOut(forced: true);
 
                 debugPrint('✅ Logout successful, waiting for state update...');
 

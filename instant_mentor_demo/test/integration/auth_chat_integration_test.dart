@@ -35,8 +35,8 @@ void main() {
 
     testWidgets('Authentication error handling', (WidgetTester tester) async {
       await tester.pumpWidget(
-        ProviderScope(
-          child: const MaterialApp(home: Scaffold()),
+        const ProviderScope(
+          child: MaterialApp(home: Scaffold()),
         ),
       );
 
@@ -229,7 +229,6 @@ class MockAuthNotifier extends StateNotifier<AuthState> {
   void mockLogin(String email, String password) {
     state = state.copyWith(
       isAuthenticated: true,
-      error: null,
     );
   }
 }
@@ -256,7 +255,7 @@ class MockAuthNotifierWithErrors extends StateNotifier<AuthState> {
   }
 
   void clearError() {
-    state = state.copyWith(error: null);
+    state = state.copyWith();
   }
 }
 

@@ -313,6 +313,12 @@ class _MentorUpcomingSessionsWidget extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final user = ref.watch(userProvider);
+
+    // Ensure demo sessions are available for testing
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(demoSessionsProvider.notifier).ensureTestSessions();
+    });
+
     final sessionsAsync = ref.watch(simpleUpcomingSessionsProvider);
 
     return sessionsAsync.when(

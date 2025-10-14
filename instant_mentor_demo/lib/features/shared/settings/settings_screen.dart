@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/providers/auth_provider.dart';
@@ -157,8 +158,11 @@ class SettingsScreen extends ConsumerWidget {
                     subtitle: Text(tr('use_dark_theme', ref)),
                     value: ref.watch(darkModeProvider),
                     onChanged: (value) {
+                      debugPrint('🌙 Dark mode toggle: $value');
                       ref.read(darkModeProvider.notifier).state = value;
                       _showSnackBar(context, tr('theme_changed', ref));
+                      debugPrint(
+                          '🌙 Dark mode state after change: ${ref.read(darkModeProvider)}');
                     },
                   ),
                   const Divider(height: 1),
@@ -397,7 +401,10 @@ class SettingsScreen extends ConsumerWidget {
                 leading: const Icon(Icons.logout, color: Colors.red),
                 title: Text(tr('logout', ref),
                     style: const TextStyle(color: Colors.red)),
-                onTap: () => _showLogoutDialog(context, ref),
+                onTap: () {
+                  print('🔄 Logout button tapped');
+                  _showLogoutDialog(context, ref);
+                },
               ),
             ),
 
@@ -2171,6 +2178,7 @@ Contact support with:
   }
 
   void _showLogoutDialog(BuildContext context, WidgetRef ref) {
+    print('🔄 Showing logout dialog');
     showDialog(
       context: context,
       builder: (dialogContext) => AlertDialog(
@@ -2238,10 +2246,7 @@ Contact support with:
 
                 debugPrint('✅ Logout successful, waiting for state update...');
 
-                // Give auth state time to update
-                await Future.delayed(const Duration(milliseconds: 500));
-
-                // Try to close loading dialog safely
+                // Close loading dialog first
                 try {
                   if (navigator.mounted) {
                     navigator.pop();
@@ -2250,9 +2255,15 @@ Contact support with:
                   debugPrint('⚠️ Could not close loading dialog: $e');
                 }
 
-                // Let GoRouter's redirect handle navigation automatically
-                // No need to manually navigate - the auth state change will trigger redirect
-                debugPrint('✅ Logout completed, GoRouter will handle redirect');
+                // Force navigation to login after successful logout
+                // Sometimes GoRouter doesn't trigger redirect immediately
+                if (context.mounted) {
+                  context.go('/login');
+                  debugPrint('✅ Logout completed, navigated to login');
+                } else {
+                  debugPrint(
+                      '✅ Logout completed, GoRouter will handle redirect');
+                }
               } catch (e, stackTrace) {
                 debugPrint('❌ Logout error: $e');
                 debugPrint('Stack trace: $stackTrace');

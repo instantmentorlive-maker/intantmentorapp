@@ -15,7 +15,13 @@ class UserNotifier extends StateNotifier<User?> {
   }
 
   void updateUser(User user) {
-    state = user;
+    // Preserve existing profileImage if incoming user doesn't provide one
+    if (state != null &&
+        (user.profileImage == null || user.profileImage!.isEmpty)) {
+      state = user.copyWith(profileImage: state!.profileImage);
+    } else {
+      state = user;
+    }
   }
 
   void logout() {

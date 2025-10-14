@@ -444,10 +444,11 @@ class _BookingDialogState extends ConsumerState<BookingDialog> {
       final user = ref.read(userProvider);
       final sessionService = ref.read(sessionServiceProvider);
 
-      // For demo purposes, create a demo user if none exists
+      // For demo purposes, use the authenticated user if available, otherwise create a demo user
+      // This ensures sessions are properly linked to the current user
       final demoUser = user ??
           domain.User(
-            id: 'demo_student_${DateTime.now().millisecondsSinceEpoch}',
+            id: 'demo_student_user',
             name: 'Demo Student',
             email: 'demo@student.com',
             role: domain.UserRole.student,
@@ -464,6 +465,20 @@ class _BookingDialogState extends ConsumerState<BookingDialog> {
       );
 
       // Create the session in database
+      // Guard: prevent booking in the past which would not show in upcoming list
+      final now = DateTime.now().subtract(const Duration(minutes: 1));
+      if (scheduledDateTime.isBefore(now)) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Please choose a future time for your session.'),
+              backgroundColor: Colors.orange,
+            ),
+          );
+        }
+        return;
+      }
+
       final session = await sessionService.createSession(
         mentorId: widget.mentor.id,
         studentId: demoUser.id,

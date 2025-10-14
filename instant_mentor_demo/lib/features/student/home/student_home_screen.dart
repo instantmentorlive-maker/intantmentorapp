@@ -25,21 +25,33 @@ class _StudentHomeScreenState extends ConsumerState<StudentHomeScreen>
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.invalidate(simpleUpcomingSessionsProvider);
       ref.invalidate(upcomingSessionsProvider);
+      // Also refresh mentors to ensure Top Mentors renders on first load
+      ref.invalidate(mentorsProvider);
+      ref.invalidate(topRatedMentorsProvider);
     });
   }
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    // Refresh sessions whenever we return to this screen
-    ref.invalidate(simpleUpcomingSessionsProvider);
-    ref.invalidate(upcomingSessionsProvider);
+    // Refresh sessions whenever we return to this screen (defer to next frame to avoid
+    // triggering rebuilds during the build phase)
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      ref.invalidate(simpleUpcomingSessionsProvider);
+      ref.invalidate(upcomingSessionsProvider);
+      // Also refresh mentors when returning to this screen
+      ref.invalidate(mentorsProvider);
+      ref.invalidate(topRatedMentorsProvider);
+    });
   }
 
   @override
   Widget build(BuildContext context) {
+    // Activate realtime sync for sessions when this screen is built
+    ref.watch(sessionsRealtimeSyncProvider);
     final user = ref.watch(userProvider);
-    final topMentors = ref.watch(topRatedMentorsProvider);
+    // Top mentors are rendered via _TopMentorsWidget below to avoid extra rebuilds here.
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
@@ -123,7 +135,11 @@ class _StudentHomeScreenState extends ConsumerState<StudentHomeScreen>
                   .titleLarge
                   ?.copyWith(fontWeight: FontWeight.bold)),
           const SizedBox(height: 12),
-          const _UpcomingSessionsWidget(),
+          // Fixed-height scrollable list to avoid overflow
+          const SizedBox(
+            height: 300,
+            child: _UpcomingSessionsWidget(),
+          ),
 
           const SizedBox(height: 24),
 
@@ -134,20 +150,7 @@ class _StudentHomeScreenState extends ConsumerState<StudentHomeScreen>
                   .titleLarge
                   ?.copyWith(fontWeight: FontWeight.bold)),
           const SizedBox(height: 12),
-          SizedBox(
-            height: 200,
-            child: ListView.builder(
-              scrollDirection: Axis.horizontal,
-              itemCount: topMentors.length,
-              itemBuilder: (context, index) {
-                final mentor = topMentors[index];
-                return _MentorCard(
-                  mentor: mentor,
-                  onTap: () => context.go(AppRoutes.mentorProfile(mentor.id)),
-                );
-              },
-            ),
-          ),
+          const _TopMentorsWidget(),
         ],
       ),
     );
@@ -192,51 +195,7 @@ class _QuickActionCard extends StatelessWidget {
   }
 }
 
-class _UpcomingSessionTile extends StatelessWidget {
-  final String mentorName;
-  final String mentorId;
-  final String subject;
-  final String time;
-  final String duration;
-  final VoidCallback onJoin;
-
-  const _UpcomingSessionTile({
-    required this.mentorName,
-    required this.mentorId,
-    required this.subject,
-    required this.time,
-    required this.duration,
-    required this.onJoin,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return ListTile(
-      leading: GestureDetector(
-        onTap: () => context.go(AppRoutes.mentorProfile(mentorId)),
-        child: CircleAvatar(
-          backgroundColor: Theme.of(context).colorScheme.primaryContainer,
-          child: Text(
-            mentorName.split(' ').map((n) => n[0]).join(),
-            style: TextStyle(
-              color: Theme.of(context).colorScheme.onPrimaryContainer,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-        ),
-      ),
-      title: Text('$subject with $mentorName'),
-      subtitle: Text('$time • $duration'),
-      trailing: ElevatedButton(
-        onPressed: onJoin,
-        style: ElevatedButton.styleFrom(
-          minimumSize: const Size(60, 32),
-        ),
-        child: const Text('Join', style: TextStyle(fontSize: 12)),
-      ),
-    );
-  }
-}
+// Removed unused _UpcomingSessionTile widget (was not referenced).
 
 class _MentorCard extends StatelessWidget {
   final mentor;
@@ -317,6 +276,12 @@ class _UpcomingSessionsWidget extends ConsumerWidget {
 
     return upcomingSessionsAsync.when(
       data: (sessions) {
+        print(
+            '🏠 UI: Received ${sessions.length} sessions in student home widget - TIMESTAMP: ${DateTime.now()}');
+        for (var session in sessions) {
+          print('   UI Session: ${session.id}, ${session.scheduledTime}');
+        }
+
         if (sessions.isEmpty) {
           return Card(
             child: Padding(
@@ -343,6 +308,24 @@ class _UpcomingSessionsWidget extends ConsumerWidget {
                         ),
                     textAlign: TextAlign.center,
                   ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Tip: Choose a time a few minutes ahead. Sessions in the past won\'t show here.',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: Colors.grey[500],
+                        ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 16),
+                  ElevatedButton.icon(
+                    onPressed: () {
+                      print('🔄 Manual refresh triggered at ${DateTime.now()}');
+                      ref.invalidate(simpleUpcomingSessionsProvider);
+                      ref.invalidate(demoSessionsProvider);
+                    },
+                    icon: const Icon(Icons.refresh),
+                    label: const Text('Refresh Sessions'),
+                  ),
                 ],
               ),
             ),
@@ -350,14 +333,16 @@ class _UpcomingSessionsWidget extends ConsumerWidget {
         }
 
         return Card(
-          child: Column(
-            children: sessions
-                .cast<app_session.Session>()
-                .map<Widget>(
-                    (session) => _buildSessionTile(context, ref, session))
-                .expand((widget) => [widget, const Divider(height: 1)])
-                .take(sessions.length * 2 - 1) // Remove last divider
-                .toList(),
+          clipBehavior: Clip.antiAlias,
+          child: ListView.separated(
+            shrinkWrap: true,
+            primary: false,
+            itemCount: sessions.length,
+            separatorBuilder: (_, __) => const Divider(height: 1),
+            itemBuilder: (context, index) {
+              final session = sessions[index];
+              return _buildSessionTile(context, ref, session);
+            },
           ),
         );
       },
@@ -512,6 +497,91 @@ class _UpcomingSessionsWidget extends ConsumerWidget {
           isStartingSoon ? 'Join Now' : 'Join',
           style: const TextStyle(fontSize: 12),
         ),
+      ),
+    );
+  }
+}
+
+class _TopMentorsWidget extends ConsumerStatefulWidget {
+  const _TopMentorsWidget();
+
+  @override
+  ConsumerState<_TopMentorsWidget> createState() => _TopMentorsWidgetState();
+}
+
+class _TopMentorsWidgetState extends ConsumerState<_TopMentorsWidget> {
+  bool _requestedOnce = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // Kick a refresh after first frame to ensure data is present even if providers were cold
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && !_requestedOnce) {
+        _requestedOnce = true;
+        ref.invalidate(mentorsProvider);
+        ref.invalidate(topRatedMentorsProvider);
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final topMentors = ref.watch(topRatedMentorsProvider);
+
+    // Debug: Print mentor count once here
+    // ignore: avoid_print
+    print('🎯 DEBUG: Top mentors count (render): ${topMentors.length}');
+
+    if (topMentors.isEmpty) {
+      // Show a subtle loading placeholder first, then empty state if still empty
+      return SizedBox(
+        height: 88,
+        child: Card(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            child: Row(
+              children: [
+                const SizedBox(
+                  height: 48,
+                  width: 48,
+                  child: CircularProgressIndicator(strokeWidth: 3),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    'Loading mentors…',
+                    style: Theme.of(context).textTheme.bodyMedium,
+                  ),
+                ),
+                IconButton(
+                  tooltip: 'Retry',
+                  onPressed: () {
+                    ref.invalidate(mentorsProvider);
+                    ref.invalidate(topRatedMentorsProvider);
+                  },
+                  icon: const Icon(Icons.refresh),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    return SizedBox(
+      height: 200,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        itemCount: topMentors.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 12),
+        itemBuilder: (context, index) {
+          final mentor = topMentors[index];
+          return _MentorCard(
+            mentor: mentor,
+            onTap: () => context.go(AppRoutes.mentorProfile(mentor.id)),
+          );
+        },
       ),
     );
   }

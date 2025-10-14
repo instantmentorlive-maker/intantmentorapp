@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -6,7 +7,6 @@ import '../../../core/providers/auth_provider.dart'; // Use Supabase auth provid
 import '../../../core/routing/routing.dart';
 import '../../../core/widgets/loading_overlay.dart';
 import '../../common/widgets/enhanced_form_fields.dart';
-import '../../common/widgets/error_handler_widget.dart';
 
 class SignupScreen extends ConsumerStatefulWidget {
   const SignupScreen({super.key});
@@ -32,55 +32,185 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
 
   void _handleSignup() async {
     debugPrint('SignupScreen: _handleSignup called');
+
+    // Prevent multiple signup attempts
+    final authState = ref.read(authProvider);
+    if (authState.isLoading) {
+      debugPrint(
+          'SignupScreen: Already processing signup, ignoring duplicate request');
+      return;
+    }
+
     if (!(_formKey.currentState?.validate() ?? false)) {
       debugPrint('SignupScreen: Form validation failed');
       return;
     }
+
+    final role = _isStudent ? 'student' : 'mentor';
     debugPrint('SignupScreen: Form validation passed, creating account...');
     debugPrint('SignupScreen: Email: ${_emailController.text}');
     debugPrint('SignupScreen: Name: ${_nameController.text}');
-    debugPrint('SignupScreen: Role: ${_isStudent ? 'student' : 'mentor'}');
+    debugPrint('SignupScreen: Role: $role');
+
     try {
+      debugPrint('🔵 SignupScreen: Starting signup process...');
       await ref.read(authProvider.notifier).signUp(
         email: _emailController.text.trim(),
         password: _passwordController.text,
         fullName: _nameController.text.trim(),
         additionalData: {
-          'role': _isStudent ? 'student' : 'mentor',
+          'role': role,
         },
       );
 
       final authState = ref.read(authProvider);
+      debugPrint(
+          '🔵 SignupScreen: Auth state after signup - isAuthenticated: ${authState.isAuthenticated}, isNewMentorSignup: ${authState.isNewMentorSignup}, error: ${authState.error}');
+
       if (authState.isAuthenticated) {
         debugPrint(
-            'SignupScreen: Signup completed successfully - user authenticated');
-        // On success, GoRouter redirect should take user to home
-      } else if (authState.error?.contains('email confirmation') == true) {
+            '✅ SignupScreen: Signup completed successfully - user authenticated');
+
+        if (role == 'mentor' && authState.isNewMentorSignup) {
+          debugPrint(
+              '🎯 SignupScreen: New mentor account created - router should redirect to onboarding');
+          // For testing, let's manually trigger the navigation if router doesn't handle it
+          Future.delayed(const Duration(milliseconds: 500), () {
+            if (context.mounted) {
+              debugPrint('🔄 SignupScreen: Manually navigating to onboarding');
+              context.go('/mentor/onboarding');
+            }
+          });
+        } else if (role == 'student' && authState.isNewStudentSignup) {
+          debugPrint(
+              '🎯 SignupScreen: New student account created - router should redirect to onboarding');
+          Future.delayed(const Duration(milliseconds: 500), () {
+            if (context.mounted) {
+              debugPrint(
+                  '🔄 SignupScreen: Manually navigating to student onboarding');
+              context.go('/student/onboarding');
+            }
+          });
+        } else {
+          debugPrint(
+              '🏠 SignupScreen: Student account created - router will redirect to home');
+        }
+      } else if (authState.error != null) {
+        debugPrint('❌ SignupScreen: Error during signup: ${authState.error}');
+
+        // Check if it's an email confirmation requirement
+        if (authState.error!.contains('email confirmation') ||
+            authState.error!.contains('confirm') ||
+            authState.error!.contains('verification')) {
+          debugPrint('📧 SignupScreen: Email confirmation required');
+
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('Account created successfully!'),
+                    const Text(
+                        'Please check your email to confirm your account.'),
+                    if (role == 'mentor')
+                      const Text(
+                          'After confirmation, you\'ll be guided through mentor setup.'),
+                  ],
+                ),
+                backgroundColor: Colors.green,
+                duration: const Duration(seconds: 5),
+              ),
+            );
+
+            // Navigate back to login after delay
+            Future.delayed(const Duration(seconds: 4), () {
+              if (context.mounted) {
+                context.go('/login');
+              }
+            });
+          }
+        } else if (authState.error!.contains('already exists') ||
+            authState.error!.contains('already registered')) {
+          // Account already exists - suggest login
+          debugPrint('👤 SignupScreen: Account already exists');
+
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: const Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Account already exists!'),
+                    Text('Please sign in with your existing account.'),
+                  ],
+                ),
+                backgroundColor: Colors.orange,
+                duration: const Duration(seconds: 4),
+                action: SnackBarAction(
+                  label: 'Sign In',
+                  textColor: Colors.white,
+                  onPressed: () {
+                    context.go('/login');
+                  },
+                ),
+              ),
+            );
+
+            // Auto-navigate to login after delay
+            Future.delayed(const Duration(seconds: 3), () {
+              if (context.mounted) {
+                context.go('/login');
+              }
+            });
+          }
+        } else {
+          // Some other error - display it
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Signup failed: ${authState.error}'),
+                backgroundColor: Colors.red,
+                duration: const Duration(seconds: 4),
+              ),
+            );
+          }
+        }
+      } else {
         debugPrint(
-            'SignupScreen: Signup completed - email confirmation required');
-        // Show success message and navigate to login
+            '⚠️ SignupScreen: Signup completed but unclear state - not authenticated and no error');
+        // Try to force authentication check or navigate to login
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text(
-                  'Account created! Please check your email to confirm your account.'),
-              backgroundColor: Colors.green,
+              content:
+                  Text('Account may have been created. Please try signing in.'),
+              backgroundColor: Colors.orange,
+              duration: Duration(seconds: 3),
             ),
           );
-          // Navigate back to login after a short delay
           Future.delayed(const Duration(seconds: 2), () {
             if (context.mounted) {
               context.go('/login');
             }
           });
         }
-      } else {
-        debugPrint(
-            'SignupScreen: Signup completed but user not authenticated and no email confirmation message');
       }
     } catch (error, stackTrace) {
-      debugPrint('SignupScreen: Signup failed with error: $error');
-      ErrorUtils.handleAndShowError(ref, error, stackTrace);
+      debugPrint('💥 SignupScreen: Signup failed with exception: $error');
+      debugPrint('Stack trace: $stackTrace');
+
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Signup failed: ${error.toString()}'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 4),
+          ),
+        );
+      }
     }
   }
 
@@ -229,6 +359,28 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                     controller: _emailController,
                     isStudent: _isStudent,
                   ),
+
+                  // Debug helper for testing - generate random email
+                  if (kDebugMode)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 8.0),
+                      child: TextButton.icon(
+                        onPressed: () {
+                          final randomId =
+                              DateTime.now().millisecondsSinceEpoch;
+                          _emailController.text = 'test$randomId@example.com';
+                        },
+                        icon: const Icon(Icons.refresh, size: 16),
+                        label: const Text('Generate Test Email',
+                            style: TextStyle(fontSize: 12)),
+                        style: TextButton.styleFrom(
+                          foregroundColor: Colors.grey[600],
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 4),
+                        ),
+                      ),
+                    ),
+
                   const SizedBox(height: 16),
 
                   // Password Field with strength indicator
@@ -246,8 +398,12 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                       debugPrint('SignupScreen: Create Account button pressed');
                       _handleSignup();
                     },
-                    loadingText: 'Creating Account...',
-                    child: const Text('Create Account'),
+                    loadingText: _isStudent
+                        ? 'Creating Student Account...'
+                        : 'Creating Mentor Account...',
+                    child: Text(_isStudent
+                        ? 'Create Student Account'
+                        : 'Create Mentor Account'),
                   ),
                   const SizedBox(height: 16),
 
