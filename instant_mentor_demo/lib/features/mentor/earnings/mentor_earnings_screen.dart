@@ -3,9 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import '../../../core/models/payment_models.dart';
-import '../../../core/services/enhanced_wallet_service.dart';
-import '../../../core/providers/payment_providers.dart';
 import '../../../core/providers/auth_provider.dart';
+import '../../../core/providers/payment_providers.dart';
 
 /// Enhanced earnings screen for mentors
 /// Shows earnings, payout history, and payout functionality
@@ -198,14 +197,14 @@ class _MentorEarningsScreenState extends ConsumerState<MentorEarningsScreen> {
               color: Colors.white.withOpacity(0.1),
               borderRadius: BorderRadius.circular(8),
             ),
-            child: Row(
+            child: const Row(
               children: [
                 Icon(
                   Icons.account_balance_outlined,
                   color: Colors.white70,
                   size: 20,
                 ),
-                const SizedBox(width: 8),
+                SizedBox(width: 8),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -219,7 +218,7 @@ class _MentorEarningsScreenState extends ConsumerState<MentorEarningsScreen> {
                       ),
                       Text(
                         '₹0.00', // This would need to be tracked separately
-                        style: const TextStyle(
+                        style: TextStyle(
                           color: Colors.white,
                           fontWeight: FontWeight.w600,
                           fontSize: 14,
@@ -282,7 +281,7 @@ class _MentorEarningsScreenState extends ConsumerState<MentorEarningsScreen> {
         const SizedBox(height: 2),
         Text(
           subtitle,
-          style: TextStyle(
+          style: const TextStyle(
             color: Colors.white70,
             fontSize: 10,
           ),
@@ -760,7 +759,7 @@ class _MentorEarningsScreenState extends ConsumerState<MentorEarningsScreen> {
                 ),
                 child: Column(
                   children: [
-                    Row(
+                    const Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text('Processing Fee (2%)'),
@@ -771,7 +770,7 @@ class _MentorEarningsScreenState extends ConsumerState<MentorEarningsScreen> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text(
+                        const Text(
                           'You will receive',
                           style: TextStyle(fontWeight: FontWeight.bold),
                         ),
@@ -788,7 +787,7 @@ class _MentorEarningsScreenState extends ConsumerState<MentorEarningsScreen> {
                 ),
               ),
               const SizedBox(height: 24),
-              Text(
+              const Text(
                 'Payout Method',
                 style: TextStyle(
                   fontWeight: FontWeight.w600,
@@ -810,7 +809,7 @@ class _MentorEarningsScreenState extends ConsumerState<MentorEarningsScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
+                          const Text(
                             'Bank Account',
                             style: TextStyle(fontWeight: FontWeight.w600),
                           ),
@@ -826,7 +825,7 @@ class _MentorEarningsScreenState extends ConsumerState<MentorEarningsScreen> {
                     ),
                     TextButton(
                       onPressed: () {},
-                      child: Text('Change'),
+                      child: const Text('Change'),
                     ),
                   ],
                 ),

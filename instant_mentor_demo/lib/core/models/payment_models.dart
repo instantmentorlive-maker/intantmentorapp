@@ -1,5 +1,6 @@
 /// Enhanced wallet and payment models based on the payments architecture document
 /// Designed for Supabase backend with PostgreSQL storage
+library;
 
 // =============================================================================
 // ENUMS

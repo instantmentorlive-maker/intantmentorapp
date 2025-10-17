@@ -5,7 +5,22 @@ import 'package:instant_mentor_demo/core/providers/auth_provider.dart';
 import 'package:instant_mentor_demo/main.dart' as app;
 import 'package:integration_test/integration_test.dart';
 
+// Integration tests are opt-in. To run these, set the Dart environment
+// variable INTEGRATION_TEST=true when running tests on a device/emulator.
+// Running `flutter test` in the VM will skip these.
+const _runIntegrationTests =
+    bool.fromEnvironment('INTEGRATION_TEST', defaultValue: false);
+
 void main() {
+  // Integration tests are opt-in. Return early when running VM `flutter test` so
+  // device/emulator-only tests don't execute during fast local unit runs.
+  const runIntegration =
+      bool.fromEnvironment('INTEGRATION_TEST', defaultValue: false);
+  if (!runIntegration) {
+    // No-op: define no tests for `flutter test` VM runs.
+    return;
+  }
+
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
   group('Authentication + Chat Happy Path Integration Tests', () {

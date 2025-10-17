@@ -1,0 +1,47 @@
+// Test setup helper: seeds dotenv, configures SharedPreferences, and provides
+// a convenient ProviderScope override for the Supabase service.
+
+import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter/widgets.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../fakes/fake_supabase_service.dart';
+import '../../lib/core/providers/auth_provider.dart'
+    as auth_provider_show; // for supabaseServiceProvider symbol
+
+/// Call before running widget tests to ensure env and SharedPreferences are available.
+Future<void> configureTestHarness({Map<String, String>? env}) async {
+  TestWidgetsFlutterBinding.ensureInitialized();
+  SharedPreferences.setMockInitialValues({});
+
+  // Provide minimal dotenv values used by AppConfig / SupabaseService
+  final seed = <String, String>{
+    'SUPABASE_URL': env?['SUPABASE_URL'] ?? 'https://example.supabase.co',
+    'SUPABASE_ANON_KEY': env?['SUPABASE_ANON_KEY'] ?? 'anon-key',
+    // Use the special demo key to force PaymentService demo mode during tests.
+    // PaymentService treats 'pk_test_demo_key_for_development' as demo and
+    // will avoid calling real Stripe flows, returning simulated success.
+    'STRIPE_PUBLISHABLE_KEY':
+        env?['STRIPE_PUBLISHABLE_KEY'] ?? 'pk_test_demo_key_for_development',
+  };
+
+  // Load into dotenv's internal map so AppConfig and SupabaseService can read it.
+  // flutter_dotenv provides dotenv.env map which we can populate for tests.
+  dotenv.env.addAll(seed);
+}
+
+/// Return a ProviderScope configured with the fake SupabaseService override.
+ProviderScope widgetTestProviderScope({required Widget child}) {
+  final fake = FakeSupabaseService();
+  return ProviderScope(
+    overrides: [
+      // We cast to dynamic to avoid needing the production provider to be
+      // refactored immediately; tests should eventually move to an interface.
+      auth_provider_show.supabaseServiceProvider
+          .overrideWithValue(fake as dynamic),
+    ],
+    child: child,
+  );
+}

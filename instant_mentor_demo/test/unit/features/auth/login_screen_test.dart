@@ -3,29 +3,97 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:instant_mentor_demo/core/providers/auth_provider.dart';
 import 'package:instant_mentor_demo/features/auth/login/login_screen.dart';
-import 'package:mocktail/mocktail.dart';
+// mocktail not needed for FakeAuthNotifier-based tests
 
-class MockAuthNotifier extends Mock implements AuthNotifier {}
+// A tiny fake AuthNotifier that extends StateNotifier so it works with
+// Riverpod's StateNotifierProvider in tests. We implement only the methods
+// used by the LoginScreen tests.
+class FakeAuthNotifier extends StateNotifier<AuthState>
+    implements AuthNotifier {
+  FakeAuthNotifier(AuthState state) : super(state);
+
+  @override
+  Future<void> signIn(
+      {required String email, required String password}) async {}
+
+  @override
+  void clearError() {
+    state = state.copyWith(error: null);
+  }
+
+  // Provide no-op implementations for other AuthNotifier methods referenced
+  // by the app but not used in these tests.
+  @override
+  Future<void> signUp(
+      {required String email,
+      required String password,
+      required String fullName,
+      Map<String, dynamic>? additionalData}) async {}
+
+  @override
+  Future<void> signOut({bool forced = false}) async {}
+
+  @override
+  Future<void> resetPassword(String email) async {}
+
+  @override
+  Future<void> setNewPassword(String newPassword) async {}
+
+  @override
+  Future<void> sendEmailOTP(String email,
+      {bool shouldCreateUser = true}) async {}
+
+  @override
+  Future<void> verifyEmailOTP(
+      {required String email, required String otp}) async {}
+
+  @override
+  Future<void> resendEmailOTP(String email) async {}
+
+  @override
+  Future<void> sendPhoneOTP(String phoneNumber) async {}
+
+  @override
+  Future<void> verifyPhoneOTP(
+      {required String phone, required String otp}) async {}
+
+  @override
+  Future<void> resendPhoneOTP(String phoneNumber) async {}
+
+  @override
+  Future<void> updateProfile(Map<String, dynamic> profileData) async {}
+
+  @override
+  void clearNewMentorSignupFlag() {}
+
+  @override
+  void clearNewStudentSignupFlag() {}
+}
 
 void main() {
   group('LoginScreen', () {
-    late MockAuthNotifier mockAuthNotifier;
+    late FakeAuthNotifier fakeAuthNotifier;
 
     setUp(() {
-      mockAuthNotifier = MockAuthNotifier();
+      // default to no-error state
+      fakeAuthNotifier = FakeAuthNotifier(const AuthState());
     });
 
     testWidgets('should not show error when auth state has no error',
         (tester) async {
       // Arrange
-      const authState = AuthState();
-      when(() => mockAuthNotifier.state).thenReturn(authState);
+      // Use a fake notifier with an empty/default state
+      fakeAuthNotifier = FakeAuthNotifier(const AuthState());
 
       // Act
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
-            authProvider.overrideWith((ref) => mockAuthNotifier),
+            // Provide the mock AuthNotifier instance as the StateNotifier for the provider
+            authProvider.overrideWithProvider(
+                StateNotifierProvider<AuthNotifier, AuthState>(
+              (ref) => fakeAuthNotifier,
+            )),
           ],
           child: const MaterialApp(
             home: LoginScreen(),
@@ -44,14 +112,18 @@ void main() {
 
     testWidgets('should show error when auth state has error', (tester) async {
       // Arrange
-      const authState = AuthState(error: 'Test error message');
-      when(() => mockAuthNotifier.state).thenReturn(authState);
+      // Provide a notifier pre-populated with an error
+      fakeAuthNotifier =
+          FakeAuthNotifier(const AuthState(error: 'Test error message'));
 
       // Act
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
-            authProvider.overrideWith((ref) => mockAuthNotifier),
+            authProvider.overrideWithProvider(
+                StateNotifierProvider<AuthNotifier, AuthState>(
+              (ref) => fakeAuthNotifier,
+            )),
           ],
           child: const MaterialApp(
             home: LoginScreen(),
@@ -66,19 +138,17 @@ void main() {
 
     testWidgets('should clear error when clearError is called', (tester) async {
       // Arrange
-      const initialState = AuthState(error: 'Test error');
-      const clearedState = AuthState();
-
-      when(() => mockAuthNotifier.state).thenReturn(initialState);
-      when(() => mockAuthNotifier.clearError()).thenAnswer((_) async {
-        when(() => mockAuthNotifier.state).thenReturn(clearedState);
-      });
+      // Start with an initial state that contains an error
+      fakeAuthNotifier = FakeAuthNotifier(const AuthState(error: 'Test error'));
 
       // Act
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
-            authProvider.overrideWith((ref) => mockAuthNotifier),
+            authProvider.overrideWithProvider(
+                StateNotifierProvider<AuthNotifier, AuthState>(
+              (ref) => fakeAuthNotifier,
+            )),
           ],
           child: const MaterialApp(
             home: LoginScreen(),
@@ -90,11 +160,11 @@ void main() {
       expect(find.text('Test error'), findsOneWidget);
 
       // Simulate clearError being called (this would happen when user starts typing)
-      mockAuthNotifier.clearError();
+      fakeAuthNotifier.clearError();
       await tester.pumpAndSettle();
 
-      // Error should be cleared
-      verify(() => mockAuthNotifier.clearError()).called(1);
+      // Verify the UI no longer shows the error text
+      expect(find.text('Test error'), findsNothing);
     });
   });
 }

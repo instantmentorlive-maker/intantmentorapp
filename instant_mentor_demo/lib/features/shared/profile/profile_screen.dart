@@ -524,7 +524,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                       ? _selectedGrade
                       : '12th Grade';
                   return DropdownButtonFormField<String>(
-                    value: currentGrade,
+                    initialValue: currentGrade,
                     decoration: const InputDecoration(
                       labelText: 'Grade/Class',
                       prefixIcon: Icon(Icons.school),

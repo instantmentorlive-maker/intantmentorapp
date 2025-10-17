@@ -1,6 +1,8 @@
-import 'package:flutter/material.dart';
 import 'dart:convert';
+
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import '../data/admin_providers.dart';
 
 class AdminDashboardPage extends ConsumerWidget {
@@ -98,7 +100,7 @@ class AdminDashboardPage extends ConsumerWidget {
                                           decoration: BoxDecoration(
                                             color: Theme.of(context)
                                                 .colorScheme
-                                                .surfaceVariant
+                                                .surfaceContainerHighest
                                                 .withOpacity(0.25),
                                             borderRadius:
                                                 BorderRadius.circular(8),
@@ -201,7 +203,7 @@ class AdminDashboardPage extends ConsumerWidget {
                                             title: Text(
                                                 'Refund ${r.id.substring(0, 8)}…'),
                                             subtitle: Text(
-                                                'Session: ${r.sessionId.isEmpty ? '-' : r.sessionId.substring(0, 8) + '…'}  Amount: ${r.amountMinor}'),
+                                                'Session: ${r.sessionId.isEmpty ? '-' : '${r.sessionId.substring(0, 8)}…'}  Amount: ${r.amountMinor}'),
                                             trailing: Text(
                                                 r.createdAt.toIso8601String()),
                                           ))

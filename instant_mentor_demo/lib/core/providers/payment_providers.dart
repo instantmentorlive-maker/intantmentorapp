@@ -34,7 +34,7 @@ final userPaymentProfileProvider =
   try {
     final response = await supabase
         .from('user_payment_profiles')
-        .select('*')
+        .select()
         .eq('uid', userId)
         .maybeSingle();
 
@@ -54,7 +54,7 @@ final mentorPayoutRequestsProvider =
       .from('payout_requests')
       .stream(primaryKey: ['id'])
       .eq('mentor_uid', mentorId)
-      .order('created_at', ascending: false)
+      .order('created_at')
       .map((data) => data.map((item) => PayoutRequest.fromMap(item)).toList());
 });
 

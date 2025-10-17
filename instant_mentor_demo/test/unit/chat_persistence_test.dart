@@ -6,7 +6,9 @@ import 'package:instant_mentor_demo/core/providers/realtime_chat_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
+  // Ensure test environment is initialized and shared prefs mocked
   TestWidgetsFlutterBinding.ensureInitialized();
+  SharedPreferences.setMockInitialValues({});
 
   group('RealtimeChatProvider Persistence Tests', () {
     late ProviderContainer container;
@@ -56,7 +58,9 @@ void main() {
 
       // Verify message is persisted in SharedPreferences
       final prefs = await SharedPreferences.getInstance();
-      final persistedData = prefs.getString('chat_messages_$testReceiverId');
+      // Provider uses key 'realtime_chat_messages_v2_<receiverId>'
+      final persistedData =
+          prefs.getString('realtime_chat_messages_v2_$testReceiverId');
       expect(persistedData, isNotNull);
 
       // Parse and verify persisted data
@@ -96,7 +100,8 @@ void main() {
       ];
 
       final encoded = jsonEncode(messages.map((m) => m.toJson()).toList());
-      await prefs.setString('chat_messages_$testReceiverId', encoded);
+      await prefs.setString(
+          'realtime_chat_messages_v2_$testReceiverId', encoded);
 
       // Create a new notifier directly to test loading
       final chatNotifier = RealtimeChatNotifier(testReceiverId);

@@ -503,7 +503,6 @@ class _MentorOnboardingScreenState
                   color: isSelected
                       ? const Color(0xFF1E3A8A)
                       : const Color(0xFF1E3A8A).withOpacity(0.3),
-                  width: 1,
                 ),
                 elevation: 0,
                 pressElevation: 2,

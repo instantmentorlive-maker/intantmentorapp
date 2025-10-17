@@ -1,0 +1,111 @@
+name: Flutter tests
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+    branches: ['**']
+
+jobs:
+  test:
+    name: Run Flutter tests (unit, widget, integration)
+    runs-on: ubuntu-latest
+    env:
+      FLUTTER_CHANNEL: stable
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: ${{ env.FLUTTER_CHANNEL }}
+
+      - name: Cache pub
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.pub-cache
+          key: ${{ runner.os }}-pub-${{ hashFiles('**/pubspec.lock') }}
+          restore-keys: ${{ runner.os }}-pub-
+
+      - name: Install dependencies
+        run: |
+          cd instant_mentor_demo
+          flutter pub get
+
+      - name: Run unit & widget tests
+        run: |
+          cd instant_mentor_demo
+          # Run tests; if coverage target fails, fall back to normal test run
+          flutter test --coverage || flutter test
+
+      - name: Check for integration tests
+        id: find_integration
+        run: |
+          # Support two common layouts: integration_test/ and test/integration/
+          if [ -d instant_mentor_demo/integration_test ]; then
+            echo "found=true" >> $GITHUB_OUTPUT
+            echo "path=integration_test" >> $GITHUB_OUTPUT
+          elif [ -d instant_mentor_demo/test/integration ]; then
+            echo "found=true" >> $GITHUB_OUTPUT
+            echo "path=test/integration" >> $GITHUB_OUTPUT
+          else
+            echo "found=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Setup Android SDK for integration tests
+        if: steps.find_integration.outputs.found == 'true'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends libglu1-mesa xvfb unzip qemu-kvm libvirt-daemon-system
+          mkdir -p $HOME/Android/Sdk
+          echo "ANDROID_SDK_ROOT=$HOME/Android/Sdk" >> $GITHUB_ENV
+          export ANDROID_SDK_ROOT=$HOME/Android/Sdk
+          cd $HOME
+          # Download command line tools (version may be updated by Google; this is a resilient URL)
+          wget https://dl.google.com/android/repository/commandlinetools-linux-9123335_latest.zip -O cmdline.zip
+          unzip -q cmdline.zip -d $ANDROID_SDK_ROOT/cmdline-tools
+          mkdir -p $ANDROID_SDK_ROOT/cmdline-tools/latest
+          mv $ANDROID_SDK_ROOT/cmdline-tools/cmdline-tools/* $ANDROID_SDK_ROOT/cmdline-tools/latest/ || true
+          export PATH=$ANDROID_SDK_ROOT/cmdline-tools/latest/bin:$PATH
+          yes | sdkmanager --sdk_root=$ANDROID_SDK_ROOT "platform-tools" "platforms;android-33" "build-tools;33.0.0" "system-images;android-30;google_apis;x86_64"
+          yes | sdkmanager --licenses --sdk_root=$ANDROID_SDK_ROOT || true
+          echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT" >> $GITHUB_ENV
+          echo "$ANDROID_SDK_ROOT/platform-tools" >> $GITHUB_PATH
+
+      - name: Create & start Android emulator
+        if: steps.find_integration.outputs.found == 'true'
+        run: |
+          export ANDROID_SDK_ROOT=$HOME/Android/Sdk
+          export PATH=$ANDROID_SDK_ROOT/emulator:$ANDROID_SDK_ROOT/platform-tools:$PATH
+          echo "no" | avdmanager create avd -n github_ci -k "system-images;android-30;google_apis;x86_64" --force || true
+          # Start emulator in background
+          nohup $ANDROID_SDK_ROOT/emulator/emulator -avd github_ci -no-window -no-audio -gpu swiftshader_indirect &
+          # Wait for emulator to boot
+          adb wait-for-device
+          for i in {1..60}; do
+            BOOT_COMPLETED=$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r') || BOOT_COMPLETED=0
+            if [ "$BOOT_COMPLETED" = "1" ]; then
+              echo "Emulator booted"
+              break
+            fi
+            echo "Waiting for emulator... ($i)"
+            sleep 5
+          done
+
+      - name: Run integration tests on emulator
+        if: steps.find_integration.outputs.found == 'true'
+        run: |
+          cd instant_mentor_demo
+          INTEGRATION_PATH="${{ steps.find_integration.outputs.path }}"
+          echo "Running integration tests from: $INTEGRATION_PATH"
+          # Pass a compile-time define so tests that check bool.fromEnvironment('INTEGRATION_TEST') can opt-in
+          flutter test "$INTEGRATION_PATH" --dart-define=INTEGRATION_TEST=true || (
+            # Fallback to flutter drive (legacy) if a driver exists
+            if [ -f test_driver/integration_test_driver.dart ]; then
+              flutter drive --driver=test_driver/integration_test_driver.dart --target=$INTEGRATION_PATH
+            else
+              exit 1
+            fi
+          )

@@ -1,14 +1,15 @@
+import 'dart:math';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
-import 'dart:math';
 
 import '../models/payment_models.dart';
 
 /// Enhanced wallet service implementing the payments architecture
 /// Provides wallet operations, transaction management, and balance tracking
 class EnhancedWalletService {
-  static final _uuid = Uuid();
+  static const _uuid = Uuid();
   static final _supabase = Supabase.instance.client;
 
   // =============================================================================

@@ -135,7 +135,7 @@ final adminAlertsProvider = StreamProvider.autoDispose<List<AdminAlert>>((ref) {
   return sp
       .from('admin_alerts')
       .stream(primaryKey: ['id'])
-      .order('created_at', ascending: false)
+      .order('created_at')
       .limit(100)
       .map((rows) => rows
           .map((e) => AdminAlert(

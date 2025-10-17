@@ -148,7 +148,6 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                   ],
                 ),
                 backgroundColor: Colors.orange,
-                duration: const Duration(seconds: 4),
                 action: SnackBarAction(
                   label: 'Sign In',
                   textColor: Colors.white,
@@ -173,7 +172,6 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
               SnackBar(
                 content: Text('Signup failed: ${authState.error}'),
                 backgroundColor: Colors.red,
-                duration: const Duration(seconds: 4),
               ),
             );
           }
@@ -207,7 +205,6 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
           SnackBar(
             content: Text('Signup failed: ${error.toString()}'),
             backgroundColor: Colors.red,
-            duration: const Duration(seconds: 4),
           ),
         );
       }
