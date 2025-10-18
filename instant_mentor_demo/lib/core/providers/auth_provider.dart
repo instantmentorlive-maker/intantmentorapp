@@ -369,14 +369,15 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
         // Reload dark mode and other settings after successful login
         try {
-          await Future.delayed(const Duration(milliseconds: 100));
-          // Invalidate all persistent settings to force reload from SharedPreferences
-          _ref.invalidate(darkModeProvider);
-          _ref.invalidate(notificationsEnabledProvider);
-          _ref.invalidate(languageProvider);
-          debugPrint('⚙️ Settings providers refreshed after login');
+          // Instead of invalidating (which recreates providers and may write
+          // default values back to storage), call reload() on each notifier so
+          // they re-read persisted values safely.
+          await _ref.read(darkModeProvider.notifier).reload();
+          await _ref.read(notificationsEnabledProvider.notifier).reload();
+          await _ref.read(languageProvider.notifier).reload();
+          debugPrint('⚙️ Settings providers reloaded after login');
         } catch (e) {
-          debugPrint('⚠️ Failed to refresh settings providers: $e');
+          debugPrint('⚠️ Failed to reload settings providers: $e');
         }
       }
     } on AuthException catch (e) {

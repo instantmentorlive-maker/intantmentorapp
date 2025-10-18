@@ -300,6 +300,35 @@ class _MentorHomeScreenState extends ConsumerState<MentorHomeScreen> {
                 ),
           ),
           const SizedBox(height: 12),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              Consumer(builder: (context, ref, _) {
+                return TextButton.icon(
+                  onPressed: () {
+                    // Force add demo sessions for quick testing in mentor view
+                    ref
+                        .read(demoSessionsProvider.notifier)
+                        .forceAddTestSessions();
+                    ref.invalidate(simpleUpcomingSessionsProvider);
+                    ref.invalidate(upcomingSessionsProvider);
+
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Demo sessions added'),
+                          duration: Duration(seconds: 2),
+                        ),
+                      );
+                    }
+                  },
+                  icon: const Icon(Icons.add),
+                  label: const Text('Add demo sessions'),
+                );
+              }),
+            ],
+          ),
+          const SizedBox(height: 8),
           const _MentorUpcomingSessionsWidget(),
         ],
       ),

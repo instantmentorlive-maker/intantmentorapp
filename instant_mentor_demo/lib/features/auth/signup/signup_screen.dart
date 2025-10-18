@@ -357,26 +357,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                     isStudent: _isStudent,
                   ),
 
-                  // Debug helper for testing - generate random email
-                  if (kDebugMode)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 8.0),
-                      child: TextButton.icon(
-                        onPressed: () {
-                          final randomId =
-                              DateTime.now().millisecondsSinceEpoch;
-                          _emailController.text = 'test$randomId@example.com';
-                        },
-                        icon: const Icon(Icons.refresh, size: 16),
-                        label: const Text('Generate Test Email',
-                            style: TextStyle(fontSize: 12)),
-                        style: TextButton.styleFrom(
-                          foregroundColor: Colors.grey[600],
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 8, vertical: 4),
-                        ),
-                      ),
-                    ),
+                  // Debug helper for testing removed
 
                   const SizedBox(height: 16),
 

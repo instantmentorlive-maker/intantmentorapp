@@ -473,127 +473,136 @@ class _FreeTrialSessionScreenState extends ConsumerState<FreeTrialSessionScreen>
       builder: (context, constraints) {
         return Padding(
           padding: const EdgeInsets.all(24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'Schedule Your Session',
-                style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 8),
-              const Text(
-                'Choose a convenient time for your free trial session',
-                style: TextStyle(color: Colors.grey),
-              ),
-              const SizedBox(height: 24),
+          // Make the scheduling content scrollable so it never overflows
+          // the available height (for small screens or when a bottom
+          // navigation bar is present).
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Schedule Your Session',
+                  style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'Choose a convenient time for your free trial session',
+                  style: TextStyle(color: Colors.grey),
+                ),
+                const SizedBox(height: 24),
 
-              // Selected Mentor Summary
-              if (selectedMentor != null) ...[
-                Card(
-                  color: Colors.green.withOpacity(0.1),
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Row(
-                      children: [
-                        CircleAvatar(
-                          backgroundColor: Colors.green.withOpacity(0.2),
-                          child: Text(selectedMentor['name']
-                              .toString()
-                              .split(' ')
-                              .map((n) => n[0])
-                              .join()),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
+                // Selected Mentor Summary
+                if (selectedMentor != null) ...[
+                  Card(
+                    color: Colors.green.withOpacity(0.1),
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Row(
+                        children: [
+                          CircleAvatar(
+                            backgroundColor: Colors.green.withOpacity(0.2),
+                            child: Text(selectedMentor['name']
+                                .toString()
+                                .split(' ')
+                                .map((n) => n[0])
+                                .join()),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  selectedMentor['name'].toString(),
+                                  style: const TextStyle(
+                                      fontWeight: FontWeight.bold),
+                                ),
+                                Text(
+                                  '${ref.watch(selectedSubjectProvider)} • ${selectedMentor['experience']}',
+                                  style: TextStyle(color: Colors.grey[600]),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const Icon(Icons.check_circle, color: Colors.green),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                ],
+
+                // Date Selection
+                const Text('Select Date',
+                    style:
+                        TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 12),
+
+                SizedBox(
+                  height: 60,
+                  child: ListView.builder(
+                    scrollDirection: Axis.horizontal,
+                    itemCount: 7,
+                    itemBuilder: (context, index) {
+                      final date = DateTime.now().add(Duration(days: index));
+                      final isSelected = selectedDate?.day == date.day;
+
+                      return GestureDetector(
+                        onTap: () => ref
+                            .read(selectedDateProvider.notifier)
+                            .state = date,
+                        child: Container(
+                          width: 70,
+                          margin: const EdgeInsets.only(right: 8),
+                          decoration: BoxDecoration(
+                            color: isSelected
+                                ? Colors.green
+                                : Colors.grey.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
                           child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisAlignment: MainAxisAlignment.center,
                             children: [
                               Text(
-                                selectedMentor['name'].toString(),
-                                style: const TextStyle(
-                                    fontWeight: FontWeight.bold),
+                                _getDayName(date),
+                                style: TextStyle(
+                                  color:
+                                      isSelected ? Colors.white : Colors.grey,
+                                  fontSize: 12,
+                                ),
                               ),
                               Text(
-                                '${ref.watch(selectedSubjectProvider)} • ${selectedMentor['experience']}',
-                                style: TextStyle(color: Colors.grey[600]),
+                                date.day.toString(),
+                                style: TextStyle(
+                                  color:
+                                      isSelected ? Colors.white : Colors.black,
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                ),
                               ),
                             ],
                           ),
                         ),
-                        const Icon(Icons.check_circle, color: Colors.green),
-                      ],
-                    ),
+                      );
+                    },
                   ),
                 ),
+
                 const SizedBox(height: 24),
-              ],
 
-              // Date Selection
-              const Text('Select Date',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 12),
-
-              SizedBox(
-                height: 60,
-                child: ListView.builder(
-                  scrollDirection: Axis.horizontal,
-                  itemCount: 7,
-                  itemBuilder: (context, index) {
-                    final date = DateTime.now().add(Duration(days: index));
-                    final isSelected = selectedDate?.day == date.day;
-
-                    return GestureDetector(
-                      onTap: () =>
-                          ref.read(selectedDateProvider.notifier).state = date,
-                      child: Container(
-                        width: 70,
-                        margin: const EdgeInsets.only(right: 8),
-                        decoration: BoxDecoration(
-                          color: isSelected
-                              ? Colors.green
-                              : Colors.grey.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Text(
-                              _getDayName(date),
-                              style: TextStyle(
-                                color: isSelected ? Colors.white : Colors.grey,
-                                fontSize: 12,
-                              ),
-                            ),
-                            Text(
-                              date.day.toString(),
-                              style: TextStyle(
-                                color: isSelected ? Colors.white : Colors.black,
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    );
-                  },
-                ),
-              ),
-
-              const SizedBox(height: 24),
-
-              // Time Selection (scrollable section to avoid overflow)
-              const Text('Select Time',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 12),
-              ConstrainedBox(
-                constraints: BoxConstraints(
-                  // leave room for buttons at bottom
-                  maxHeight: constraints.maxHeight * 0.40,
-                ),
-                child: Scrollbar(
+                // Time Selection (scrollable section to avoid overflow)
+                const Text('Select Time',
+                    style:
+                        TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 12),
+                // Use a shrink-wrapped GridView so it expands to fit its contents
+                // inside the SingleChildScrollView instead of trying to occupy
+                // an unconstrained height which causes overflow.
+                Scrollbar(
                   thumbVisibility: true,
                   child: GridView.builder(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
                     gridDelegate:
                         const SliverGridDelegateWithFixedCrossAxisCount(
                       crossAxisCount: 3,
@@ -631,35 +640,36 @@ class _FreeTrialSessionScreenState extends ConsumerState<FreeTrialSessionScreen>
                     },
                   ),
                 ),
-              ),
-              const SizedBox(height: 24),
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: _previousStep,
-                      child: const Text('Back'),
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: ElevatedButton(
-                      onPressed: (selectedDate != null && selectedTime != null)
-                          ? _bookTrialSession
-                          : null,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.green,
-                        padding: const EdgeInsets.all(16),
+                const SizedBox(height: 24),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: _previousStep,
+                        child: const Text('Back'),
                       ),
-                      child: const Text('Book Free Session',
-                          style: TextStyle(color: Colors.white)),
                     ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        );
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: ElevatedButton(
+                        onPressed:
+                            (selectedDate != null && selectedTime != null)
+                                ? _bookTrialSession
+                                : null,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.green,
+                          padding: const EdgeInsets.all(16),
+                        ),
+                        child: const Text('Book Free Session',
+                            style: TextStyle(color: Colors.white)),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ), // close SingleChildScrollView
+        ); // close Padding
       },
     );
   }

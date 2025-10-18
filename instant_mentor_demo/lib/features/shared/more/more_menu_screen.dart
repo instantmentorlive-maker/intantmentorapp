@@ -61,20 +61,6 @@ class MoreMenuScreen extends ConsumerWidget {
 
           // Common items
           // DEBUG buttons (role-gated)
-          if (!isStudent)
-            _MenuTile(
-              icon: Icons.school,
-              title: 'View Mentor Onboarding (DEBUG)',
-              subtitle: 'Preview the mentor setup page',
-              onTap: () => context.go('/mentor/onboarding'),
-            ),
-          if (isStudent)
-            _MenuTile(
-              icon: Icons.school_outlined,
-              title: 'View Student Onboarding (DEBUG)',
-              subtitle: 'Preview the student setup page',
-              onTap: () => context.go('/student/onboarding'),
-            ),
           _MenuTile(
             icon: Icons.settings,
             title: 'Settings',
@@ -92,12 +78,7 @@ class MoreMenuScreen extends ConsumerWidget {
                   builder: (context) => const HelpSupportScreen()),
             ),
           ),
-          _MenuTile(
-            icon: Icons.network_check,
-            title: 'WebSocket Demo',
-            subtitle: 'Real-time features demo',
-            onTap: () => context.go('/websocket-demo'),
-          ),
+          // (Removed: WebSocket demo and onboarding debug entries)
           _MenuTile(
             icon: Icons.logout,
             title: 'Logout',

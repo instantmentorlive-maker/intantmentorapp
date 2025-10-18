@@ -7,6 +7,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/providers/auth_provider.dart';
 import '../../../core/providers/locale_provider.dart';
 import '../../../core/providers/persistent_settings_provider.dart'; // Use persistent settings
+import '../../../core/services/settings_persistence_service.dart';
 import '../../../core/providers/user_provider.dart';
 import '../../../core/services/notification_service.dart';
 import '../../../core/services/supabase_service.dart';
@@ -157,9 +158,25 @@ class SettingsScreen extends ConsumerWidget {
                     title: Text(tr('dark_mode', ref)),
                     subtitle: Text(tr('use_dark_theme', ref)),
                     value: ref.watch(darkModeProvider),
-                    onChanged: (value) {
+                    onChanged: (value) async {
                       debugPrint('🌙 Dark mode toggle: $value');
+
+                      // Update provider state immediately so UI responds
                       ref.read(darkModeProvider.notifier).state = value;
+
+                      // Ensure persistence completes before user continues (avoids
+                      // race where logout/login may reload before async save
+                      // finishes). Explicitly await the persistence call.
+                      try {
+                        await SettingsPersistenceService.saveSetting(
+                            'darkMode', value);
+                        debugPrint(
+                            '💾 Dark mode persisted immediately: $value');
+                      } catch (e) {
+                        debugPrint(
+                            '⚠️ Failed to persist dark mode immediately: $e');
+                      }
+
                       _showSnackBar(context, tr('theme_changed', ref));
                       debugPrint(
                           '🌙 Dark mode state after change: ${ref.read(darkModeProvider)}');
@@ -1874,9 +1891,12 @@ Contact support with:
   }
 
   Future<void> _checkForUpdates(BuildContext context) async {
-    // Show loading dialog
+    // Show loading dialog on the root navigator so it isn't trapped by nested
+    // navigators. Capture the root NavigatorState so we can safely pop later.
+    final rootNavigator = Navigator.of(context, rootNavigator: true);
     showDialog(
       context: context,
+      useRootNavigator: true,
       barrierDismissible: false,
       builder: (context) => const AlertDialog(
         content: Column(
@@ -1893,8 +1913,14 @@ Contact support with:
     // Simulate update check
     await Future.delayed(const Duration(seconds: 2));
 
-    // Close loading dialog
-    if (context.mounted) Navigator.pop(context);
+    // Close loading dialog safely. The original `context` may no longer be
+    // mounted if the user navigated away; using the captured rootNavigator
+    // prevents the dialog from getting stuck behind navigation changes.
+    try {
+      if (rootNavigator.canPop()) rootNavigator.pop();
+    } catch (_) {
+      // Best-effort: ignore if already popped or navigation state changed.
+    }
 
     // Show update result
     if (context.mounted) {

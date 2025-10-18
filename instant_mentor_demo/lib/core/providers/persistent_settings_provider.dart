@@ -132,11 +132,18 @@ class _SettingNotifier<T> extends StateNotifier<T> {
 
   @override
   set state(T value) {
-    if (mounted) {
-      super.state = value;
+    if (!mounted) return;
+
+    // Avoid persisting the default value written by the base constructor
+    // before we've loaded the real persisted value. Only persist when
+    // the notifier has completed an initial load.
+    super.state = value;
+    if (_isLoaded) {
       _saveToPersistence(value);
       // Also update the main settings provider
       _ref.read(persistentSettingsProvider.notifier).updateSetting(_key, value);
+    } else {
+      debugPrint('ℹ️ Setting $_key assigned before load; not persisting yet');
     }
   }
 

@@ -354,9 +354,11 @@ class HelpSupportScreen extends ConsumerWidget {
   }
 
   void _checkForUpdates(BuildContext context) {
-    // Simulate checking for updates
+    // Use root navigator to avoid dialog being trapped by nested navigators.
+    final rootNavigator = Navigator.of(context, rootNavigator: true);
     showDialog(
       context: context,
+      useRootNavigator: true,
       barrierDismissible: false,
       builder: (context) => const AlertDialog(
         content: Row(
@@ -369,9 +371,12 @@ class HelpSupportScreen extends ConsumerWidget {
       ),
     );
 
-    // Simulate network delay
+    // Simulate network delay and close the dialog safely.
     Future.delayed(const Duration(seconds: 2), () {
-      Navigator.pop(context);
+      try {
+        if (rootNavigator.canPop()) rootNavigator.pop();
+      } catch (_) {}
+
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('✅ You have the latest version!'),
