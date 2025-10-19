@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>InstantMentor Payment Test</title>
+    <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+</head>
+<body>
+    <h1>Test Razorpay Checkout</h1>
+    <button id="pay-button">Pay Now</button>
+
+    <script>
+        // Replace with actual values from /session/create
+        const sessionData = {
+            order_id: "order_xxx", // From API response
+            amount: 15000, // In paise
+            mentor_name: "John Doe"
+        };
+
+        document.getElementById('pay-button').onclick = function(e) {
+            const options = {
+                key: "rzp_test_RVEyPNHbfGXitb", // From .env
+                amount: sessionData.amount,
+                currency: "INR",
+                name: "InstantMentor",
+                description: `Session with ${sessionData.mentor_name}`,
+                order_id: sessionData.order_id,
+                handler: function(response) {
+                    // Send to backend for verification
+                    fetch('/payment/verify', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify(response)
+                    }).then(res => res.json()).then(data => {
+                        alert('Payment verified: ' + JSON.stringify(data));
+                    });
+                }
+            };
+            const rzp = new Razorpay(options);
+            rzp.open();
+            e.preventDefault();
+        };
+    </script>
+</body>
+</html>

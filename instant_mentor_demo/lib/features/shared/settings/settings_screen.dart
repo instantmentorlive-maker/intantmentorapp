@@ -7,10 +7,12 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/providers/auth_provider.dart';
 import '../../../core/providers/locale_provider.dart';
 import '../../../core/providers/persistent_settings_provider.dart'; // Use persistent settings
-import '../../../core/services/settings_persistence_service.dart';
-import '../../../core/providers/user_provider.dart';
 import '../../../core/services/notification_service.dart';
 import '../../../core/services/supabase_service.dart';
+import '../../../core/services/settings_persistence_service.dart';
+import '../../../core/services/session_management_service.dart';
+import '../../../core/providers/user_provider.dart';
+import '../../../core/services/two_factor_auth_service.dart';
 import '../../mentor/availability/availability_screen.dart';
 import '../../mentor/profile_management/profile_management_screen.dart'; // Needed for mentorProfileProvider
 
@@ -56,7 +58,7 @@ class SettingsScreen extends ConsumerWidget {
                     title: Text(tr('privacy_security', ref)),
                     subtitle: Text(tr('password_privacy_settings', ref)),
                     trailing: const Icon(Icons.arrow_forward_ios),
-                    onTap: () => _showPrivacySettings(context),
+                    onTap: () => _showPrivacySettings(context, ref),
                   ),
                   const Divider(height: 1),
                   ListTile(
@@ -833,7 +835,7 @@ class SettingsScreen extends ConsumerWidget {
     }
   }
 
-  void _showPrivacySettings(BuildContext context) {
+  void _showPrivacySettings(BuildContext context, WidgetRef ref) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -862,7 +864,15 @@ class SettingsScreen extends ConsumerWidget {
               title: const Text('Two-Factor Auth'),
               onTap: () {
                 Navigator.pop(context);
-                _showSnackBar(context, '2FA setup coming soon!');
+                _showTwoFactorAuthSetup(context);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.devices),
+              title: const Text('Active Sessions'),
+              onTap: () {
+                Navigator.pop(context);
+                _showActiveSessions(context, ref);
               },
             ),
           ],
@@ -1127,6 +1137,169 @@ class SettingsScreen extends ConsumerWidget {
   }
 
   // Helper methods for other dialogs
+  void _showTwoFactorAuthSetup(BuildContext context) async {
+    final twoFactorService = TwoFactorAuthService.instance;
+
+    // Check if 2FA is already enabled
+    final isEnabled = await twoFactorService.isMFAEnabled();
+
+    if (isEnabled) {
+      // Show disable dialog
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Disable Two-Factor Authentication'),
+          content: const Text(
+              'Are you sure you want to disable two-factor authentication? '
+              'This will make your account less secure.'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () async {
+                Navigator.pop(context);
+                try {
+                  final success = await twoFactorService.disableMFA();
+                  if (success) {
+                    _showSnackBar(context, '2FA disabled successfully');
+                  } else {
+                    _showSnackBar(context, 'Failed to disable 2FA');
+                  }
+                } catch (e) {
+                  _showSnackBar(context, 'Error disabling 2FA');
+                }
+              },
+              child: const Text('Disable'),
+              style: TextButton.styleFrom(foregroundColor: Colors.red),
+            ),
+          ],
+        ),
+      );
+    } else {
+      // Show setup dialog
+      _showTwoFactorSetupDialog(context);
+    }
+  }
+
+  void _showTwoFactorSetupDialog(BuildContext context) {
+    final twoFactorService = TwoFactorAuthService.instance;
+    final codeController = TextEditingController();
+    String? secret;
+    String? uri;
+
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) => AlertDialog(
+          title: const Text('Enable Two-Factor Authentication'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  '1. Install an authenticator app (Google Authenticator, Authy, etc.)',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  '2. Scan the QR code below or manually enter the secret key:',
+                ),
+                const SizedBox(height: 16),
+                if (uri != null) ...[
+                  Container(
+                    width: 200,
+                    height: 200,
+                    color: Colors.grey[200],
+                    child: const Center(
+                      child: Text('QR Code\n(Scan with authenticator app)'),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'URI: ${uri ?? 'Loading...'}',
+                    style:
+                        const TextStyle(fontFamily: 'monospace', fontSize: 10),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Secret: ${secret ?? 'Loading...'}',
+                    style:
+                        const TextStyle(fontFamily: 'monospace', fontSize: 12),
+                  ),
+                ] else
+                  ElevatedButton(
+                    onPressed: () async {
+                      final result =
+                          await twoFactorService.generateTOTPSecret();
+                      if (result != null) {
+                        setState(() {
+                          secret = result['secret'];
+                          uri = result['uri'];
+                        });
+                      }
+                    },
+                    child: const Text('Generate Secret'),
+                  ),
+                const SizedBox(height: 16),
+                const Text(
+                  '3. Enter the 6-digit code from your authenticator app:',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: codeController,
+                  decoration: const InputDecoration(
+                    labelText: 'Verification Code',
+                    hintText: '000000',
+                    border: OutlineInputBorder(),
+                  ),
+                  keyboardType: TextInputType.number,
+                  maxLength: 6,
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                if (secret == null || codeController.text.isEmpty) {
+                  _showSnackBar(
+                      context, 'Please generate secret and enter code');
+                  return;
+                }
+
+                try {
+                  final success = await twoFactorService.verifyAndEnableMFA(
+                    secret!,
+                    codeController.text,
+                  );
+
+                  Navigator.pop(context);
+
+                  if (success) {
+                    _showSnackBar(context, '2FA enabled successfully!');
+                  } else {
+                    _showSnackBar(context, 'Invalid verification code');
+                  }
+                } catch (e) {
+                  _showSnackBar(context, 'Error enabling 2FA');
+                }
+              },
+              child: const Text('Enable 2FA'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   void _showClearCacheDialog(BuildContext context) async {
     // Get actual cache info
     final cacheInfo = await _getCacheInfo();
@@ -2363,6 +2536,186 @@ Contact support with:
         ],
       ),
     );
+  }
+
+  void _showActiveSessions(BuildContext context, WidgetRef ref) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Active Sessions'),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: FutureBuilder<List<ActiveSession>>(
+            future: ref.read(authProvider.notifier).getActiveSessions(),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Center(child: CircularProgressIndicator());
+              }
+
+              if (snapshot.hasError) {
+                return Center(
+                  child: Text('Error: ${snapshot.error}'),
+                );
+              }
+
+              final sessions = snapshot.data ?? [];
+
+              if (sessions.isEmpty) {
+                return const Center(
+                  child: Text('No active sessions found'),
+                );
+              }
+
+              return ListView.builder(
+                shrinkWrap: true,
+                itemCount: sessions.length,
+                itemBuilder: (context, index) {
+                  final session = sessions[index];
+                  return ListTile(
+                    leading: Icon(
+                      session.deviceType == 'Android'
+                          ? Icons.android
+                          : session.deviceType == 'iOS'
+                              ? Icons.apple
+                              : Icons.computer,
+                    ),
+                    title: Text(session.deviceName),
+                    subtitle: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('${session.deviceType} • ${session.ipAddress}'),
+                        Text(
+                          'Last active: ${_formatDateTime(session.lastActivity)}',
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
+                        if (session.isCurrentSession)
+                          Text(
+                            'Current session',
+                            style: TextStyle(
+                              color: Theme.of(context).colorScheme.primary,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                      ],
+                    ),
+                    trailing: session.isCurrentSession
+                        ? const Icon(Icons.check_circle, color: Colors.green)
+                        : IconButton(
+                            icon: const Icon(Icons.logout, color: Colors.red),
+                            onPressed: () async {
+                              final confirmed = await showDialog<bool>(
+                                context: context,
+                                builder: (context) => AlertDialog(
+                                  title: const Text('Revoke Session'),
+                                  content: Text(
+                                    'Are you sure you want to revoke the session on ${session.deviceName}?',
+                                  ),
+                                  actions: [
+                                    TextButton(
+                                      onPressed: () =>
+                                          Navigator.pop(context, false),
+                                      child: const Text('Cancel'),
+                                    ),
+                                    TextButton(
+                                      onPressed: () =>
+                                          Navigator.pop(context, true),
+                                      child: const Text('Revoke'),
+                                    ),
+                                  ],
+                                ),
+                              );
+
+                              if (confirmed == true) {
+                                try {
+                                  await ref
+                                      .read(authProvider.notifier)
+                                      .revokeSession(session.id);
+                                  Navigator.pop(
+                                      context); // Close active sessions dialog
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                        content: Text(
+                                            'Session revoked successfully')),
+                                  );
+                                } catch (e) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                        content: Text(
+                                            'Failed to revoke session: $e')),
+                                  );
+                                }
+                              }
+                            },
+                          ),
+                  );
+                },
+              );
+            },
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Close'),
+          ),
+          TextButton(
+            onPressed: () async {
+              final confirmed = await showDialog<bool>(
+                context: context,
+                builder: (context) => AlertDialog(
+                  title: const Text('Revoke All Other Sessions'),
+                  content: const Text(
+                    'This will log you out from all other devices. Are you sure?',
+                  ),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(context, false),
+                      child: const Text('Cancel'),
+                    ),
+                    TextButton(
+                      onPressed: () => Navigator.pop(context, true),
+                      child: const Text('Revoke All'),
+                    ),
+                  ],
+                ),
+              );
+
+              if (confirmed == true) {
+                try {
+                  await ref
+                      .read(authProvider.notifier)
+                      .revokeAllOtherSessions();
+                  Navigator.pop(context); // Close active sessions dialog
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('All other sessions revoked')),
+                  );
+                } catch (e) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Failed to revoke sessions: $e')),
+                  );
+                }
+              }
+            },
+            child: const Text('Revoke All Other'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _formatDateTime(DateTime dateTime) {
+    final now = DateTime.now();
+    final difference = now.difference(dateTime);
+
+    if (difference.inDays > 0) {
+      return '${difference.inDays} day${difference.inDays == 1 ? '' : 's'} ago';
+    } else if (difference.inHours > 0) {
+      return '${difference.inHours} hour${difference.inHours == 1 ? '' : 's'} ago';
+    } else if (difference.inMinutes > 0) {
+      return '${difference.inMinutes} minute${difference.inMinutes == 1 ? '' : 's'} ago';
+    } else {
+      return 'Just now';
+    }
   }
 }
 

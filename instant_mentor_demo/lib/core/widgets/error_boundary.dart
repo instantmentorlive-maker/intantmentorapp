@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 
 /// Error boundary widget for chat features
 class ChatErrorBoundary extends ConsumerWidget {
@@ -119,6 +120,14 @@ class _ErrorBoundaryState extends State<ErrorBoundary> {
       _hasError = true;
       _errorMessage = error.toString();
     });
+
+    // Record error to Firebase Crashlytics
+    FirebaseCrashlytics.instance.recordError(
+      error,
+      stackTrace,
+      reason: '${widget.feature} feature error',
+      information: [widget.feature],
+    );
 
     // Log error for debugging
     debugPrint('${widget.feature} Error: $error');

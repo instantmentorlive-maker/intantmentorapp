@@ -1,7 +1,5 @@
-import 'package:flutter/material.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
-import 'package:flutter_localizations/flutter_localizations.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 
 import 'core/config/app_config.dart';
 import 'core/debug/provider_observer.dart';
@@ -49,6 +47,13 @@ Future<void> _initializeApp() async {
 
     // Initialize app configuration from .env
     await AppConfig.initialize();
+
+    // Initialize Firebase
+    await Firebase.initializeApp();
+    await FirebaseCrashlytics.instance.setCrashlyticsCollectionEnabled(true);
+
+    // Set up global error handling for Crashlytics
+    FlutterError.onError = FirebaseCrashlytics.instance.recordFlutterFatalError;
 
     // Initialize Supabase
     await SupabaseService.initialize();

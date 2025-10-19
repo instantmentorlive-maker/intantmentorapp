@@ -4,6 +4,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../models/user.dart' as domain; // Domain user model
 import '../services/supabase_service.dart';
+import '../services/auth_rate_limiter.dart';
+import '../services/session_management_service.dart';
 import 'persistent_settings_provider.dart'; // darkModeProvider
 import 'sessions_provider.dart'; // demoSessionsProvider
 import 'user_provider.dart'; // Domain user provider
@@ -49,9 +51,13 @@ class AuthState {
 class AuthNotifier extends StateNotifier<AuthState> {
   final SupabaseService _supabaseService;
   final Ref _ref;
+  final AuthRateLimiter _rateLimiter = AuthRateLimiter.instance;
+  final SessionManagementService _sessionService;
   bool _isInitializing = true;
 
-  AuthNotifier(this._ref, this._supabaseService) : super(const AuthState()) {
+  AuthNotifier(this._ref, this._supabaseService)
+      : _sessionService = SessionManagementService(_supabaseService.client),
+        super(const AuthState()) {
     // Delay initialization to ensure all providers are ready
     Future.microtask(() => _initializeAuth());
 
@@ -272,6 +278,18 @@ class AuthNotifier extends StateNotifier<AuthState> {
     required String fullName,
     Map<String, dynamic>? additionalData,
   }) async {
+    // Check rate limit for signup attempts
+    if (!_rateLimiter.isSignupAllowed(email)) {
+      final limitInfo = _rateLimiter.getSignupLimitInfo(email);
+      final resetTime = limitInfo['resetTime'] as Duration;
+      state = state.copyWith(
+        isLoading: false,
+        error:
+            'Too many signup attempts. Please try again in ${resetTime.inMinutes} minutes.',
+      );
+      return;
+    }
+
     state = state.copyWith(isLoading: true);
 
     try {
@@ -351,6 +369,18 @@ class AuthNotifier extends StateNotifier<AuthState> {
     required String email,
     required String password,
   }) async {
+    // Check rate limit for login attempts
+    if (!_rateLimiter.isLoginAllowed(email)) {
+      final limitInfo = _rateLimiter.getLoginLimitInfo(email);
+      final resetTime = limitInfo['resetTime'] as Duration;
+      state = state.copyWith(
+        isLoading: false,
+        error:
+            'Too many login attempts. Please try again in ${resetTime.inMinutes} minutes.',
+      );
+      return;
+    }
+
     state = state.copyWith(isLoading: true);
 
     try {
@@ -460,6 +490,18 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
   /// Reset password
   Future<void> resetPassword(String email) async {
+    // Check rate limit for password reset attempts
+    if (!_rateLimiter.isPasswordResetAllowed(email)) {
+      final limitInfo = _rateLimiter.getPasswordResetLimitInfo(email);
+      final resetTime = limitInfo['resetTime'] as Duration;
+      state = state.copyWith(
+        isLoading: false,
+        error:
+            'Too many password reset attempts. Please try again in ${resetTime.inMinutes} minutes.',
+      );
+      return;
+    }
+
     state = state.copyWith(isLoading: true);
 
     try {
@@ -542,6 +584,18 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
   /// Resend email OTP
   Future<void> resendEmailOTP(String email) async {
+    // Check rate limit for email verification attempts
+    if (!_rateLimiter.isEmailVerificationAllowed(email)) {
+      final limitInfo = _rateLimiter.getEmailVerificationLimitInfo(email);
+      final resetTime = limitInfo['resetTime'] as Duration;
+      state = state.copyWith(
+        isLoading: false,
+        error:
+            'Too many verification attempts. Please try again in ${resetTime.inMinutes} minutes.',
+      );
+      return;
+    }
+
     state = state.copyWith(isLoading: true);
 
     try {
@@ -637,6 +691,65 @@ class AuthNotifier extends StateNotifier<AuthState> {
   void clearNewStudentSignupFlag() {
     state = state.copyWith(isNewStudentSignup: false);
     debugPrint('🎯 AuthProvider: Cleared new student signup flag');
+  }
+
+  /// Get all active sessions for the current user
+  Future<List<ActiveSession>> getActiveSessions() async {
+    return await _sessionService.getActiveSessions();
+  }
+
+  /// Revoke a specific session
+  Future<void> revokeSession(String sessionId) async {
+    state = state.copyWith(isLoading: true);
+
+    try {
+      await _sessionService.revokeSession(sessionId);
+
+      // If we revoked the current session, sign out
+      final currentSessionId =
+          _supabaseService.client.auth.currentSession?.accessToken ?? '';
+      if (sessionId == currentSessionId) {
+        await signOut(forced: true);
+      }
+
+      state = state.copyWith(isLoading: false);
+    } catch (e) {
+      state = state.copyWith(
+        isLoading: false,
+        error: e.toString(),
+      );
+    }
+  }
+
+  /// Revoke all sessions except the current one
+  Future<void> revokeAllOtherSessions() async {
+    state = state.copyWith(isLoading: true);
+
+    try {
+      await _sessionService.revokeAllOtherSessions();
+      state = state.copyWith(isLoading: false);
+    } catch (e) {
+      state = state.copyWith(
+        isLoading: false,
+        error: e.toString(),
+      );
+    }
+  }
+
+  /// Force logout from all devices
+  Future<void> forceLogoutAllDevices() async {
+    state = state.copyWith(isLoading: true);
+
+    try {
+      await _sessionService.forceLogoutAllDevices();
+      // This will sign out the current user as well
+      await signOut(forced: true);
+    } catch (e) {
+      state = state.copyWith(
+        isLoading: false,
+        error: e.toString(),
+      );
+    }
   }
 }
 
