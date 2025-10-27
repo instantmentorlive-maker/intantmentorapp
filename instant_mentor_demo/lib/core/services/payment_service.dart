@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_stripe/flutter_stripe.dart';
-import '../config/app_config.dart';
-import 'supabase_service.dart';
+import 'package:razorpay_flutter/razorpay_flutter.dart';
+import 'backend_api_service.dart';
 
 class PaymentService {
   static PaymentService? _instance;
@@ -9,22 +8,24 @@ class PaymentService {
 
   PaymentService._();
 
-  final SupabaseService _supabase = SupabaseService.instance;
+  final BackendApiService _api = BackendApiService.instance;
+  late Razorpay _razorpay;
 
-  /// Initialize Stripe
+  /// Initialize Razorpay
   static Future<void> initialize() async {
     try {
-      final publishableKey = AppConfig.stripePublishableKey;
-      if (publishableKey.isEmpty ||
-          publishableKey == 'pk_test_demo_key_for_development') {
-        print(
-            '⚠️ Payment service: Using demo/development mode - payments disabled');
-        return;
-      }
+      final instance = PaymentService.instance;
+      instance._razorpay = Razorpay();
 
-      Stripe.publishableKey = publishableKey;
-      await Stripe.instance.applySettings();
-      print('✅ Payment service: Stripe initialized successfully');
+      // Set up event listeners
+      instance._razorpay
+          .on(Razorpay.EVENT_PAYMENT_SUCCESS, instance._handlePaymentSuccess);
+      instance._razorpay
+          .on(Razorpay.EVENT_PAYMENT_ERROR, instance._handlePaymentError);
+      instance._razorpay
+          .on(Razorpay.EVENT_EXTERNAL_WALLET, instance._handleExternalWallet);
+
+      print('✅ Payment service: Razorpay initialized successfully');
     } catch (e) {
       print('❌ Payment service: Failed to initialize - $e');
       // Don't throw error in development, just log it
@@ -33,250 +34,95 @@ class PaymentService {
 
   /// Process payment for a mentoring session
   Future<PaymentResult> processSessionPayment({
-    required String sessionId,
-    required double amount,
-    String currency = 'USD',
-    String? paymentMethodId,
+    required int mentorId,
+    required int studentId,
+    required Function(PaymentResult) onSuccess,
+    required Function(PaymentResult) onError,
   }) async {
     try {
-      // Create payment intent via Supabase Edge Function
-      final response = await _supabase.client.functions.invoke(
-        'process-payment',
-        body: {
-          'sessionId': sessionId,
-          'amount': amount,
-          'currency': currency,
-          'paymentMethod': paymentMethodId,
+      // Create session via backend API
+      final sessionData = await _api.createSession(
+        mentorId: mentorId,
+        studentId: studentId,
+      );
+
+      final orderId = sessionData['order_id'] as String;
+      final amount = sessionData['amount'] as int; // Amount in paise
+
+      // Configure Razorpay checkout options
+      final options = {
+        'key': 'rzp_test_RVEyPNHbfGXitb', // Test key - should come from config
+        'amount': amount,
+        'name': 'InstantMentor',
+        'description': 'Mentoring Session Payment',
+        'order_id': orderId,
+        'prefill': {
+          'contact': '', // TODO: Get from user profile
+          'email': '', // TODO: Get from user profile
         },
-      );
+        'theme': {
+          'color': '#4CAF50', // Green theme
+        },
+      };
 
-      if (response.data == null) {
-        throw Exception('Failed to create payment intent');
-      }
+      // Store callbacks for handling success/error
+      _currentOnSuccess = onSuccess;
+      _currentOnError = onError;
 
-      final clientSecret = response.data['clientSecret'] as String;
-      final paymentIntentId = response.data['paymentIntentId'] as String;
+      // Open Razorpay checkout
+      _razorpay.open(options);
 
-      // Confirm payment with Stripe
-      final paymentIntent = await Stripe.instance.confirmPayment(
-        paymentIntentClientSecret: clientSecret,
-        data: PaymentMethodParams.card(
-          paymentMethodData: PaymentMethodData(
-            billingDetails: BillingDetails(
-              email: _supabase.currentUser?.email,
-            ),
-          ),
-        ),
-      );
-
-      // Update payment status in database
-      if (paymentIntent.status == PaymentIntentsStatus.Succeeded) {
-        await _updatePaymentStatus(sessionId, 'paid', paymentIntentId);
-        return PaymentResult.success(
-          transactionId: paymentIntentId,
-          amount: amount,
-          currency: currency,
-        );
-      } else {
-        await _updatePaymentStatus(sessionId, 'failed', paymentIntentId);
-        return PaymentResult.failure(
-          error: 'Payment failed: ${paymentIntent.status}',
-        );
-      }
+      // Return pending result - actual result will be delivered via callbacks
+      return PaymentResult.pending();
     } catch (e) {
       debugPrint('Payment processing error: $e');
       return PaymentResult.failure(error: e.toString());
     }
   }
 
-  /// Process refund for a session
-  Future<PaymentResult> processRefund({
-    required String sessionId,
-    required String transactionId,
-    double? amount,
-    String reason = 'Session cancelled',
-  }) async {
+  Function(PaymentResult)? _currentOnSuccess;
+  Function(PaymentResult)? _currentOnError;
+
+  void _handlePaymentSuccess(PaymentSuccessResponse response) async {
     try {
-      final response = await _supabase.client.functions.invoke(
-        'process-refund',
-        body: {
-          'sessionId': sessionId,
-          'transactionId': transactionId,
-          'amount': amount,
-          'reason': reason,
-        },
+      // Verify payment with backend
+      await _api.verifyPayment(
+        razorpayPaymentId: response.paymentId!,
+        razorpayOrderId: response.orderId!,
+        razorpaySignature: response.signature!,
       );
 
-      if (response.data == null || response.data['success'] != true) {
-        throw Exception('Failed to process refund');
-      }
-
-      await _updatePaymentStatus(sessionId, 'refunded', transactionId);
-
-      return PaymentResult.success(
-        transactionId: response.data['refundId'],
-        amount: amount ?? 0,
-        currency: 'USD',
-      );
-    } catch (e) {
-      debugPrint('Refund processing error: $e');
-      return PaymentResult.failure(error: e.toString());
-    }
-  }
-
-  /// Get payment methods for user
-  Future<List<PaymentMethod>> getUserPaymentMethods() async {
-    try {
-      // This would typically fetch saved payment methods from Stripe
-      // For now, return empty list - users will add payment method during checkout
-      return [];
-    } catch (e) {
-      debugPrint('Failed to fetch payment methods: $e');
-      return [];
-    }
-  }
-
-  /// Setup payment sheet for session booking
-  Future<bool> setupPaymentSheet({
-    required String sessionId,
-    required double amount,
-    String currency = 'USD',
-  }) async {
-    try {
-      // Check if Stripe keys are properly configured
-      if (AppConfig.stripePublishableKey.isEmpty ||
-          AppConfig.stripePublishableKey ==
-              'pk_test_demo_key_for_development') {
-        debugPrint(
-            '⚠️ Payment: Using demo mode - Stripe keys not configured properly');
-        // In demo mode, simulate successful setup
-        return true;
-      }
-
-      // Try to create payment intent via Supabase Edge Function
-      try {
-        final response = await _supabase.client.functions.invoke(
-          'process-payment',
-          body: {
-            'sessionId': sessionId,
-            'amount': amount,
-            'currency': currency,
-          },
-        );
-
-        if (response.data == null) {
-          throw Exception('Failed to create payment intent');
-        }
-
-        final clientSecret = response.data['clientSecret'] as String;
-        const merchantDisplayName = 'InstantMentor';
-
-        // Initialize payment sheet
-        await Stripe.instance.initPaymentSheet(
-          paymentSheetParameters: SetupPaymentSheetParameters(
-            paymentIntentClientSecret: clientSecret,
-            merchantDisplayName: merchantDisplayName,
-            style: ThemeMode.system,
-            allowsDelayedPaymentMethods: true,
-          ),
-        );
-
-        return true;
-      } catch (supabaseError) {
-        debugPrint(
-            '⚠️ Payment: Supabase function failed, using demo mode: $supabaseError');
-        // Fall back to demo mode if Supabase function fails
-        return true;
-      }
-    } catch (e) {
-      debugPrint('❌ Payment sheet setup error: $e');
-      return false;
-    }
-  }
-
-  /// Present payment sheet and process payment
-  Future<PaymentResult> presentPaymentSheet(String sessionId) async {
-    try {
-      // Check if we're in demo mode
-      if (AppConfig.stripePublishableKey.isEmpty ||
-          AppConfig.stripePublishableKey ==
-              'pk_test_demo_key_for_development') {
-        debugPrint('💳 Payment: Demo mode - simulating successful payment');
-        // Simulate payment processing delay
-        await Future.delayed(const Duration(seconds: 1));
-
-        return PaymentResult.success(
-          transactionId: 'demo_${DateTime.now().millisecondsSinceEpoch}',
-          amount: 0,
-          currency: 'USD',
-        );
-      }
-
-      await Stripe.instance.presentPaymentSheet();
-
-      // Payment successful - update status
-      await _updateSessionPaymentStatus(sessionId, 'paid');
-
-      return PaymentResult.success(
-        transactionId: sessionId,
-        amount: 0, // Amount will be updated from server
-        currency: 'USD',
-      );
-    } on StripeException catch (e) {
-      if (e.error.code == FailureCode.Canceled) {
-        return PaymentResult.cancelled();
-      } else {
-        return PaymentResult.failure(
-            error: e.error.message ?? 'Payment failed');
-      }
-    } catch (e) {
-      return PaymentResult.failure(error: e.toString());
-    }
-  }
-
-  /// Get transaction history for user
-  Future<List<PaymentTransaction>> getTransactionHistory() async {
-    try {
-      final userId = _supabase.currentUser?.id;
-      if (userId == null) throw Exception('User not authenticated');
-
-      final response = await _supabase.fetchData(
-        table: 'payment_transactions',
-        filters: {'payer_id': userId},
-        orderBy: 'created_at',
-        ascending: false,
+      final result = PaymentResult.success(
+        transactionId: response.paymentId!,
+        amount: 0, // TODO: Get actual amount
+        currency: 'INR',
+        orderId: response.orderId,
       );
 
-      return response.map((data) => PaymentTransaction.fromMap(data)).toList();
+      _currentOnSuccess?.call(result);
     } catch (e) {
-      debugPrint('Failed to fetch transaction history: $e');
-      return [];
+      final result =
+          PaymentResult.failure(error: 'Payment verification failed: $e');
+      _currentOnError?.call(result);
     }
   }
 
-  /// Update payment status in database
-  Future<void> _updatePaymentStatus(
-    String sessionId,
-    String status,
-    String transactionId,
-  ) async {
-    await _supabase.updateData(
-      table: 'payment_transactions',
-      data: {'status': status},
-      column: 'transaction_id',
-      value: transactionId,
+  void _handlePaymentError(PaymentFailureResponse response) {
+    final result = PaymentResult.failure(
+      error: response.message ?? 'Payment failed',
+      code: response.code?.toString(),
     );
+    _currentOnError?.call(result);
   }
 
-  /// Update session payment status
-  Future<void> _updateSessionPaymentStatus(
-      String sessionId, String status) async {
-    await _supabase.updateData(
-      table: 'mentoring_sessions',
-      data: {'payment_status': status},
-      column: 'id',
-      value: sessionId,
-    );
+  void _handleExternalWallet(ExternalWalletResponse response) {
+    // Handle external wallet payments if needed
+    print('External wallet selected: ${response.walletName}');
+  }
+
+  /// Dispose of Razorpay instance
+  void dispose() {
+    _razorpay.clear();
   }
 }
 
@@ -284,37 +130,49 @@ class PaymentService {
 class PaymentResult {
   final bool isSuccess;
   final bool isCancelled;
+  final bool isPending;
   final String? transactionId;
   final double amount;
   final String currency;
   final String? error;
+  final String? code;
+  final String? orderId;
 
   const PaymentResult._({
     required this.isSuccess,
     this.isCancelled = false,
+    this.isPending = false,
     this.transactionId,
     this.amount = 0,
-    this.currency = 'USD',
+    this.currency = 'INR',
     this.error,
+    this.code,
+    this.orderId,
   });
 
   factory PaymentResult.success({
     required String transactionId,
     required double amount,
     required String currency,
+    String? orderId,
   }) {
     return PaymentResult._(
       isSuccess: true,
       transactionId: transactionId,
       amount: amount,
       currency: currency,
+      orderId: orderId,
     );
   }
 
-  factory PaymentResult.failure({required String error}) {
+  factory PaymentResult.failure({
+    required String error,
+    String? code,
+  }) {
     return PaymentResult._(
       isSuccess: false,
       error: error,
+      code: code,
     );
   }
 
@@ -324,46 +182,11 @@ class PaymentResult {
       isCancelled: true,
     );
   }
-}
 
-/// Payment transaction model
-class PaymentTransaction {
-  final String id;
-  final String sessionId;
-  final String payerId;
-  final String payeeId;
-  final double amount;
-  final String currency;
-  final String status;
-  final String? paymentMethod;
-  final String? transactionId;
-  final DateTime createdAt;
-
-  const PaymentTransaction({
-    required this.id,
-    required this.sessionId,
-    required this.payerId,
-    required this.payeeId,
-    required this.amount,
-    required this.currency,
-    required this.status,
-    this.paymentMethod,
-    this.transactionId,
-    required this.createdAt,
-  });
-
-  factory PaymentTransaction.fromMap(Map<String, dynamic> map) {
-    return PaymentTransaction(
-      id: map['id'],
-      sessionId: map['session_id'],
-      payerId: map['payer_id'],
-      payeeId: map['payee_id'],
-      amount: (map['amount'] as num).toDouble(),
-      currency: map['currency'] ?? 'USD',
-      status: map['status'],
-      paymentMethod: map['payment_method'],
-      transactionId: map['transaction_id'],
-      createdAt: DateTime.parse(map['created_at']),
+  factory PaymentResult.pending() {
+    return const PaymentResult._(
+      isSuccess: false,
+      isPending: true,
     );
   }
 }

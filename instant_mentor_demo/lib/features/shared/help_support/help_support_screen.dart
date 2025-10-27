@@ -358,7 +358,6 @@ class HelpSupportScreen extends ConsumerWidget {
     final rootNavigator = Navigator.of(context, rootNavigator: true);
     showDialog(
       context: context,
-      useRootNavigator: true,
       barrierDismissible: false,
       builder: (context) => const AlertDialog(
         content: Row(

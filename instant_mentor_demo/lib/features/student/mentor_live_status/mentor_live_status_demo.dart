@@ -627,26 +627,22 @@ void _showQuickConnectDialog(BuildContext context, Mentor mentor) {
             );
             if (confirmed != true) return;
 
-            final sessionId = 'live_${DateTime.now().millisecondsSinceEpoch}';
-            final ok = await PaymentService.instance.setupPaymentSheet(
-              sessionId: sessionId,
-              amount: mentor.hourlyRate / 4,
-            );
-            if (!ok) {
-              if (context.mounted) {
+            // Process payment for live session
+            final paymentResult =
+                await PaymentService.instance.processSessionPayment(
+              mentorId: int.tryParse(mentor.id) ?? 1, // Parse String id to int
+              studentId: 1, // TODO: Get actual student ID from auth
+              onSuccess: (result) {
+                if (!context.mounted) return;
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Payment setup failed'),
-                    backgroundColor: Colors.red,
+                  SnackBar(
+                    content: Text('Starting session with ${mentor.name}...'),
+                    backgroundColor: Colors.green,
                   ),
                 );
-              }
-              return;
-            }
-            final result =
-                await PaymentService.instance.presentPaymentSheet(sessionId);
-            if (!result.isSuccess) {
-              if (context.mounted) {
+              },
+              onError: (result) {
+                if (!context.mounted) return;
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
                     content: Text(result.isCancelled
@@ -655,14 +651,22 @@ void _showQuickConnectDialog(BuildContext context, Mentor mentor) {
                     backgroundColor: Colors.red,
                   ),
                 );
-              }
+              },
+            );
+
+            // Handle pending result (payment is being processed)
+            if (paymentResult.isPending) {
+              // Payment is being processed via Razorpay UI
               return;
             }
-            if (context.mounted) {
+
+            // Handle immediate failure
+            if (!paymentResult.isSuccess) {
+              if (!context.mounted) return;
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
-                  content: Text('Starting session with ${mentor.name}...'),
-                  backgroundColor: Colors.green,
+                  content: Text('Payment failed: ${paymentResult.error ?? ''}'),
+                  backgroundColor: Colors.red,
                 ),
               );
             }

@@ -9,13 +9,13 @@ import 'package:integration_test/integration_test.dart';
 // variable INTEGRATION_TEST=true when running tests on a device/emulator.
 // Running `flutter test` in the VM will skip these.
 const _runIntegrationTests =
-    bool.fromEnvironment('INTEGRATION_TEST', defaultValue: false);
+    bool.fromEnvironment('INTEGRATION_TEST');
 
 void main() {
   // Integration tests are opt-in. Return early when running VM `flutter test` so
   // device/emulator-only tests don't execute during fast local unit runs.
   const runIntegration =
-      bool.fromEnvironment('INTEGRATION_TEST', defaultValue: false);
+      bool.fromEnvironment('INTEGRATION_TEST');
   if (!runIntegration) {
     // No-op: define no tests for `flutter test` VM runs.
     return;

@@ -546,53 +546,48 @@ class _BookingDialogState extends ConsumerState<BookingDialog> {
     setState(() => _isProcessingInstantCall = true);
 
     try {
-      // Determine charge amount: use selected duration if chosen else default 30 minutes
-      final durationMinutes = selectedDuration != null
-          ? int.tryParse(selectedDuration!) ?? 30
-          : 30; // default 30 min
-      final amount = (widget.mentor.hourlyRate / 60) * durationMinutes;
-
-      // Create a pseudo session id for instant call
-      final sessionId = 'instant_${DateTime.now().millisecondsSinceEpoch}';
-
-      // Setup payment sheet
-      final setupOk = await PaymentService.instance.setupPaymentSheet(
-        sessionId: sessionId,
-        amount: double.parse(amount.toStringAsFixed(2)),
+      // Process payment for instant call
+      final result = await PaymentService.instance.processSessionPayment(
+        mentorId: int.tryParse(widget.mentor.id) ?? 1, // Parse String id to int
+        studentId: 1, // TODO: Get actual student ID from auth
+        onSuccess: (paymentResult) {
+          if (!mounted) return;
+          // Close dialog first
+          Navigator.of(context).pop();
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                  'Payment successful. Starting call with ${widget.mentor.name}...'),
+              backgroundColor: Colors.green,
+            ),
+          );
+          // Navigate to session screen (live session) – this screen can auto-start call or user can initiate
+          context.go(AppRoutes.session(
+              'instant_${DateTime.now().millisecondsSinceEpoch}'));
+        },
+        onError: (paymentResult) {
+          if (!mounted) return;
+          if (paymentResult.isCancelled) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Payment cancelled.')),
+            );
+          } else {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text(paymentResult.error ?? 'Payment failed')),
+            );
+          }
+        },
       );
 
-      if (!setupOk) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-              content: Text('Failed to prepare payment. Try again.')),
-        );
-        setState(() => _isProcessingInstantCall = false);
+      // Handle pending result (payment is being processed)
+      if (result.isPending) {
+        // Payment is being processed via Razorpay UI
         return;
       }
 
-      // Present payment sheet
-      final result =
-          await PaymentService.instance.presentPaymentSheet(sessionId);
-
-      if (!mounted) return;
-
-      if (result.isSuccess) {
-        // Close dialog first
-        Navigator.of(context).pop();
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-                'Payment successful. Starting call with ${widget.mentor.name}...'),
-            backgroundColor: Colors.green,
-          ),
-        );
-        // Navigate to session screen (live session) – this screen can auto-start call or user can initiate
-        context.go(AppRoutes.session(sessionId));
-      } else if (result.isCancelled) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Payment cancelled.')),
-        );
-      } else {
+      // Handle immediate failure
+      if (!result.isSuccess) {
+        if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(result.error ?? 'Payment failed')),
         );

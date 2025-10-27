@@ -3,9 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../models/user.dart' as domain; // Domain user model
-import '../services/supabase_service.dart';
 import '../services/auth_rate_limiter.dart';
 import '../services/session_management_service.dart';
+import '../services/supabase_service.dart';
 import 'persistent_settings_provider.dart'; // darkModeProvider
 import 'sessions_provider.dart'; // demoSessionsProvider
 import 'user_provider.dart'; // Domain user provider

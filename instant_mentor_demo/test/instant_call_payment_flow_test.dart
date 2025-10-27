@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:instant_mentor_demo/features/payments/payment_checkout_sheet.dart';
+
 import 'setup.dart';
 import 'test_helpers.dart';
-import 'package:instant_mentor_demo/features/payments/payment_checkout_sheet.dart';
 // Note: A full mock of PaymentService would require refactoring for DI.
 // These tests focus on UI path up to payment confirmation sheet and callback.
 

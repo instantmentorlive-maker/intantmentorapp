@@ -2,81 +2,26 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:instant_mentor_demo/core/providers/auth_provider.dart';
+import 'package:instant_mentor_demo/core/services/session_management_service.dart';
+import '../../../test_helpers/dotenv_test_setup.dart';
 import 'package:instant_mentor_demo/features/auth/login/login_screen.dart';
 // mocktail not needed for FakeAuthNotifier-based tests
 
-// A tiny fake AuthNotifier that extends StateNotifier so it works with
-// Riverpod's StateNotifierProvider in tests. We implement only the methods
-// used by the LoginScreen tests.
-class FakeAuthNotifier extends StateNotifier<AuthState>
-    implements AuthNotifier {
-  FakeAuthNotifier(AuthState state) : super(state);
-
-  @override
-  Future<void> signIn(
-      {required String email, required String password}) async {}
-
-  @override
-  void clearError() {
-    state = state.copyWith(error: null);
-  }
-
-  // Provide no-op implementations for other AuthNotifier methods referenced
-  // by the app but not used in these tests.
-  @override
-  Future<void> signUp(
-      {required String email,
-      required String password,
-      required String fullName,
-      Map<String, dynamic>? additionalData}) async {}
-
-  @override
-  Future<void> signOut({bool forced = false}) async {}
-
-  @override
-  Future<void> resetPassword(String email) async {}
-
-  @override
-  Future<void> setNewPassword(String newPassword) async {}
-
-  @override
-  Future<void> sendEmailOTP(String email,
-      {bool shouldCreateUser = true}) async {}
-
-  @override
-  Future<void> verifyEmailOTP(
-      {required String email, required String otp}) async {}
-
-  @override
-  Future<void> resendEmailOTP(String email) async {}
-
-  @override
-  Future<void> sendPhoneOTP(String phoneNumber) async {}
-
-  @override
-  Future<void> verifyPhoneOTP(
-      {required String phone, required String otp}) async {}
-
-  @override
-  Future<void> resendPhoneOTP(String phoneNumber) async {}
-
-  @override
-  Future<void> updateProfile(Map<String, dynamic> profileData) async {}
-
-  @override
-  void clearNewMentorSignupFlag() {}
-
-  @override
-  void clearNewStudentSignupFlag() {}
-}
+// Use shared FakeAuthNotifier and dotenv test setup from test_helpers
 
 void main() {
   group('LoginScreen', () {
     late FakeAuthNotifier fakeAuthNotifier;
 
-    setUp(() {
+    setUp(() async {
       // default to no-error state
       fakeAuthNotifier = FakeAuthNotifier(const AuthState());
+
+      // Centralized test dotenv + minimal seeding
+      await ensureTestDotenvLoaded();
+      // Do NOT call SupabaseService.initialize() in unit tests: it tries to
+      // use platform plugins (e.g., shared_preferences) which are not
+      // available in unit test environment and cause MissingPluginException.
     });
 
     testWidgets('should not show error when auth state has no error',
@@ -89,11 +34,8 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
-            // Provide the mock AuthNotifier instance as the StateNotifier for the provider
-            authProvider.overrideWithProvider(
-                StateNotifierProvider<AuthNotifier, AuthState>(
-              (ref) => fakeAuthNotifier,
-            )),
+            // Use shared provider overrides for unit tests
+            ...providerOverridesForUnitTests(fakeAuthNotifier),
           ],
           child: const MaterialApp(
             home: LoginScreen(),
@@ -120,10 +62,7 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
-            authProvider.overrideWithProvider(
-                StateNotifierProvider<AuthNotifier, AuthState>(
-              (ref) => fakeAuthNotifier,
-            )),
+            ...providerOverridesForUnitTests(fakeAuthNotifier),
           ],
           child: const MaterialApp(
             home: LoginScreen(),
@@ -145,10 +84,7 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
-            authProvider.overrideWithProvider(
-                StateNotifierProvider<AuthNotifier, AuthState>(
-              (ref) => fakeAuthNotifier,
-            )),
+            ...providerOverridesForUnitTests(fakeAuthNotifier),
           ],
           child: const MaterialApp(
             home: LoginScreen(),

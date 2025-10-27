@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:instant_mentor_demo/core/utils/result.dart';
 import 'package:instant_mentor_demo/core/error/app_error.dart';
+import 'package:instant_mentor_demo/core/utils/result.dart';
 
 void main() {
   group('Result utilities', () {
@@ -16,7 +16,7 @@ void main() {
 
     test('Failure stores error and onError is called', () {
       // AppError is abstract; use a concrete AppError implementation for tests
-      final err = AppGeneralError(message: 'boom');
+      const err = AppGeneralError(message: 'boom');
       final r = ResultUtils.failure<int>(err);
       expect(r.isFailure, isTrue);
       expect(r.error, err);

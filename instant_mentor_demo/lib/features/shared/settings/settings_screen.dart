@@ -7,11 +7,11 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/providers/auth_provider.dart';
 import '../../../core/providers/locale_provider.dart';
 import '../../../core/providers/persistent_settings_provider.dart'; // Use persistent settings
-import '../../../core/services/notification_service.dart';
-import '../../../core/services/supabase_service.dart';
-import '../../../core/services/settings_persistence_service.dart';
-import '../../../core/services/session_management_service.dart';
 import '../../../core/providers/user_provider.dart';
+import '../../../core/services/notification_service.dart';
+import '../../../core/services/session_management_service.dart';
+import '../../../core/services/settings_persistence_service.dart';
+import '../../../core/services/supabase_service.dart';
 import '../../../core/services/two_factor_auth_service.dart';
 import '../../mentor/availability/availability_screen.dart';
 import '../../mentor/profile_management/profile_management_screen.dart'; // Needed for mentorProfileProvider
@@ -1171,8 +1171,8 @@ class SettingsScreen extends ConsumerWidget {
                   _showSnackBar(context, 'Error disabling 2FA');
                 }
               },
-              child: const Text('Disable'),
               style: TextButton.styleFrom(foregroundColor: Colors.red),
+              child: const Text('Disable'),
             ),
           ],
         ),
@@ -2069,7 +2069,6 @@ Contact support with:
     final rootNavigator = Navigator.of(context, rootNavigator: true);
     showDialog(
       context: context,
-      useRootNavigator: true,
       barrierDismissible: false,
       builder: (context) => const AlertDialog(
         content: Column(

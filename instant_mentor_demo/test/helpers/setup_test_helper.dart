@@ -1,15 +1,16 @@
 // Test setup helper: seeds dotenv, configures SharedPreferences, and provides
 // a convenient ProviderScope override for the Supabase service.
 
-import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import '../test_helpers/dotenv_test_setup.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:instant_mentor_demo/core/providers/auth_provider.dart'
+    as auth_provider_show; // for supabaseServiceProvider symbol
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../fakes/fake_supabase_service.dart';
-import '../../lib/core/providers/auth_provider.dart'
-    as auth_provider_show; // for supabaseServiceProvider symbol
 
 /// Call before running widget tests to ensure env and SharedPreferences are available.
 Future<void> configureTestHarness({Map<String, String>? env}) async {
@@ -17,19 +18,13 @@ Future<void> configureTestHarness({Map<String, String>? env}) async {
   SharedPreferences.setMockInitialValues({});
 
   // Provide minimal dotenv values used by AppConfig / SupabaseService
-  final seed = <String, String>{
-    'SUPABASE_URL': env?['SUPABASE_URL'] ?? 'https://example.supabase.co',
-    'SUPABASE_ANON_KEY': env?['SUPABASE_ANON_KEY'] ?? 'anon-key',
-    // Use the special demo key to force PaymentService demo mode during tests.
-    // PaymentService treats 'pk_test_demo_key_for_development' as demo and
-    // will avoid calling real Stripe flows, returning simulated success.
-    'STRIPE_PUBLISHABLE_KEY':
-        env?['STRIPE_PUBLISHABLE_KEY'] ?? 'pk_test_demo_key_for_development',
-  };
+  // Use centralized dotenv loader/seeder to keep test setup consistent.
+  await ensureTestDotenvLoaded();
 
-  // Load into dotenv's internal map so AppConfig and SupabaseService can read it.
-  // flutter_dotenv provides dotenv.env map which we can populate for tests.
-  dotenv.env.addAll(seed);
+  // Additional seeds specific to this helper (e.g., Stripe demo key)
+  dotenv.env['STRIPE_PUBLISHABLE_KEY'] = env?['STRIPE_PUBLISHABLE_KEY'] ??
+      dotenv.env['STRIPE_PUBLISHABLE_KEY'] ??
+      'pk_test_demo_key_for_development';
 }
 
 /// Return a ProviderScope configured with the fake SupabaseService override.

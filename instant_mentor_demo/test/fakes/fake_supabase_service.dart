@@ -36,7 +36,7 @@ class FakeSupabaseService {
 
     _user = user;
     // Supabase's AuthResponse is a class from the SDK; construct a minimal one
-    final response = AuthResponse(user: user, session: null);
+    final response = AuthResponse(user: user);
     // Emit signed-in event (as simple map)
     _authController.add({'type': 'SIGNED_IN', 'user': _user});
     return response;

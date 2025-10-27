@@ -9,7 +9,13 @@ class SupabaseService {
 
   SupabaseService._();
 
-  SupabaseClient get client => Supabase.instance.client;
+  SupabaseClient get client {
+    if (!_initialized) {
+      throw Exception(
+          'Supabase not initialized. Please check your Supabase configuration in .env file.');
+    }
+    return Supabase.instance.client;
+  }
 
   static bool _initialized = false;
   bool get isInitialized => _initialized;
@@ -27,6 +33,9 @@ class SupabaseService {
     if (supabaseUrl.trim().isEmpty || supabaseAnonKey.trim().isEmpty) {
       throw Exception('SUPABASE_URL or SUPABASE_ANON_KEY is empty in .env');
     }
+
+    debugPrint('🔵 SupabaseService: SUPABASE_URL: $supabaseUrl');
+    debugPrint('🔵 SupabaseService: SUPABASE_ANON_KEY loaded');
 
     // Normalize common misconfigurations that lead to 404/empty responses
     supabaseUrl = supabaseUrl.trim();

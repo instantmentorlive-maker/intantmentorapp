@@ -4,7 +4,7 @@ import 'package:instant_mentor_demo/core/utils/form_validators.dart';
 void main() {
   group('FormValidators.email', () {
     test('returns required message for empty when required', () {
-      expect(FormValidators.email('', required: true), isNotNull);
+      expect(FormValidators.email(''), isNotNull);
     });
 
     test('accepts valid email', () {

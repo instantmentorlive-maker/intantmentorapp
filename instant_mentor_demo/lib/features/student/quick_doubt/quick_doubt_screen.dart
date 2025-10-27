@@ -876,28 +876,27 @@ class _QuickDoubtScreenState extends ConsumerState<QuickDoubtScreen> {
               );
               if (confirmed != true) return; // User cancelled
 
-              // Setup and present payment sheet
-              final sessionId =
-                  'quick_${DateTime.now().millisecondsSinceEpoch}';
-              final setupOk = await PaymentService.instance.setupPaymentSheet(
-                sessionId: sessionId,
-                amount: 15,
-              );
-              if (!setupOk) {
-                if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Payment setup failed'),
-                      backgroundColor: Colors.red,
-                    ),
-                  );
-                }
-                return;
-              }
-              final result =
-                  await PaymentService.instance.presentPaymentSheet(sessionId);
-              if (!result.isSuccess) {
-                if (context.mounted) {
+              // Process payment for quick doubt session
+              final paymentResult =
+                  await PaymentService.instance.processSessionPayment(
+                mentorId: 1, // TODO: Get actual mentor ID
+                studentId: 1, // TODO: Get actual student ID from auth
+                onSuccess: (result) {
+                  if (!context.mounted) return;
+                  // After successful payment, start session (video call placeholder)
+                  // Start global video call state (stubbed implementation)
+                  final container =
+                      ProviderScope.containerOf(context, listen: false);
+                  container.read(videoCallProvider.notifier).startCall(
+                        mentorId: 'mentor_demo',
+                        mentorName: 'Dr. Sarah Smith',
+                        sessionId:
+                            'quick_${DateTime.now().millisecondsSinceEpoch}',
+                      );
+                  _startSession();
+                },
+                onError: (result) {
+                  if (!context.mounted) return;
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
                       content: Text(result.isCancelled
@@ -906,22 +905,26 @@ class _QuickDoubtScreenState extends ConsumerState<QuickDoubtScreen> {
                       backgroundColor: Colors.red,
                     ),
                   );
-                }
+                },
+              );
+
+              // Handle pending result (payment is being processed)
+              if (paymentResult.isPending) {
+                // Payment is being processed via Razorpay UI
                 return;
               }
 
-              // After successful payment, start session (video call placeholder)
-              // Start global video call state (stubbed implementation)
-              if (context.mounted) {
-                final container =
-                    ProviderScope.containerOf(context, listen: false);
-                container.read(videoCallProvider.notifier).startCall(
-                      mentorId: 'mentor_demo',
-                      mentorName: 'Dr. Sarah Smith',
-                      sessionId: sessionId,
-                    );
+              // Handle immediate failure
+              if (!paymentResult.isSuccess) {
+                if (!context.mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content:
+                        Text('Payment failed: ${paymentResult.error ?? ''}'),
+                    backgroundColor: Colors.red,
+                  ),
+                );
               }
-              _startSession();
             },
             child: const Text('Start Session'),
           ),

@@ -174,7 +174,7 @@ class SessionManagementService {
         isCurrentSession: true,
       ),
       ActiveSession(
-        id: 'session_2_${userId}',
+        id: 'session_2_$userId',
         deviceName: 'iPhone 15 Pro',
         deviceType: 'iOS',
         ipAddress: '10.0.0.5',
@@ -183,7 +183,7 @@ class SessionManagementService {
         isCurrentSession: false,
       ),
       ActiveSession(
-        id: 'session_3_${userId}',
+        id: 'session_3_$userId',
         deviceName: 'MacBook Pro',
         deviceType: 'Web',
         ipAddress: '192.168.1.100',

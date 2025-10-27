@@ -93,6 +93,7 @@ dependencies:
   
   # Video Calling - Updated to latest version for Dart SDK compatibility
   flutter_webrtc: ^1.2.0
+  video_player: ^2.8.7
   share_plus: ^10.0.2
   web_socket_channel: ^2.4.0
   

@@ -1,0 +1,66 @@
+name: Check - no Supabase initialize in tests
+
+on:
+  push:
+    paths:
+      - 'test/**'
+  pull_request:
+    paths:
+      - 'test/**'
+
+jobs:
+  check_no_supabase_init:
+    name: Ensure tests don't initialize Supabase
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run Supabase init grep check
+        run: |
+          chmod +x .ci/check_no_supabase_init.sh || true
+          bash .ci/check_no_supabase_init.sh
+
+      - name: Run static test checks
+        run: |
+          chmod +x .ci/static_test_checks.sh || true
+          bash .ci/static_test_checks.sh
+
+  unit_tests:
+    name: Run unit tests (quick smoke)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: 'stable'
+
+      - name: Cache pub and dart_tool
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.pub-cache
+            .dart_tool
+          key: ${{ runner.os }}-pub-${{ hashFiles('**/pubspec.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-pub-
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Run unit tests
+        run: flutter test --reporter=expanded
+
+  windows_static_checks:
+    name: Windows static checks
+    runs-on: windows-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run PowerShell static test checks
+        shell: pwsh
+        run: pwsh -NoProfile -NoLogo -ExecutionPolicy Bypass -File .\\.ci\\static_test_checks.ps1

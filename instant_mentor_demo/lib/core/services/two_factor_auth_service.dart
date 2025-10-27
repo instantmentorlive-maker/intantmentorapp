@@ -1,9 +1,9 @@
-import 'package:flutter/foundation.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import 'dart:convert';
 import 'dart:math';
+
 import 'package:crypto/crypto.dart';
-import 'package:convert/convert.dart';
+import 'package:flutter/foundation.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../services/supabase_service.dart';
 
@@ -43,7 +43,7 @@ class TwoFactorAuthService {
           base64.encode(secretBytes).replaceAll('=', '').substring(0, 32);
 
       // Create TOTP URI for QR code
-      final issuer = 'InstantMentor';
+      const issuer = 'InstantMentor';
       final accountName = user.email ?? 'user';
       final uri =
           'otpauth://totp/$issuer:$accountName?secret=$secret&issuer=$issuer';
@@ -64,7 +64,7 @@ class TwoFactorAuthService {
   bool _verifyTOTP(String secret, String code) {
     try {
       // Decode base32 secret (simplified - in production use a proper base32 decoder)
-      final secretBytes = base64.decode(base64.normalize(secret + '==='));
+      final secretBytes = base64.decode(base64.normalize('$secret==='));
 
       // Get current time window (30 seconds)
       final time = DateTime.now().millisecondsSinceEpoch ~/ 1000 ~/ 30;
