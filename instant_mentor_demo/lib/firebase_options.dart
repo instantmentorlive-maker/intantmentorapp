@@ -20,12 +20,13 @@ class FirebaseConfig {
   );
 
   static const FirebaseOptions web = FirebaseOptions(
-    apiKey: 'your_web_api_key_here',
-    appId: '1:your_sender_id:web:your_app_id_here',
-    messagingSenderId: 'your_sender_id_here',
+    apiKey: 'AIzaSyDemoWebKey1234567890abcdefghijklmno',
+    appId: '1:123456789012:web:abcdef1234567890',
+    messagingSenderId: '123456789012',
     projectId: 'instant-mentor-demo',
     authDomain: 'instant-mentor-demo.firebaseapp.com',
     storageBucket: 'instant-mentor-demo.appspot.com',
+    measurementId: 'G-DEMO1234',
   );
 
   static const FirebaseOptions windows = FirebaseOptions(

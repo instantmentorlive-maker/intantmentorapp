@@ -1,6 +1,12 @@
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 
+import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+
 import 'core/config/app_config.dart';
 import 'core/debug/provider_observer.dart';
 import 'core/localization/app_localizations.dart';
@@ -16,6 +22,7 @@ import 'core/widgets/global_back_button_handler.dart';
 import 'examples/video_call_example.dart';
 import 'features/common/widgets/error_handler_widget.dart';
 import 'features/realtime/realtime_communication_overlay.dart';
+import 'firebase_options.dart';
 
 void main() async {
   // Ensure Flutter binding is initialized
@@ -48,8 +55,14 @@ Future<void> _initializeApp() async {
     // Initialize app configuration from .env
     await AppConfig.initialize();
 
-    // Initialize Firebase
-    await Firebase.initializeApp();
+    // Initialize Firebase with platform-specific options
+    if (kIsWeb) {
+      await Firebase.initializeApp(
+        options: FirebaseConfig.web,
+      );
+    } else {
+      await Firebase.initializeApp();
+    }
     await FirebaseCrashlytics.instance.setCrashlyticsCollectionEnabled(true);
 
     // Set up global error handling for Crashlytics
